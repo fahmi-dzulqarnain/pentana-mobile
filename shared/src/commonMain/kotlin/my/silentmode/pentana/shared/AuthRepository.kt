@@ -19,7 +19,7 @@ class AuthRepository(private val client: ApiClient) {
 
     /** Logs in, persists the returned token, and returns the member profile. */
     suspend fun login(email: String, password: String, deviceName: String): UserDto =
-        withContext(Dispatchers.Default) {
+        withContext(Dispatchers.Main) {
             val response = client.http.post(client.urlFor("/login")) {
                 contentType(ContentType.Application.Json)
                 header(HttpHeaders.Accept, "application/json")
@@ -32,7 +32,7 @@ class AuthRepository(private val client: ApiClient) {
             body.user
         }
 
-    suspend fun me(): UserDto = withContext(Dispatchers.Default) {
+    suspend fun me(): UserDto = withContext(Dispatchers.Main) {
         val token = client.tokenStore.get()
         val response = client.http.get(client.urlFor("/me")) {
             header(HttpHeaders.Accept, "application/json")
@@ -42,7 +42,7 @@ class AuthRepository(private val client: ApiClient) {
         response.body<DataEnvelope<UserDto>>().data
     }
 
-    suspend fun logout(): Unit = withContext(Dispatchers.Default) {
+    suspend fun logout(): Unit = withContext(Dispatchers.Main) {
         val token = client.tokenStore.get()
         client.http.post(client.urlFor("/logout")) {
             header(HttpHeaders.Accept, "application/json")

@@ -19,15 +19,15 @@ import my.silentmode.pentana.shared.model.PaymentProofDto
 
 class BillsRepository(private val client: ApiClient) {
 
-    suspend fun bills(): List<BillDto> = withContext(Dispatchers.Default) {
+    suspend fun bills(): List<BillDto> = withContext(Dispatchers.Main) {
         authedGet("/bills").body<DataEnvelope<List<BillDto>>>().data
     }
 
-    suspend fun summary(): BillsSummaryDto = withContext(Dispatchers.Default) {
+    suspend fun summary(): BillsSummaryDto = withContext(Dispatchers.Main) {
         authedGet("/bills/summary").body<DataEnvelope<BillsSummaryDto>>().data
     }
 
-    suspend fun paymentProofs(): List<PaymentProofDto> = withContext(Dispatchers.Default) {
+    suspend fun paymentProofs(): List<PaymentProofDto> = withContext(Dispatchers.Main) {
         authedGet("/payment-proofs").body<DataEnvelope<List<PaymentProofDto>>>().data
     }
 
@@ -37,7 +37,7 @@ class BillsRepository(private val client: ApiClient) {
         fileName: String,
         amountClaimed: String,
         memberNote: String?,
-    ): PaymentProofDto = withContext(Dispatchers.Default) {
+    ): PaymentProofDto = withContext(Dispatchers.Main) {
         val token = client.tokenStore.get()
         val response = client.http.post(client.urlFor("/payment-proofs")) {
             header(HttpHeaders.Accept, "application/json")

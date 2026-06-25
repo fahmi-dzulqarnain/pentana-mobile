@@ -2,23 +2,40 @@
 //  ContentView.swift
 //  iosApp
 //
-//  Created by Fahmi Dzulqarnain on 25/06/2026.
+//  Root switcher: bootstraps the session, then shows Login or the signed-in app.
 //
 
 import SwiftUI
 
 struct ContentView: View {
+    @EnvironmentObject private var session: SessionStore
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        Group {
+            if session.isBootstrapping {
+                ProgressView("Loading…")
+            } else if session.isLoggedIn {
+                MainView()
+            } else {
+                LoginView()
+            }
         }
-        .padding()
+        .task { await session.bootstrap() }
     }
 }
 
-#Preview {
-    ContentView()
+struct MainView: View {
+    @EnvironmentObject private var session: SessionStore
+
+    var body: some View {
+        NavigationStack {
+            BillsView()
+                .navigationTitle("My Bills")
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Sign out") { Task { await session.logout() } }
+                    }
+                }
+        }
+    }
 }

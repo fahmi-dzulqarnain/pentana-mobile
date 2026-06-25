@@ -49,5 +49,5 @@ class AuthRepository(private val client: ApiClient) {
     }
 
     /** True if a token is already stored (auto-login). */
-    suspend fun isLoggedIn(): Boolean = client.tokenStore.get() != null
+    fun isLoggedIn(): Boolean = client.tokenStore.get() != null
 }

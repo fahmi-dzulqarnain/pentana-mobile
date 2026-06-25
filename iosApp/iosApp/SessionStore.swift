@@ -6,6 +6,7 @@
 //  the signed-in member.
 //
 
+import Combine
 import Foundation
 import Shared
 

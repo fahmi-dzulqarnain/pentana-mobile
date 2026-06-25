@@ -33,11 +33,6 @@ class ApiClient(
 
     fun urlFor(path: String): String = baseUrl.trimEnd('/') + path
 
-    /** Apply the stored bearer token to a request builder (read it before building). */
-    suspend fun authorize(builder: HttpRequestBuilder) {
-        tokenStore.get()?.let { builder.header(HttpHeaders.Authorization, "Bearer $it") }
-    }
-
     fun ensureSuccess(response: HttpResponse) {
         val code = response.status.value
         if (code !in 200..299) {

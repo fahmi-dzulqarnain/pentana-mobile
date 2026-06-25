@@ -45,9 +45,9 @@ kotlin {
 
 android {
     namespace = "my.silentmode.pentana.shared"
-    compileSdk = libs.versions.androidCompileSdk.get().toInt()
+    compileSdk = 35
     defaultConfig {
-        minSdk = libs.versions.androidMinSdk.get().toInt()
+        minSdk = 26
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

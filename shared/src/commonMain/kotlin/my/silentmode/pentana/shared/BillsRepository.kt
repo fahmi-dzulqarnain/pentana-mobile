@@ -7,8 +7,11 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import my.silentmode.pentana.shared.model.BillDto
 import my.silentmode.pentana.shared.model.BillsSummaryDto
 import my.silentmode.pentana.shared.model.DataEnvelope
@@ -16,19 +19,16 @@ import my.silentmode.pentana.shared.model.PaymentProofDto
 
 class BillsRepository(private val client: ApiClient) {
 
-    suspend fun bills(): List<BillDto> {
-        val response = authedGet("/bills")
-        return response.body<DataEnvelope<List<BillDto>>>().data
+    suspend fun bills(): List<BillDto> = withContext(Dispatchers.Default) {
+        authedGet("/bills").body<DataEnvelope<List<BillDto>>>().data
     }
 
-    suspend fun summary(): BillsSummaryDto {
-        val response = authedGet("/bills/summary")
-        return response.body<DataEnvelope<BillsSummaryDto>>().data
+    suspend fun summary(): BillsSummaryDto = withContext(Dispatchers.Default) {
+        authedGet("/bills/summary").body<DataEnvelope<BillsSummaryDto>>().data
     }
 
-    suspend fun paymentProofs(): List<PaymentProofDto> {
-        val response = authedGet("/payment-proofs")
-        return response.body<DataEnvelope<List<PaymentProofDto>>>().data
+    suspend fun paymentProofs(): List<PaymentProofDto> = withContext(Dispatchers.Default) {
+        authedGet("/payment-proofs").body<DataEnvelope<List<PaymentProofDto>>>().data
     }
 
     /** Submit a payment proof (multipart). [imageBytes] is the raw JPEG/PNG bytes. */
@@ -37,7 +37,7 @@ class BillsRepository(private val client: ApiClient) {
         fileName: String,
         amountClaimed: String,
         memberNote: String?,
-    ): PaymentProofDto {
+    ): PaymentProofDto = withContext(Dispatchers.Default) {
         val token = client.tokenStore.get()
         val response = client.http.post(client.urlFor("/payment-proofs")) {
             header(HttpHeaders.Accept, "application/json")
@@ -60,12 +60,12 @@ class BillsRepository(private val client: ApiClient) {
             )
         }
         client.ensureSuccess(response)
-        return response.body<DataEnvelope<PaymentProofDto>>().data
+        response.body<DataEnvelope<PaymentProofDto>>().data
     }
 
-    private suspend fun authedGet(path: String) = run {
+    private suspend fun authedGet(path: String): HttpResponse {
         val token = client.tokenStore.get()
-        client.http.get(client.urlFor(path)) {
+        return client.http.get(client.urlFor(path)) {
             header(HttpHeaders.Accept, "application/json")
             token?.let { header(HttpHeaders.Authorization, "Bearer $it") }
         }.also { client.ensureSuccess(it) }

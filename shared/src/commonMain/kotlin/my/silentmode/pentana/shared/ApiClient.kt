@@ -20,15 +20,12 @@ class ApiClient(
     val tokenStore: TokenStore,
     engine: HttpClientEngine? = null, // inject MockEngine in tests; null = platform default
 ) {
+    // Always pass an explicit engine. On Kotlin/Native a no-arg HttpClient {} relies on
+    // engine auto-registration, which the static-framework linker can dead-code-eliminate
+    // (→ crash on the first request). Tests inject MockEngine; otherwise the platform default.
     // status handled explicitly (expectSuccess = false) so we can surface ApiException.
-    val http: HttpClient = if (engine != null) {
-        HttpClient(engine) {
-            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
-        }
-    } else {
-        HttpClient {
-            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
-        }
+    val http: HttpClient = HttpClient(engine ?: defaultHttpEngine()) {
+        install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
     }
 
     fun urlFor(path: String): String = baseUrl.trimEnd('/') + path

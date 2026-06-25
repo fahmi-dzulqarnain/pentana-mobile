@@ -18,6 +18,7 @@ import my.silentmode.pentana.shared.model.UserDto
 class AuthRepository(private val client: ApiClient) {
 
     /** Logs in, persists the returned token, and returns the member profile. */
+    @Throws(Exception::class)
     suspend fun login(email: String, password: String, deviceName: String): UserDto =
         withContext(Dispatchers.Main) {
             val response = client.http.post(client.urlFor("/login")) {
@@ -32,6 +33,7 @@ class AuthRepository(private val client: ApiClient) {
             body.user
         }
 
+    @Throws(Exception::class)
     suspend fun me(): UserDto = withContext(Dispatchers.Main) {
         val token = client.tokenStore.get()
         val response = client.http.get(client.urlFor("/me")) {
@@ -42,6 +44,7 @@ class AuthRepository(private val client: ApiClient) {
         response.body<DataEnvelope<UserDto>>().data
     }
 
+    @Throws(Exception::class)
     suspend fun logout(): Unit = withContext(Dispatchers.Main) {
         val token = client.tokenStore.get()
         client.http.post(client.urlFor("/logout")) {

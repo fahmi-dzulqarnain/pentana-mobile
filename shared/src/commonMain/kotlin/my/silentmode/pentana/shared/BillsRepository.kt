@@ -19,19 +19,23 @@ import my.silentmode.pentana.shared.model.PaymentProofDto
 
 class BillsRepository(private val client: ApiClient) {
 
+    @Throws(Exception::class)
     suspend fun bills(): List<BillDto> = withContext(Dispatchers.Main) {
         authedGet("/bills").body<DataEnvelope<List<BillDto>>>().data
     }
 
+    @Throws(Exception::class)
     suspend fun summary(): BillsSummaryDto = withContext(Dispatchers.Main) {
         authedGet("/bills/summary").body<DataEnvelope<BillsSummaryDto>>().data
     }
 
+    @Throws(Exception::class)
     suspend fun paymentProofs(): List<PaymentProofDto> = withContext(Dispatchers.Main) {
         authedGet("/payment-proofs").body<DataEnvelope<List<PaymentProofDto>>>().data
     }
 
     /** Submit a payment proof (multipart). [imageBytes] is the raw JPEG/PNG bytes. */
+    @Throws(Exception::class)
     suspend fun submitPaymentProof(
         imageBytes: ByteArray,
         fileName: String,

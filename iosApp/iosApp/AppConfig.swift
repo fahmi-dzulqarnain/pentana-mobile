@@ -7,8 +7,13 @@ import Foundation
 
 enum AppConfig {
     /// Base URL of the PENTANA member API.
-    /// - iOS Simulator can reach the Mac via `localhost`.
-    /// - A physical device needs the Mac's LAN IP (e.g. http://192.168.x.x:8000/api/v1)
-    ///   or the deployed Cloudflare HTTPS URL.
-    static let baseURL = "http://localhost:8000/api/v1"
+    ///
+    /// Points at the Mac's LAN IP so both the iOS Simulator and a physical device
+    /// (on the same Wi-Fi) can reach the dev server — run it with
+    /// `php artisan serve --host=0.0.0.0 --port=8000`. The ATS exception in
+    /// Info.plist (NSAllowsLocalNetworking) allows the plain-HTTP connection.
+    ///
+    /// Update the IP if your network changes (`ipconfig getifaddr en0`), or swap
+    /// in the deployed Cloudflare HTTPS URL for a real build.
+    static let baseURL = "http://192.168.0.177:8000/api/v1"
 }

@@ -45,7 +45,8 @@ final class SessionStore: ObservableObject {
         do {
             user = try await auth.login(email: email, password: password, deviceName: "iOS")
         } catch {
-            errorMessage = "Sign in failed. Check your email and password."
+            // Surface the real reason (connection / ATS / 401 / parsing) instead of guessing.
+            errorMessage = "Sign in failed: \(error.localizedDescription)"
         }
     }
 

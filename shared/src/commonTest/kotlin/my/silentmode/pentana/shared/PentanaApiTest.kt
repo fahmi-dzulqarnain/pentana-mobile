@@ -159,4 +159,36 @@ class PentanaApiTest {
 
         assertEquals("none", activity.myStatus)
     }
+
+    @Test
+    fun dashboardIsParsed() = runTest {
+        val engine = jsonEngine(
+            """{"data":{"bills":{"total_outstanding":"70.00","available_credit":"20.00","unpaid_count":1},"next_lunch":{"id":2,"date":"2026-06-29","is_open":true,"responded":false},"next_activity":{"id":7,"title":"Hiking","starts_at":"2026-07-01T09:00:00+08:00","my_status":"registered"},"open_activities_count":3,"pending_proofs_count":1}}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val dash = DashboardRepository(client).dashboard()
+
+        assertEquals("70.00", dash.bills.totalOutstanding)
+        assertEquals(1, dash.bills.unpaidCount)
+        assertEquals(2L, dash.nextLunch?.id)
+        assertEquals(false, dash.nextLunch?.responded)
+        assertEquals("registered", dash.nextActivity?.myStatus)
+        assertEquals(3, dash.openActivitiesCount)
+        assertEquals(1, dash.pendingProofsCount)
+    }
+
+    @Test
+    fun dashboardEmptyStateParses() = runTest {
+        val engine = jsonEngine(
+            """{"data":{"bills":{"total_outstanding":"0.00","available_credit":"0.00","unpaid_count":0},"next_lunch":null,"next_activity":null,"open_activities_count":0,"pending_proofs_count":0}}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val dash = DashboardRepository(client).dashboard()
+
+        assertEquals(null, dash.nextLunch)
+        assertEquals(null, dash.nextActivity)
+        assertEquals(0, dash.openActivitiesCount)
+    }
 }

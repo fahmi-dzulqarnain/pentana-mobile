@@ -8,7 +8,7 @@ plugins {
 
 android {
     namespace = "my.silentmode.pentana.shared"
-    compileSdk = 35
+    compileSdk = 36
     
     defaultConfig {
         minSdk = 26

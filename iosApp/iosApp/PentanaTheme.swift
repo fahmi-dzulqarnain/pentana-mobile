@@ -128,17 +128,20 @@ extension View {
 // MARK: - Ambient field background
 
 /// Soft ambient field that gives the Liquid Glass something to refract over.
-/// Built from radial gradients that fade to transparent — no hard edges, so it
-/// stays seamless even when fully exposed (loading / empty states).
+/// A purely vertical gradient (warm indigo → plum → base) — no horizontal
+/// variation, so it can never show a seam or band at any exposure
+/// (loading / empty states included).
 struct AmbientBackground: View {
     var body: some View {
-        ZStack {
-            Pent.bgBase
-            RadialGradient(gradient: Gradient(colors: [Pent.field1, Pent.field1.opacity(0)]),
-                           center: UnitPoint(x: 0.85, y: -0.05), startRadius: 0, endRadius: 540)
-            RadialGradient(gradient: Gradient(colors: [Pent.field2, Pent.field2.opacity(0)]),
-                           center: UnitPoint(x: 0.05, y: 0.10), startRadius: 0, endRadius: 480)
-        }
+        LinearGradient(
+            stops: [
+                .init(color: Pent.field1, location: 0.0),
+                .init(color: Pent.field2.opacity(0.55), location: 0.22),
+                .init(color: Pent.bgBase, location: 0.55),
+                .init(color: Pent.bgBase, location: 1.0),
+            ],
+            startPoint: .top, endPoint: .bottom
+        )
         .ignoresSafeArea()
     }
 }

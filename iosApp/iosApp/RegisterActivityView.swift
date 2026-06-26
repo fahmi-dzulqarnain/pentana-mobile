@@ -22,111 +22,138 @@ struct RegisterActivityView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                if let blurb = description, !blurb.isEmpty {
-                    Section { Text(blurb).font(.subheadline) }
-                }
+            ScrollView {
+                VStack(spacing: 14) {
+                    banner
 
-                ForEach(activity.questions, id: \.key) { question in
-                    if question.type == "checkbox" {
-                        Section {
-                            Toggle(isOn: boolBinding(question.key)) {
-                                Text(label(question))
-                            }
+                    if let error {
+                        HStack(spacing: 9) {
+                            Image(systemName: "exclamationmark.circle.fill")
+                            Text(error).font(.pentFoot).fontWeight(.semibold)
                         }
-                    } else {
-                        Section(header: Text(label(question))) {
-                            field(question)
-                        }
+                        .foregroundStyle(Pent.bad)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 13).padding(.vertical, 11)
+                        .background(Pent.badBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+
+                    ForEach(activity.questions, id: \.key) { q in
+                        questionField(q)
                     }
                 }
-
-                if let error {
-                    Text(error).foregroundStyle(.red)
-                }
+                .padding(18)
             }
             .navigationTitle("Register")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Submit") { Task { await submit() } }
-                        .disabled(isSubmitting || !requiredAnswered)
+                    Button("Cancel") { dismiss() }.tint(Pent.accent)
                 }
             }
-            .overlay { if isSubmitting { ProgressView() } }
+            .safeAreaInset(edge: .bottom) {
+                Button(action: submit) {
+                    if isSubmitting { ProgressView().tint(Pent.onBrand) } else { Text("Register") }
+                }
+                .buttonStyle(PentProminentButtonStyle(enabled: requiredAnswered && !isSubmitting))
+                .disabled(!requiredAnswered || isSubmitting)
+                .padding(.horizontal, 18).padding(.top, 8).padding(.bottom, 12)
+                .background(.bar)
+            }
         }
     }
 
-    // MARK: - Fields
+    private var banner: some View {
+        Text("\(activity.title)\(activity.startsAt.flatMap(PentDates.dateTime).map { " · " + $0 } ?? ""). Please answer a few questions so we can plan ahead.")
+            .font(.pentFoot).fontWeight(.medium)
+            .foregroundStyle(Pent.activ)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 13).padding(.vertical, 11)
+            .background(Pent.activBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
 
     @ViewBuilder
-    private func field(_ question: QuestionDto) -> some View {
-        switch question.type {
-        case "textarea":
-            TextField("Your answer", text: binding(question.key), axis: .vertical)
-                .lineLimit(3 ... 6)
-        case "select":
-            Picker("Select", selection: binding(question.key)) {
-                Text("—").tag("")
-                ForEach(question.options ?? [], id: \.self) { option in
-                    Text(option).tag(option)
+    private func questionField(_ q: QuestionDto) -> some View {
+        switch q.type {
+        case "checkbox":
+            Button {
+                answers[q.key] = (answers[q.key] == "1") ? "0" : "1"
+            } label: {
+                HStack(spacing: 11) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(answers[q.key] == "1" ? Pent.accentSolid : Color.clear)
+                            .frame(width: 24, height: 24)
+                            .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .strokeBorder(answers[q.key] == "1" ? Color.clear : Pent.label4, lineWidth: 1.5))
+                        if answers[q.key] == "1" {
+                            Image(systemName: "checkmark").font(.system(size: 14, weight: .bold)).foregroundStyle(Pent.onBrand)
+                        }
+                    }
+                    Text(label(q)).font(.pentBody).foregroundStyle(Pent.label)
+                    Spacer()
                 }
+                .contentShape(Rectangle())
             }
-            .pickerStyle(.menu)
-        default: // text
-            TextField("Your answer", text: binding(question.key))
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        case "select":
+            selectField(q)
+        case "textarea":
+            PentField(label: label(q), placeholder: "Your answer", text: binding(q.key), multiline: true, required: q.required)
+        default:
+            PentField(label: label(q), placeholder: "Your answer", text: binding(q.key), required: q.required)
         }
     }
 
-    private func label(_ question: QuestionDto) -> String {
-        question.label + (question.required ? " *" : "")
+    private func selectField(_ q: QuestionDto) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            (Text(label(q).uppercased()) + (q.required ? Text(" *").foregroundColor(Pent.bad) : Text("")))
+                .font(.system(size: 12.5, weight: .semibold)).tracking(0.4)
+                .foregroundStyle(Pent.label2).padding(.horizontal, 4)
+            Menu {
+                ForEach(q.options ?? [], id: \.self) { opt in
+                    Button(opt) { answers[q.key] = opt }
+                }
+            } label: {
+                HStack {
+                    Text(answers[q.key]?.isEmpty == false ? answers[q.key]! : "Select an option")
+                        .font(.pentBody)
+                        .foregroundStyle(answers[q.key]?.isEmpty == false ? Pent.label : Pent.label4)
+                    Spacer()
+                    Image(systemName: "chevron.down").font(.system(size: 14, weight: .semibold)).foregroundStyle(Pent.label3)
+                }
+                .padding(.horizontal, 14).frame(height: 48)
+                .background(Pent.surface, in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(Pent.separator, lineWidth: 0.5))
+            }
+        }
     }
 
-    // MARK: - Bindings
-
+    private func label(_ q: QuestionDto) -> String { q.label }
     private func binding(_ key: String) -> Binding<String> {
         Binding(get: { answers[key] ?? "" }, set: { answers[key] = $0 })
     }
-
-    private func boolBinding(_ key: String) -> Binding<Bool> {
-        // Send "1"/"0" so the API's `accepted` rule passes for ticked required boxes.
-        Binding(get: { answers[key] == "1" }, set: { answers[key] = $0 ? "1" : "0" })
-    }
-
     private var requiredAnswered: Bool {
-        activity.questions.allSatisfy { question in
-            guard question.required else { return true }
-            if question.type == "checkbox" { return answers[question.key] == "1" }
-            return !(answers[question.key] ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        activity.questions.allSatisfy { q in
+            guard q.required else { return true }
+            if q.type == "checkbox" { return answers[q.key] == "1" }
+            return !(answers[q.key] ?? "").trimmingCharacters(in: .whitespaces).isEmpty
         }
     }
 
-    private var description: String? {
-        guard let html = activity.description_, !html.isEmpty else { return nil }
-        return html
-            .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
-            .replacingOccurrences(of: "&nbsp;", with: " ")
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    // MARK: - Submit
-
-    private func submit() async {
-        isSubmitting = true
-        error = nil
-        // Drop blank optional answers; keep explicit "0" for answered checkboxes.
-        let payload = answers.filter { !$0.value.isEmpty }
-        do {
-            let updated = try await session.activities.register(activityId: activity.id, answers: payload)
-            onRegistered(updated)
-            dismiss()
-        } catch {
-            self.error = "Registration failed. Please check your answers and try again."
+    private func submit() {
+        Task {
+            isSubmitting = true
+            error = nil
+            let payload = answers.filter { !$0.value.isEmpty }
+            do {
+                let updated = try await session.activities.register(activityId: activity.id, answers: payload)
+                onRegistered(updated)
+                dismiss()
+            } catch {
+                self.error = "Registration failed. Please check your answers and try again."
+            }
+            isSubmitting = false
         }
-        isSubmitting = false
     }
 }

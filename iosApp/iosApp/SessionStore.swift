@@ -24,8 +24,10 @@ final class SessionStore: ObservableObject {
     let dashboard: DashboardRepository
     let notifications: NotificationsRepository
 
+    private let tokenStore = KeychainTokenStore()
+
     init() {
-        let client = ApiClient(baseUrl: AppConfig.baseURL, tokenStore: KeychainTokenStore(), engine: nil)
+        let client = ApiClient(baseUrl: AppConfig.baseURL, tokenStore: tokenStore, engine: nil)
         auth = AuthRepository(client: client)
         bills = BillsRepository(client: client)
         lunch = LunchRepository(client: client)

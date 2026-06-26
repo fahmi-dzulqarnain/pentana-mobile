@@ -2,9 +2,8 @@
 //  HomeView.swift
 //  iosApp
 //
-//  Dashboard: a one-glance summary across Bills, Lunch, Activities and payment
-//  proofs, from the single GET /dashboard aggregate. Each card taps through to
-//  its full tab.
+//  Dashboard: glass summary cards (Dues · Lunch · Activities · Proofs) over the
+//  ambient field, from the single GET /dashboard aggregate. Cards switch tabs.
 //
 
 import Shared
@@ -17,142 +16,181 @@ struct HomeView: View {
     @State private var isLoading = true
 
     var body: some View {
-        List {
-            if let name = session.user?.name {
-                Section { Text("Hi, \(name)").font(.title2.bold()) }
-            }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 11) {
+                Text(todayString)
+                    .font(.pentSub).foregroundStyle(Pent.label2)
+                    .padding(.horizontal, 4).padding(.bottom, 2)
 
-            if let d = dashboard {
-                duesCard(d.bills)
-                lunchCard(d.nextLunch)
-                activityCard(d.nextActivity, openCount: Int(d.openActivitiesCount))
-                proofsCard(pending: Int(d.pendingProofsCount))
-            } else if !isLoading {
-                Section { Text("Couldn't load your summary. Pull to refresh.").foregroundStyle(.secondary) }
+                if let d = dashboard {
+                    duesCard(d)
+                    lunchCard(d.nextLunch)
+                    activityCard(d.nextActivity, openCount: Int(d.openActivitiesCount))
+                    proofsCard(pending: Int(d.pendingProofsCount))
+                } else if !isLoading {
+                    EmptyStateView(symbol: "icloud.slash", tint: Pent.bad, bg: Pent.badBg,
+                                   title: "Couldn't load", message: "Couldn't load your summary. Pull to refresh.")
+                }
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 28)
         }
         .overlay { if isLoading && dashboard == nil { ProgressView() } }
         .refreshable { await load() }
         .task { await load() }
     }
 
-    // MARK: - Cards
+    // MARK: Cards
 
     @ViewBuilder
-    private func duesCard(_ bills: DashboardBillsDto) -> some View {
-        let cleared = bills.totalOutstanding == "0.00"
-        card("Dues", system: "creditcard", tint: .blue, tab: 1) {
-            Text(cleared ? "No dues outstanding" : "MYR \(bills.totalOutstanding) outstanding")
-                .font(.subheadline)
-                .foregroundStyle(cleared ? .secondary : .primary)
-            Text("Credit MYR \(bills.availableCredit) · \(Int(bills.unpaidCount)) unpaid")
-                .font(.caption).foregroundStyle(.secondary)
+    private func duesCard(_ d: DashboardDto) -> some View {
+        let cleared = d.bills.totalOutstanding == "0.00" && Int(d.pendingProofsCount) == 0
+        if cleared {
+            HStack(spacing: 13) {
+                Circle().fill(Pent.okBg).frame(width: 46, height: 46)
+                    .overlay(Image(systemName: "party.popper.fill").font(.system(size: 22)).foregroundStyle(Pent.ok))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("You're all clear").font(.pentHeadline).foregroundStyle(Pent.label)
+                    Text("No dues, nothing pending. Nice.").font(.pentFoot).foregroundStyle(Pent.label2)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .pentGlass(20)
+        } else {
+            HomeCard(symbol: "creditcard.fill", tint: Pent.dues, bg: Pent.duesBg, title: "Dues") { selection = 1 } content: {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Text("MYR \(d.bills.totalOutstanding)").font(.pentMoney(19)).foregroundStyle(Pent.dues)
+                    Text("outstanding").font(.pentFoot).foregroundStyle(Pent.label2)
+                }
+                Text("Credit MYR \(d.bills.availableCredit) · \(Int(d.bills.unpaidCount)) unpaid")
+                    .font(.pentFoot).foregroundStyle(Pent.label2)
+            }
         }
     }
 
     @ViewBuilder
     private func lunchCard(_ lunch: DashboardLunchDto?) -> some View {
-        card("Next lunch", system: "fork.knife", tint: .orange, tab: 2) {
+        HomeCard(symbol: "fork.knife", tint: Pent.lunch, bg: Pent.lunchBg, title: "Next lunch") { selection = 2 } content: {
             if let lunch {
-                Text(formattedDate(lunch.date)).font(.subheadline)
-                if let menu = lunch.menu, !menu.isEmpty {
-                    Text(menu).font(.caption).foregroundStyle(.secondary)
-                }
-                if lunch.isOpen && !lunch.responded {
-                    Text("Vote now").font(.caption.bold()).foregroundStyle(.orange)
-                } else if lunch.responded {
-                    Text("You've responded").font(.caption).foregroundStyle(.secondary)
+                Text(lunchLine(lunch)).font(.pentCallout).fontWeight(.medium).foregroundStyle(Pent.label)
+                if lunch.responded {
+                    StatusPill(.responded).padding(.top, 4)
+                } else if lunch.isOpen {
+                    StatusPill(.voteNow).padding(.top, 4)
                 } else {
-                    Text("Voting closed").font(.caption).foregroundStyle(.secondary)
+                    StatusPill(.closed).padding(.top, 4)
                 }
             } else {
-                Text("None scheduled").font(.subheadline).foregroundStyle(.secondary)
+                Text("None scheduled").font(.pentCallout).foregroundStyle(Pent.label2)
             }
         }
     }
 
     @ViewBuilder
     private func activityCard(_ activity: DashboardActivityDto?, openCount: Int) -> some View {
-        card("Activities", system: "calendar", tint: .green, tab: 3) {
+        HomeCard(symbol: "calendar", tint: Pent.activ, bg: Pent.activBg, title: "Activities") { selection = 3 } content: {
             if let activity {
-                Text(activity.title).font(.subheadline)
-                Text(activityDetail(activity)).font(.caption).foregroundStyle(.secondary)
+                Text(activity.title).font(.pentCallout).fontWeight(.medium).foregroundStyle(Pent.label)
+                HStack(spacing: 6) {
+                    StatusPill(activity.myStatus == "waitlisted" ? .waitlisted : .registered)
+                    if openCount > 0 {
+                        Text("· \(openCount) open to join").font(.pentFoot).foregroundStyle(Pent.label2)
+                    }
+                }
+                .padding(.top, 3)
             } else {
-                Text("No upcoming registrations").font(.subheadline).foregroundStyle(.secondary)
-            }
-            if openCount > 0 {
-                Text("\(openCount) open to join").font(.caption.bold()).foregroundStyle(.green)
+                Text("No upcoming registrations").font(.pentCallout).foregroundStyle(Pent.label2)
+                if openCount > 0 {
+                    Text("\(openCount) open to join").font(.pentFoot).fontWeight(.semibold).foregroundStyle(Pent.activ).padding(.top, 3)
+                }
             }
         }
     }
 
     @ViewBuilder
     private func proofsCard(pending: Int) -> some View {
-        // Payment proofs are submitted/seen under the Bills tab.
-        card("Payment proofs", system: "doc.text", tint: .purple, tab: 1) {
+        HomeCard(symbol: "doc.text.fill", tint: Pent.proof, bg: Pent.proofBg, title: "Payment proofs") { selection = 1 } content: {
             if pending > 0 {
-                Text("\(pending) awaiting review").font(.subheadline)
+                Text("\(pending) awaiting review").font(.pentCallout).fontWeight(.medium).foregroundStyle(Pent.label)
             } else {
-                Text("Nothing pending").font(.subheadline).foregroundStyle(.secondary)
+                Text("Nothing pending").font(.pentCallout).foregroundStyle(Pent.label2)
             }
         }
     }
 
-    private func card(
-        _ title: String, system: String, tint: Color, tab: Int,
-        @ViewBuilder content: () -> some View
-    ) -> some View {
-        Section {
-            Button { selection = tab } label: {
-                HStack(alignment: .top, spacing: 12) {
-                    Image(systemName: system).font(.title2).foregroundStyle(tint).frame(width: 30)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(title).font(.headline).foregroundStyle(.primary)
-                        content()
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-                }
-            }
-        }
-    }
-
-    // MARK: - Load + format
+    // MARK: Data + format
 
     private func load() async {
         isLoading = true
-        do {
-            dashboard = try await session.dashboard.dashboard()
-        } catch {
-            // Keep what we have; the empty-state row prompts a refresh.
-        }
+        do { dashboard = try await session.dashboard.dashboard() } catch {}
         isLoading = false
     }
 
-    private func activityDetail(_ activity: DashboardActivityDto) -> String {
-        let status = activity.myStatus == "waitlisted" ? "Waitlisted" : "Registered"
-        if let when = activity.startsAt.flatMap(formattedDateTime) {
-            return "\(status) · \(when)"
+    private var todayString: String {
+        let f = DateFormatter(); f.dateFormat = "EEEE, d MMMM"
+        return f.string(from: Date())
+    }
+
+    private func lunchLine(_ lunch: DashboardLunchDto) -> String {
+        let date = PentDates.shortDate(lunch.date)
+        if let menu = lunch.menu, !menu.isEmpty { return "\(date) · \(menu)" }
+        return date
+    }
+}
+
+// MARK: - Home card
+
+struct HomeCard<Content: View>: View {
+    let symbol: String
+    let tint: Color
+    let bg: Color
+    let title: String
+    let onTap: () -> Void
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(alignment: .top, spacing: 13) {
+                DomainIcon(symbol: symbol, tint: tint, bg: bg, size: 44, corner: 13, iconSize: 22)
+                VStack(alignment: .leading, spacing: 5) {
+                    HStack {
+                        Text(title).font(.pentHeadline).foregroundStyle(Pent.label)
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.system(size: 14, weight: .semibold)).foregroundStyle(Pent.label4)
+                    }
+                    VStack(alignment: .leading, spacing: 0) { content }
+                }
+            }
+            .padding(15)
         }
-        return status
+        .buttonStyle(.plain)
+        .pentGlass(20)
     }
+}
 
-    private func formattedDate(_ ymd: String) -> String {
-        let parser = DateFormatter()
-        parser.dateFormat = "yyyy-MM-dd"
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = parser.date(from: ymd) else { return ymd }
-        let out = DateFormatter()
-        out.dateFormat = "EEE, d MMM"
-        return out.string(from: date)
+// MARK: - Shared date formatting
+
+enum PentDates {
+    /// "2026-06-30" -> "Mon 30 Jun"
+    static func shortDate(_ ymd: String) -> String {
+        let p = DateFormatter(); p.dateFormat = "yyyy-MM-dd"; p.locale = Locale(identifier: "en_US_POSIX")
+        guard let d = p.date(from: ymd) else { return ymd }
+        let o = DateFormatter(); o.dateFormat = "EEE d MMM"
+        return o.string(from: d)
     }
-
-    private func formattedDateTime(_ iso: String) -> String? {
-        let parser = ISO8601DateFormatter()
-        parser.formatOptions = [.withInternetDateTime]
-        guard let date = parser.date(from: iso) else { return nil }
-        let out = DateFormatter()
-        out.dateFormat = "d MMM • h:mm a"
-        return out.string(from: date)
+    /// ISO8601 -> "Thu 3 Jul · 7:00 AM"
+    static func dateTime(_ iso: String) -> String? {
+        let p = ISO8601DateFormatter(); p.formatOptions = [.withInternetDateTime]
+        guard let d = p.date(from: iso) else { return nil }
+        let o = DateFormatter(); o.dateFormat = "EEE d MMM · h:mm a"
+        return o.string(from: d)
+    }
+    /// ISO8601 -> relative ("2h ago")
+    static func relative(_ iso: String) -> String? {
+        let p = ISO8601DateFormatter(); p.formatOptions = [.withInternetDateTime]
+        guard let d = p.date(from: iso) else { return nil }
+        let f = RelativeDateTimeFormatter(); f.unitsStyle = .abbreviated
+        return f.localizedString(for: d, relativeTo: Date())
     }
 }

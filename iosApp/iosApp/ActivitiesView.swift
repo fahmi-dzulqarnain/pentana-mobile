@@ -2,8 +2,8 @@
 //  ActivitiesView.swift
 //  iosApp
 //
-//  Upcoming activities: register (with the activity's questions), see waitlist
-//  position, or cancel. Mirrors the Bills/Lunch tabs.
+//  Upcoming activities: register (with the activity's questions), waitlist
+//  position, or cancel. Cards over the ambient field.
 //
 
 import Shared
@@ -14,19 +14,29 @@ struct ActivitiesView: View {
     @State private var activities: [ActivityDto] = []
     @State private var isLoading = true
     @State private var busyId: Int64?
-    @State private var registering: ActivityDto? // drives the question sheet
+    @State private var registering: ActivityDto?
 
     var body: some View {
-        List {
-            if activities.isEmpty && !isLoading {
-                Text("No upcoming activities.").foregroundStyle(.secondary)
-            }
-            ForEach(activities, id: \.id) { activity in
-                Section {
-                    header(activity)
-                    actions(activity)
+        ScrollView {
+            VStack(spacing: 13) {
+                if activities.isEmpty && !isLoading {
+                    EmptyStateView(symbol: "calendar", tint: Pent.activ, bg: Pent.activBg,
+                                   title: "No upcoming activities", message: "Check back soon for events to join.")
+                }
+                ForEach(activities, id: \.id) { activity in
+                    ActivityCard(activity: activity, busy: busyId == activity.id,
+                                 onRegister: {
+                                     if activity.questions.isEmpty {
+                                         Task { await register(activity, answers: [:]) }
+                                     } else {
+                                         registering = activity
+                                     }
+                                 },
+                                 onCancel: { Task { await cancel(activity) } })
                 }
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 28)
         }
         .overlay { if isLoading && activities.isEmpty { ProgressView() } }
         .refreshable { await load() }
@@ -37,138 +47,147 @@ struct ActivitiesView: View {
         }
     }
 
-    // MARK: - Rows
-
-    @ViewBuilder
-    private func header(_ activity: ActivityDto) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(activity.title).font(.headline)
-            if let when = formattedStart(activity.startsAt) {
-                Label(when, systemImage: "calendar").font(.caption).foregroundStyle(.secondary)
-            }
-            if let location = activity.location, !location.isEmpty {
-                Label(location, systemImage: "mappin.and.ellipse").font(.caption).foregroundStyle(.secondary)
-            }
-            if let blurb = plainText(activity.description_) {
-                Text(blurb).font(.caption).foregroundStyle(.secondary).lineLimit(3)
-            }
-            if let spots = activity.spotsLeft?.int32Value {
-                Text("\(spots) spot\(spots == 1 ? "" : "s") left")
-                    .font(.caption2).foregroundStyle(spots > 0 ? .green : .orange)
-            }
-        }
-        .padding(.vertical, 2)
+    private func register(_ activity: ActivityDto, answers: [String: String]) async {
+        busyId = activity.id
+        do { replace(try await session.activities.register(activityId: activity.id, answers: answers)) } catch {}
+        busyId = nil
     }
+    private func cancel(_ activity: ActivityDto) async {
+        busyId = activity.id
+        do { replace(try await session.activities.cancel(activityId: activity.id)) } catch {}
+        busyId = nil
+    }
+    private func replace(_ updated: ActivityDto) {
+        if let i = activities.firstIndex(where: { $0.id == updated.id }) { activities[i] = updated }
+    }
+    private func load() async {
+        isLoading = true
+        do { activities = try await session.activities.activities() } catch {}
+        isLoading = false
+    }
+}
 
-    @ViewBuilder
-    private func actions(_ activity: ActivityDto) -> some View {
-        let busy = busyId == activity.id
+extension ActivityDto: @retroactive Identifiable {}
+
+private struct ActivityCard: View {
+    let activity: ActivityDto
+    let busy: Bool
+    let onRegister: () -> Void
+    let onCancel: () -> Void
+
+    private enum State { case registered, waitlisted, open, closed }
+    private var state: State {
         switch activity.myStatus {
-        case "registered":
-            Label("You're registered", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(.green).font(.subheadline)
-            cancelButton(activity, busy: busy)
-        case "waitlisted":
-            Label(waitlistText(activity), systemImage: "clock.fill")
-                .foregroundStyle(.orange).font(.subheadline)
-            cancelButton(activity, busy: busy)
-        default:
-            if activity.isOpen {
-                Button {
-                    if activity.questions.isEmpty {
-                        Task { await register(activity, answers: [:]) }
-                    } else {
-                        registering = activity
-                    }
-                } label: {
-                    Label("Register", systemImage: "plus.circle")
-                }
-                .disabled(busy)
-            } else {
-                Text("Registration closed").font(.caption).foregroundStyle(.secondary)
+        case "registered": return .registered
+        case "waitlisted": return .waitlisted
+        default: return activity.isOpen ? .open : .closed
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 10) {
+                Text(activity.title).font(.pentHeadline).foregroundStyle(Pent.label)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                spotsPill
             }
+
+            VStack(alignment: .leading, spacing: 3) {
+                if let when = activity.startsAt.flatMap(PentDates.dateTime) {
+                    Label(when, systemImage: "calendar").labelStyle(IconLeading(tint: Pent.activ))
+                }
+                if let where_ = activity.location, !where_.isEmpty {
+                    Label(where_, systemImage: "mappin.and.ellipse").labelStyle(IconLeading(tint: Pent.activ))
+                }
+            }
+            .font(.pentFoot).foregroundStyle(Pent.label2)
+            .padding(.top, 6)
+
+            if let blurb = plainText(activity.description_) {
+                Text(blurb).font(.pentFoot).foregroundStyle(Pent.label2).lineLimit(3)
+                    .padding(.top, 8)
+            }
+
+            action.padding(.top, 13)
+        }
+        .padding(16)
+        .background(Pent.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Pent.separator, lineWidth: 0.5))
+        .opacity(busy ? 0.6 : 1)
+        .allowsHitTesting(!busy)
+    }
+
+    @ViewBuilder private var action: some View {
+        switch state {
+        case .registered:
+            HStack {
+                Label("You're registered", systemImage: "checkmark.circle.fill")
+                    .font(.pentFoot).fontWeight(.semibold).foregroundStyle(Pent.ok).labelStyle(.titleAndIcon)
+                Spacer()
+                cancelButton
+            }
+        case .waitlisted:
+            HStack {
+                Label(waitlistText, systemImage: "clock.fill")
+                    .font(.pentFoot).fontWeight(.semibold).foregroundStyle(Pent.warn).labelStyle(.titleAndIcon)
+                Spacer()
+                cancelButton
+            }
+        case .closed:
+            Label("Registration closed", systemImage: "lock.fill")
+                .font(.pentFoot).fontWeight(.semibold).foregroundStyle(Pent.label3).labelStyle(.titleAndIcon)
+        case .open:
+            Button("Register", action: onRegister)
+                .buttonStyle(PentProminentButtonStyle())
         }
     }
 
-    private func cancelButton(_ activity: ActivityDto, busy: Bool) -> some View {
-        Button(role: .destructive) {
-            Task { await cancel(activity) }
-        } label: {
-            Label("Cancel registration", systemImage: "xmark.circle")
+    private var cancelButton: some View {
+        Button(role: .destructive, action: onCancel) {
+            Text("Cancel").font(.pentSub).fontWeight(.semibold)
         }
-        .disabled(busy)
+        .tint(Pent.bad)
     }
 
-    private func waitlistText(_ activity: ActivityDto) -> String {
-        if let pos = activity.waitlistPosition?.int32Value {
-            return "Waitlisted — #\(pos) in line"
-        }
+    private var spotsPill: some View {
+        let (label, color, bg): (String, Color, Color) = {
+            switch state {
+            case .registered: return ("Registered", Pent.ok, Pent.okBg)
+            case .waitlisted: return ("Full", Pent.warn, Pent.warnBg)
+            case .closed: return ("Closed", Pent.neutral, Pent.neutralBg)
+            case .open:
+                if let n = activity.spotsLeft?.int32Value {
+                    return ("\(n) spot\(n == 1 ? "" : "s") left", Pent.activ, Pent.activBg)
+                }
+                return ("Open", Pent.activ, Pent.activBg)
+            }
+        }()
+        return StatusPill(label, color: color, bg: bg)
+    }
+
+    private var waitlistText: String {
+        if let pos = activity.waitlistPosition?.int32Value { return "Waitlisted — #\(pos) in line" }
         return "Waitlisted"
     }
 
-    // MARK: - Actions
-
-    private func register(_ activity: ActivityDto, answers: [String: String]) async {
-        busyId = activity.id
-        do {
-            let updated = try await session.activities.register(activityId: activity.id, answers: answers)
-            replace(updated)
-        } catch {
-            // Keep current state; a banner could be added later.
-        }
-        busyId = nil
-    }
-
-    private func cancel(_ activity: ActivityDto) async {
-        busyId = activity.id
-        do {
-            let updated = try await session.activities.cancel(activityId: activity.id)
-            replace(updated)
-        } catch {
-            // Keep current state.
-        }
-        busyId = nil
-    }
-
-    private func replace(_ updated: ActivityDto) {
-        if let index = activities.firstIndex(where: { $0.id == updated.id }) {
-            activities[index] = updated
-        }
-    }
-
-    private func load() async {
-        isLoading = true
-        do {
-            activities = try await session.activities.activities()
-        } catch {
-            // Keep what we have.
-        }
-        isLoading = false
-    }
-
-    // MARK: - Formatting
-
-    private func formattedStart(_ iso: String?) -> String? {
-        guard let iso, !iso.isEmpty else { return nil }
-        let parser = ISO8601DateFormatter()
-        parser.formatOptions = [.withInternetDateTime]
-        guard let date = parser.date(from: iso) else { return iso }
-        let out = DateFormatter()
-        out.dateFormat = "EEE, d MMM yyyy • h:mm a"
-        return out.string(from: date)
-    }
-
-    /// The description is rich-text HTML; show a stripped plain-text preview in the list.
     private func plainText(_ html: String?) -> String? {
         guard let html, !html.isEmpty else { return nil }
-        let stripped = html
+        let s = html
             .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
             .replacingOccurrences(of: "&nbsp;", with: " ")
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return stripped.isEmpty ? nil : stripped
+        return s.isEmpty ? nil : s
     }
 }
 
-// Kotlin data classes don't conform to Identifiable; `id` (Int64) satisfies it for `.sheet(item:)`.
-extension ActivityDto: @retroactive Identifiable {}
+/// Small leading-icon label style tinted independently of the text.
+struct IconLeading: LabelStyle {
+    var tint: Color
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 6) {
+            configuration.icon.foregroundStyle(tint).font(.system(size: 13))
+            configuration.title
+        }
+    }
+}

@@ -64,7 +64,7 @@ struct BillsView: View {
                     .font(.system(size: 12.5, weight: .semibold)).tracking(0.5)
                     .foregroundStyle(.white.opacity(0.7))
                 Text("MYR \(summary?.totalOutstanding ?? "0.00")")
-                    .font(.pentMoney(32, weight: .heavy))
+                    .font(.pentMoney(34, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.top, 4)
                 HStack(spacing: 28) {
@@ -105,22 +105,23 @@ private struct BillRow: View {
     let bill: BillDto
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             DomainIcon(symbol: "creditcard.fill", tint: Pent.dues, bg: Pent.duesBg, size: 36, corner: 10, iconSize: 18)
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text(monthLabel(bill.month)).font(.pentBody).fontWeight(.semibold).foregroundStyle(Pent.label)
                 Text("Due MYR \(bill.amountDue) · Paid MYR \(bill.amountPaid)")
                     .font(.pentFoot).foregroundStyle(Pent.label2).monospacedDigit()
+                    .lineSpacing(3)
             }
             Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 6) {
                 Text("MYR \(bill.outstanding)")
                     .font(.pentMoney(16, weight: .bold))
                     .foregroundStyle(bill.status == "paid" ? Pent.label3 : Pent.label)
                 StatusPill(pill(bill.status))
             }
         }
-        .padding(.horizontal, 16).padding(.vertical, 13)
+        .padding(.horizontal, 16).padding(.vertical, 15)
     }
 
     private func pill(_ status: String) -> PillKind {

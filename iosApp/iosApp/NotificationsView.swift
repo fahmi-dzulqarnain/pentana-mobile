@@ -21,6 +21,7 @@ struct NotificationsView: View {
                     if items.isEmpty && !isLoading {
                         EmptyStateView(symbol: "bell.fill", title: "No notifications yet",
                                        message: "Lunch, activity and payment updates will show up here.")
+                            .containerRelativeFrame(.vertical, alignment: .center)
                     } else {
                         HStack {
                             Spacer()

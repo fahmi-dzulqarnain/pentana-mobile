@@ -17,23 +17,24 @@ struct HomeView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 11) {
-                Text(todayString)
-                    .font(.pentSub).foregroundStyle(Pent.label2)
-                    .padding(.horizontal, 4).padding(.bottom, 2)
+            if let d = dashboard {
+                VStack(alignment: .leading, spacing: 11) {
+                    Text(todayString)
+                        .font(.pentSub).foregroundStyle(Pent.label2)
+                        .padding(.horizontal, 4).padding(.bottom, 2)
 
-                if let d = dashboard {
                     duesCard(d)
                     lunchCard(d.nextLunch)
                     activityCard(d.nextActivity, openCount: Int(d.openActivitiesCount))
                     proofsCard(pending: Int(d.pendingProofsCount))
-                } else if !isLoading {
-                    EmptyStateView(symbol: "icloud.slash", tint: Pent.bad, bg: Pent.badBg,
-                                   title: "Couldn't load", message: "Couldn't load your summary. Pull to refresh.")
                 }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 28)
+            } else if !isLoading {
+                EmptyStateView(symbol: "icloud.slash", tint: Pent.bad, bg: Pent.badBg,
+                               title: "Couldn't load", message: "Couldn't load your summary. Pull to refresh.")
+                    .containerRelativeFrame(.vertical, alignment: .center)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 28)
         }
         .overlay { if isLoading && dashboard == nil { ProgressView() } }
         .refreshable { await load() }

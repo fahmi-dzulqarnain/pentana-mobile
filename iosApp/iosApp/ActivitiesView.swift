@@ -18,25 +18,27 @@ struct ActivitiesView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 13) {
-                if activities.isEmpty && !isLoading {
-                    EmptyStateView(symbol: "calendar", tint: Pent.activ, bg: Pent.activBg,
-                                   title: "No upcoming activities", message: "Check back soon for events to join.")
+            if activities.isEmpty && !isLoading {
+                EmptyStateView(symbol: "calendar", tint: Pent.activ, bg: Pent.activBg,
+                               title: "No upcoming activities", message: "Check back soon for events to join.")
+                    .containerRelativeFrame(.vertical, alignment: .center)
+            } else {
+                VStack(spacing: 13) {
+                    ForEach(activities, id: \.id) { activity in
+                        ActivityCard(activity: activity, busy: busyId == activity.id,
+                                     onRegister: {
+                                         if activity.questions.isEmpty {
+                                             Task { await register(activity, answers: [:]) }
+                                         } else {
+                                             registering = activity
+                                         }
+                                     },
+                                     onCancel: { Task { await cancel(activity) } })
+                    }
                 }
-                ForEach(activities, id: \.id) { activity in
-                    ActivityCard(activity: activity, busy: busyId == activity.id,
-                                 onRegister: {
-                                     if activity.questions.isEmpty {
-                                         Task { await register(activity, answers: [:]) }
-                                     } else {
-                                         registering = activity
-                                     }
-                                 },
-                                 onCancel: { Task { await cancel(activity) } })
-                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 28)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 28)
         }
         .overlay { if isLoading && activities.isEmpty { ProgressView() } }
         .refreshable { await load() }

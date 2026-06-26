@@ -14,6 +14,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class PentanaApiTest {
 
@@ -216,5 +217,45 @@ class PentanaApiTest {
         val remaining = NotificationsRepository(client).markAllRead()
 
         assertEquals(0, remaining)
+    }
+
+    @Test
+    fun passkeyLoginOptionsReturnsStateAndPublicKey() = runTest {
+        val engine = jsonEngine(
+            """{"state":"abc123","publicKey":{"challenge":"Y2hhbGxlbmdl","rpId":"pentana.silentmode.my","allowCredentials":[]}}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore(), engine)
+
+        val challenge = PasskeyRepository(client).loginOptions()
+
+        assertEquals("abc123", challenge.state)
+        assertTrue(challenge.publicKeyJson.contains("pentana.silentmode.my"))
+    }
+
+    @Test
+    fun passkeyLoginVerifyStoresTokenAndReturnsUser() = runTest {
+        val engine = jsonEngine(
+            """{"token":"pk-tok","user":{"id":1,"name":"Aisyah","email":"a@org.com","credit":0}}""",
+        )
+        val store = InMemoryTokenStore()
+        val client = ApiClient("https://example.test/api/v1", store, engine)
+
+        val user = PasskeyRepository(client).loginVerify("abc123", """{"id":"x","type":"public-key","response":{}}""")
+
+        assertEquals("Aisyah", user.name)
+        assertEquals("pk-tok", store.get())
+    }
+
+    @Test
+    fun passkeyListIsParsed() = runTest {
+        val engine = jsonEngine(
+            """{"data":[{"id":5,"name":"iPhone","last_used_at":null,"created_at":"2026-06-27T00:00:00+00:00"}]}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val list = PasskeyRepository(client).list()
+
+        assertEquals(1, list.size)
+        assertEquals("iPhone", list[0].name)
     }
 }

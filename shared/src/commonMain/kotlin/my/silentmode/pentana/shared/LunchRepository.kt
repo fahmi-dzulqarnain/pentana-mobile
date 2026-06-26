@@ -40,4 +40,11 @@ class LunchRepository(private val client: ApiClient) {
         client.ensureSuccess(response)
         response.body<DataEnvelope<LunchDto>>().data
     }
+
+    /** Swift-friendly wrappers that avoid constructing a nullable Long (KotlinLong?) on the Swift side. */
+    @Throws(Exception::class)
+    suspend fun chooseOption(lunchId: Long, mealOptionId: Long): LunchDto = respond(lunchId, mealOptionId)
+
+    @Throws(Exception::class)
+    suspend fun markNotAttending(lunchId: Long): LunchDto = respond(lunchId, null)
 }

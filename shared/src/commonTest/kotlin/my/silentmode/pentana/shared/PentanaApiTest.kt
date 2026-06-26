@@ -192,4 +192,29 @@ class PentanaApiTest {
         assertEquals(null, dash.nextActivity)
         assertEquals(0, dash.openActivitiesCount)
     }
+
+    @Test
+    fun notificationsAreParsedWithUnreadCount() = runTest {
+        val engine = jsonEngine(
+            """{"data":[{"id":"abc","title":"Lunch published: Nasi Lemak","body":"Order by 12:00","read":false,"created_at":"2026-06-27T09:00:00+08:00"},{"id":"def","title":"Old","body":null,"read":true,"created_at":null}],"unread_count":1}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val page = NotificationsRepository(client).notifications()
+
+        assertEquals(2, page.data.size)
+        assertEquals(1, page.unreadCount)
+        assertEquals("Lunch published: Nasi Lemak", page.data[0].title)
+        assertEquals(false, page.data[0].read)
+    }
+
+    @Test
+    fun markAllReadReturnsZero() = runTest {
+        val engine = jsonEngine("""{"unread_count":0}""")
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val remaining = NotificationsRepository(client).markAllRead()
+
+        assertEquals(0, remaining)
+    }
 }

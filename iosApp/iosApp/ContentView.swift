@@ -26,15 +26,25 @@ struct ContentView: View {
 
 struct MainView: View {
     @EnvironmentObject private var session: SessionStore
+    @State private var selection = 0
 
     var body: some View {
-        TabView {
+        TabView(selection: $selection) {
+            NavigationStack {
+                HomeView(selection: $selection)
+                    .navigationTitle("Home")
+                    .toolbar { signOut }
+            }
+            .tabItem { Label("Home", systemImage: "house") }
+            .tag(0)
+
             NavigationStack {
                 BillsView()
                     .navigationTitle("My Bills")
                     .toolbar { signOut }
             }
             .tabItem { Label("Bills", systemImage: "creditcard") }
+            .tag(1)
 
             NavigationStack {
                 LunchView()
@@ -42,6 +52,7 @@ struct MainView: View {
                     .toolbar { signOut }
             }
             .tabItem { Label("Lunch", systemImage: "fork.knife") }
+            .tag(2)
 
             NavigationStack {
                 ActivitiesView()
@@ -49,6 +60,7 @@ struct MainView: View {
                     .toolbar { signOut }
             }
             .tabItem { Label("Activities", systemImage: "calendar") }
+            .tag(3)
         }
     }
 

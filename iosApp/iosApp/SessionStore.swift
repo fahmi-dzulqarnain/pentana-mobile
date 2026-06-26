@@ -20,6 +20,7 @@ final class SessionStore: ObservableObject {
     let bills: BillsRepository
     let lunch: LunchRepository
     let activities: ActivitiesRepository
+    let dashboard: DashboardRepository
 
     init() {
         let client = ApiClient(baseUrl: AppConfig.baseURL, tokenStore: KeychainTokenStore(), engine: nil)
@@ -27,6 +28,7 @@ final class SessionStore: ObservableObject {
         bills = BillsRepository(client: client)
         lunch = LunchRepository(client: client)
         activities = ActivitiesRepository(client: client)
+        dashboard = DashboardRepository(client: client)
     }
 
     var isLoggedIn: Bool { user != nil }

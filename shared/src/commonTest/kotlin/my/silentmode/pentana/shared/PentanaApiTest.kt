@@ -163,7 +163,7 @@ class PentanaApiTest {
     @Test
     fun dashboardIsParsed() = runTest {
         val engine = jsonEngine(
-            """{"data":{"bills":{"total_outstanding":"70.00","available_credit":"20.00","unpaid_count":1},"next_lunch":{"id":2,"date":"2026-06-29","is_open":true,"responded":false},"next_activity":{"id":7,"title":"Hiking","starts_at":"2026-07-01T09:00:00+08:00","my_status":"registered"},"open_activities_count":3,"pending_proofs_count":1}}""",
+            """{"data":{"bills":{"total_outstanding":"70.00","available_credit":"20.00","unpaid_count":1},"next_lunch":{"id":2,"date":"2026-06-29","caterer":"ACME","menu":"Set A","is_open":true,"responded":false},"next_activity":{"id":7,"title":"Hiking","starts_at":"2026-07-01T09:00:00+08:00","my_status":"registered"},"open_activities_count":3,"pending_proofs_count":1}}""",
         )
         val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
 
@@ -172,6 +172,7 @@ class PentanaApiTest {
         assertEquals("70.00", dash.bills.totalOutstanding)
         assertEquals(1, dash.bills.unpaidCount)
         assertEquals(2L, dash.nextLunch?.id)
+        assertEquals("Set A", dash.nextLunch?.menu)
         assertEquals(false, dash.nextLunch?.responded)
         assertEquals("registered", dash.nextActivity?.myStatus)
         assertEquals(3, dash.openActivitiesCount)

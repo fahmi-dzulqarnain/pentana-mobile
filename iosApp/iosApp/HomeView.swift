@@ -55,10 +55,13 @@ struct HomeView: View {
         card("Next lunch", system: "fork.knife", tint: .orange, tab: 2) {
             if let lunch {
                 Text(formattedDate(lunch.date)).font(.subheadline)
-                if lunch.responded {
-                    Text("You've responded").font(.caption).foregroundStyle(.secondary)
-                } else if lunch.isOpen {
+                if let menu = lunch.menu, !menu.isEmpty {
+                    Text(menu).font(.caption).foregroundStyle(.secondary)
+                }
+                if lunch.isOpen && !lunch.responded {
                     Text("Vote now").font(.caption.bold()).foregroundStyle(.orange)
+                } else if lunch.responded {
+                    Text("You've responded").font(.caption).foregroundStyle(.secondary)
                 } else {
                     Text("Voting closed").font(.caption).foregroundStyle(.secondary)
                 }

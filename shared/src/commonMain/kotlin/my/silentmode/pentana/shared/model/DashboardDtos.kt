@@ -24,6 +24,8 @@ data class DashboardBillsDto(
 data class DashboardLunchDto(
     val id: Long,
     val date: String,
+    val caterer: String? = null,
+    val menu: String? = null,
     @SerialName("is_open") val isOpen: Boolean,
     val responded: Boolean,
 )

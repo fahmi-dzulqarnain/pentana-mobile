@@ -117,4 +117,46 @@ class PentanaApiTest {
         assertEquals(true, lunch.responded)
         assertEquals(5L, lunch.myMealOptionId)
     }
+
+    @Test
+    fun activitiesAreParsedWithQuestions() = runTest {
+        val engine = jsonEngine(
+            """{"data":[{"id":7,"title":"Beach Cleanup","description":"<p>Bring gloves</p>","starts_at":"2026-07-01T09:00:00+08:00","location":"Beach","spots_left":5,"is_open":true,"my_status":"none","waitlist_position":null,"questions":[{"key":"diet","label":"Dietary needs","type":"text","required":true,"options":[]}]}]}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val activities = ActivitiesRepository(client).activities()
+
+        assertEquals(1, activities.size)
+        assertEquals("Beach Cleanup", activities[0].title)
+        assertEquals("none", activities[0].myStatus)
+        assertEquals(5, activities[0].spotsLeft)
+        assertEquals("Dietary needs", activities[0].questions[0].label)
+        assertEquals(true, activities[0].questions[0].required)
+    }
+
+    @Test
+    fun registerSendsAnswersAndReturnsWaitlistStatus() = runTest {
+        val engine = jsonEngine(
+            """{"data":{"id":7,"title":"Beach Cleanup","is_open":true,"my_status":"waitlisted","waitlist_position":2,"questions":[]}}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val activity = ActivitiesRepository(client).register(7, mapOf("diet" to "Halal"))
+
+        assertEquals("waitlisted", activity.myStatus)
+        assertEquals(2, activity.waitlistPosition)
+    }
+
+    @Test
+    fun cancelReturnsTheUpdatedActivity() = runTest {
+        val engine = jsonEngine(
+            """{"data":{"id":7,"title":"Beach Cleanup","is_open":true,"my_status":"none","questions":[]}}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val activity = ActivitiesRepository(client).cancel(7)
+
+        assertEquals("none", activity.myStatus)
+    }
 }

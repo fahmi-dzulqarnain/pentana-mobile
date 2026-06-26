@@ -42,6 +42,13 @@ struct MainView: View {
                     .toolbar { signOut }
             }
             .tabItem { Label("Lunch", systemImage: "fork.knife") }
+
+            NavigationStack {
+                ActivitiesView()
+                    .navigationTitle("Activities")
+                    .toolbar { signOut }
+            }
+            .tabItem { Label("Activities", systemImage: "calendar") }
         }
     }
 

@@ -27,13 +27,15 @@ struct ContentView: View {
 struct MainView: View {
     @EnvironmentObject private var session: SessionStore
     @State private var selection = 0
+    @State private var showingProfile = false
+    @State private var showingNotifications = false
 
     var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
                 HomeView(selection: $selection)
                     .navigationTitle("Home")
-                    .toolbar { signOut }
+                    .toolbar { topBar }
             }
             .tabItem { Label("Home", systemImage: "house") }
             .tag(0)
@@ -41,7 +43,7 @@ struct MainView: View {
             NavigationStack {
                 BillsView()
                     .navigationTitle("My Bills")
-                    .toolbar { signOut }
+                    .toolbar { topBar }
             }
             .tabItem { Label("Bills", systemImage: "creditcard") }
             .tag(1)
@@ -49,7 +51,7 @@ struct MainView: View {
             NavigationStack {
                 LunchView()
                     .navigationTitle("Lunch")
-                    .toolbar { signOut }
+                    .toolbar { topBar }
             }
             .tabItem { Label("Lunch", systemImage: "fork.knife") }
             .tag(2)
@@ -57,17 +59,34 @@ struct MainView: View {
             NavigationStack {
                 ActivitiesView()
                     .navigationTitle("Activities")
-                    .toolbar { signOut }
+                    .toolbar { topBar }
             }
             .tabItem { Label("Activities", systemImage: "calendar") }
             .tag(3)
         }
+        .sheet(isPresented: $showingProfile) {
+            ProfileView().environmentObject(session)
+        }
+        .sheet(isPresented: $showingNotifications) {
+            NotificationsView().environmentObject(session)
+        }
     }
 
+    // Profile (account + sign out) on the left; notifications bell with unread badge on the right.
     @ToolbarContentBuilder
-    private var signOut: some ToolbarContent {
+    private var topBar: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Button { showingProfile = true } label: {
+                Image(systemName: "person.crop.circle")
+            }
+            .accessibilityLabel("Profile")
+        }
         ToolbarItem(placement: .topBarTrailing) {
-            Button("Sign out") { Task { await session.logout() } }
+            Button { showingNotifications = true } label: {
+                Image(systemName: session.unreadCount > 0 ? "bell.badge.fill" : "bell")
+                    .symbolRenderingMode(session.unreadCount > 0 ? .multicolor : .monochrome)
+            }
+            .accessibilityLabel("Notifications")
         }
     }
 }

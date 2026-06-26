@@ -89,4 +89,32 @@ class PentanaApiTest {
             assertEquals(401, e.status)
         }
     }
+
+    @Test
+    fun lunchesAreParsed() = runTest {
+        val engine = jsonEngine(
+            """{"data":[{"id":1,"date":"2026-06-28","caterer":"ACME","menu":"Set A","deadline":"2026-06-27T12:00:00+08:00","is_open":true,"options":[{"meal_option_id":5,"name":"Beef"}],"responded":false,"my_meal_option_id":null}]}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val lunches = LunchRepository(client).lunches()
+
+        assertEquals(1, lunches.size)
+        assertEquals(true, lunches[0].isOpen)
+        assertEquals("Beef", lunches[0].options[0].name)
+        assertEquals(5L, lunches[0].options[0].mealOptionId)
+    }
+
+    @Test
+    fun respondReturnsTheUpdatedLunch() = runTest {
+        val engine = jsonEngine(
+            """{"data":{"id":1,"date":"2026-06-28","is_open":true,"options":[],"responded":true,"my_meal_option_id":5}}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val lunch = LunchRepository(client).respond(1, 5)
+
+        assertEquals(true, lunch.responded)
+        assertEquals(5L, lunch.myMealOptionId)
+    }
 }

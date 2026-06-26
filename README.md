@@ -24,7 +24,7 @@ Pinned versions — the Gradle wrapper **is committed**, so you do not generate 
 |------|---------|
 | JDK | 17 |
 | Gradle | 8.11.1 (wrapper committed) |
-| Kotlin | 2.1.0 |
+| Kotlin | 2.1.21 (≥ 2.1.21 needed for Xcode 16.3+/26.x — [KT-75781](https://youtrack.jetbrains.com/issue/KT-75781)) |
 | Android Gradle Plugin | 8.7.2 |
 | Ktor | 3.0.3 |
 | kotlinx-coroutines | 1.9.0 |

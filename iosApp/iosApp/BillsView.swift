@@ -14,35 +14,41 @@ struct BillsView: View {
     @State private var showSubmit = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                summaryCard
-                    .padding(.top, 4)
+        VStack {
+            if isLoading && summary == nil {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        summaryCard
+                            .padding(.top, 4)
 
-                Button { showSubmit = true } label: {
-                    Label("Submit payment proof", systemImage: "camera.fill")
-                }
-                .buttonStyle(PentProminentButtonStyle())
-                .padding(.top, 14)
+                        Button { showSubmit = true } label: {
+                            Label("Submit payment proof", systemImage: "camera.fill")
+                        }
+                        .buttonStyle(PentProminentButtonStyle())
+                        .padding(.top, 14)
 
-                if bills.isEmpty && !isLoading {
-                    EmptyStateView(symbol: "creditcard.fill", tint: Pent.dues, bg: Pent.duesBg,
-                                   title: "No bills yet", message: "When dues are issued they'll appear here.")
-                } else {
-                    SectionLabel(text: "Bill history")
-                    InsetGroup {
-                        ForEach(Array(bills.enumerated()), id: \.element.id) { index, bill in
-                            BillRow(bill: bill)
-                            if index < bills.count - 1 { PentHairline(leadingInset: 64) }
+                        if bills.isEmpty {
+                            EmptyStateView(symbol: "creditcard.fill", tint: Pent.dues, bg: Pent.duesBg,
+                                           title: "No bills yet", message: "When dues are issued they'll appear here.")
+                        } else {
+                            SectionLabel(text: "Bill history")
+                            InsetGroup {
+                                ForEach(Array(bills.enumerated()), id: \.element.id) { index, bill in
+                                    BillRow(bill: bill)
+                                    if index < bills.count - 1 { PentHairline(leadingInset: 64) }
+                                }
+                            }
                         }
                     }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 28)
                 }
+                .refreshable { await load() }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 28)
         }
-        .overlay { if isLoading && bills.isEmpty { ProgressView() } }
-        .refreshable { await load() }
         .task { await load() }
         .sheet(isPresented: $showSubmit) {
             SubmitProofView { Task { await load() } }

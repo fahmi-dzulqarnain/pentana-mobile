@@ -17,36 +17,42 @@ struct ActivitiesView: View {
     @State private var registering: ActivityDto?
 
     var body: some View {
-        ScrollView {
-            if activities.isEmpty && !isLoading {
-                EmptyStateView(symbol: "calendar", tint: Pent.activ, bg: Pent.activBg,
-                               title: "No upcoming activities", message: "Check back soon for events to join.")
-                    .containerRelativeFrame(.vertical, alignment: .center)
+        VStack {
+            if isLoading && activities.isEmpty {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             } else {
-                VStack(spacing: 13) {
-                    ForEach(activities, id: \.id) { activity in
-                        ActivityCard(activity: activity, busy: busyId == activity.id,
-                                     onRegister: {
-                                         if activity.questions.isEmpty {
-                                             Task { await register(activity, answers: [:]) }
-                                         } else {
-                                             registering = activity
-                                         }
-                                     },
-                                     onCancel: { Task { await cancel(activity) } })
+                ScrollView {
+                    if activities.isEmpty && !isLoading {
+                        EmptyStateView(symbol: "calendar", tint: Pent.activ, bg: Pent.activBg,
+                                       title: "No upcoming activities", message: "Check back soon for events to join.")
+                            .containerRelativeFrame(.vertical, alignment: .center)
+                    } else {
+                        VStack(spacing: 13) {
+                            ForEach(activities, id: \.id) { activity in
+                                ActivityCard(activity: activity, busy: busyId == activity.id,
+                                             onRegister: {
+                                                 if activity.questions.isEmpty {
+                                                     Task { await register(activity, answers: [:]) }
+                                                 } else {
+                                                     registering = activity
+                                                 }
+                                             },
+                                             onCancel: { Task { await cancel(activity) } })
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 28)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 28)
+                .refreshable { await load() }
+                .sheet(item: $registering) { activity in
+                    RegisterActivityView(activity: activity) { updated in replace(updated) }
+                    .environmentObject(session)
+                }
             }
         }
-        .overlay { if isLoading && activities.isEmpty { ProgressView() } }
-        .refreshable { await load() }
         .task { await load() }
-        .sheet(item: $registering) { activity in
-            RegisterActivityView(activity: activity) { updated in replace(updated) }
-                .environmentObject(session)
-        }
     }
 
     private func register(_ activity: ActivityDto, answers: [String: String]) async {

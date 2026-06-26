@@ -16,28 +16,34 @@ struct HomeView: View {
     @State private var isLoading = true
 
     var body: some View {
-        ScrollView {
-            if let d = dashboard {
-                VStack(alignment: .leading, spacing: 11) {
-                    Text(todayString)
-                        .font(.pentSub).foregroundStyle(Pent.label2)
-                        .padding(.horizontal, 4).padding(.bottom, 2)
+        VStack {
+            if isLoading && dashboard == nil {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            } else {
+                ScrollView {
+                    if let d = dashboard {
+                        VStack(alignment: .leading, spacing: 11) {
+                            Text(todayString)
+                                .font(.pentSub).foregroundStyle(Pent.label2)
+                                .padding(.horizontal, 4).padding(.bottom, 2)
 
-                    duesCard(d)
-                    lunchCard(d.nextLunch)
-                    activityCard(d.nextActivity, openCount: Int(d.openActivitiesCount))
-                    proofsCard(pending: Int(d.pendingProofsCount))
+                            duesCard(d)
+                            lunchCard(d.nextLunch)
+                            activityCard(d.nextActivity, openCount: Int(d.openActivitiesCount))
+                            proofsCard(pending: Int(d.pendingProofsCount))
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 28)
+                    } else {
+                        EmptyStateView(symbol: "icloud.slash", tint: Pent.bad, bg: Pent.badBg,
+                                       title: "Couldn't load", message: "Couldn't load your summary. Pull to refresh.")
+                            .containerRelativeFrame(.vertical, alignment: .center)
+                    }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 28)
-            } else if !isLoading {
-                EmptyStateView(symbol: "icloud.slash", tint: Pent.bad, bg: Pent.badBg,
-                               title: "Couldn't load", message: "Couldn't load your summary. Pull to refresh.")
-                    .containerRelativeFrame(.vertical, alignment: .center)
+                .refreshable { await load() }
             }
         }
-        .overlay { if isLoading && dashboard == nil { ProgressView() } }
-        .refreshable { await load() }
         .task { await load() }
     }
 

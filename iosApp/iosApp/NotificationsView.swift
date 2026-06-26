@@ -16,32 +16,38 @@ struct NotificationsView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 0) {
-                    if items.isEmpty && !isLoading {
-                        EmptyStateView(symbol: "bell.fill", title: "No notifications yet",
-                                       message: "Lunch, activity and payment updates will show up here.")
-                            .containerRelativeFrame(.vertical, alignment: .center)
-                    } else {
-                        HStack {
-                            Spacer()
-                            Button("Mark all read") { Task { await session.markNotificationsRead() } }
-                                .font(.pentFoot).tint(Pent.accent)
-                        }
-                        .padding(.bottom, 6)
+            Group {
+                if isLoading && items.isEmpty {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            if items.isEmpty {
+                                EmptyStateView(symbol: "bell.fill", title: "No notifications yet",
+                                               message: "Lunch, activity and payment updates will show up here.")
+                                    .containerRelativeFrame(.vertical, alignment: .center)
+                            } else {
+                                HStack {
+                                    Spacer()
+                                    Button("Mark all read") { Task { await session.markNotificationsRead() } }
+                                        .font(.pentFoot).tint(Pent.accent)
+                                }
+                                .padding(.bottom, 6)
 
-                        InsetGroup {
-                            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                                NotifRow(item: item)
-                                if index < items.count - 1 { PentHairline(leadingInset: 60) }
+                                InsetGroup {
+                                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                                        NotifRow(item: item)
+                                        if index < items.count - 1 { PentHairline(leadingInset: 60) }
+                                    }
+                                }
                             }
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
             }
-            .overlay { if isLoading && items.isEmpty { ProgressView() } }
             .navigationTitle("Notifications")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -13,25 +13,41 @@ struct LunchView: View {
     @State private var busyLunchId: Int64?
 
     var body: some View {
-        ScrollView {
-            if lunches.isEmpty && !isLoading {
-                EmptyStateView(symbol: "fork.knife", tint: Pent.lunch, bg: Pent.lunchBg,
-                               title: "No upcoming lunches", message: "New catered lunches show up here to vote on.")
-                    .containerRelativeFrame(.vertical, alignment: .center)
+        VStack {
+            if isLoading && lunches.isEmpty {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             } else {
-                VStack(spacing: 14) {
-                    ForEach(lunches, id: \.id) { lunch in
-                        LunchCard(lunch: lunch, busy: busyLunchId == lunch.id,
-                                  choose: { opt in await update(lunch) { try await session.lunch.chooseOption(lunchId: lunch.id, mealOptionId: opt) } },
-                                  notAttending: { await update(lunch) { try await session.lunch.markNotAttending(lunchId: lunch.id) } })
+                ScrollView {
+                    if lunches.isEmpty && !isLoading {
+                        EmptyStateView(symbol: "fork.knife", tint: Pent.lunch, bg: Pent.lunchBg,
+                                       title: "No upcoming lunches", message: "New catered lunches show up here to vote on.")
+                            .containerRelativeFrame(.vertical, alignment: .center)
+                    } else {
+                        VStack(spacing: 14) {
+                            ForEach(lunches, id: \.id) { lunch in
+                                LunchCard(
+                                    lunch: lunch,
+                                    busy: busyLunchId == lunch.id,
+                                    choose: {
+                                        opt in await update(lunch) {
+                                            try await session.lunch.chooseOption(lunchId: lunch.id, mealOptionId: opt)
+                                        }
+                                    },
+                                    notAttending: {
+                                        await update(lunch) {
+                                            try await session.lunch.markNotAttending(lunchId: lunch.id)
+                                        }
+                                    })
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 28)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 28)
+                .refreshable { await load() }
             }
         }
-        .overlay { if isLoading && lunches.isEmpty { ProgressView() } }
-        .refreshable { await load() }
         .task { await load() }
     }
 

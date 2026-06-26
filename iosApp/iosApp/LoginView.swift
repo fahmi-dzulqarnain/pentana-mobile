@@ -65,6 +65,19 @@ struct LoginView: View {
                     .padding(18)
                     .pentGlass(22)
 
+                    // Passkey sign-in
+                    Button {
+                        Task { await session.passkeySignIn() }
+                    } label: {
+                        Label("Sign in with a passkey", systemImage: "person.badge.key.fill")
+                            .font(.pentBodyMedium)
+                            .foregroundStyle(Pent.label)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 50)
+                    }
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .padding(.top, 12)
+
                     // Claim hint
                     VStack(spacing: 2) {
                         Text("Need access?").font(.pentFoot).foregroundStyle(Pent.label2)

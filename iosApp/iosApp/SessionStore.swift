@@ -9,6 +9,8 @@
 import Combine
 import Foundation
 import Shared
+import UIKit
+import UserNotifications
 
 @MainActor
 final class SessionStore: ObservableObject {
@@ -24,9 +26,11 @@ final class SessionStore: ObservableObject {
     let dashboard: DashboardRepository
     let notifications: NotificationsRepository
     let passkey: PasskeyRepository
+    let deviceTokens: DeviceTokensRepository
 
     private let tokenStore = KeychainTokenStore()
     private let passkeyManager = PasskeyManager(relyingParty: AppConfig.passkeyRelyingParty)
+    private var lastDeviceToken: String?
 
     init() {
         let client = ApiClient(baseUrl: AppConfig.baseURL, tokenStore: tokenStore, engine: nil)
@@ -37,6 +41,15 @@ final class SessionStore: ObservableObject {
         dashboard = DashboardRepository(client: client)
         notifications = NotificationsRepository(client: client)
         passkey = PasskeyRepository(client: client)
+        deviceTokens = DeviceTokensRepository(client: client)
+
+        // Forward APNs device tokens / foreground pushes from the AppDelegate.
+        PushRegistrar.shared.onToken = { [weak self] token in
+            Task { await self?.registerDeviceToken(token) }
+        }
+        PushRegistrar.shared.onReceive = { [weak self] in
+            Task { await self?.refreshBadge() }
+        }
     }
 
     var isLoggedIn: Bool { user != nil }
@@ -47,6 +60,7 @@ final class SessionStore: ObservableObject {
             do {
                 user = try await auth.me()
                 await refreshBadge()
+                await enablePushNotifications()
             } catch {
                 try? await auth.logout()
                 user = nil
@@ -60,6 +74,7 @@ final class SessionStore: ObservableObject {
         do {
             user = try await auth.login(email: email, password: password, deviceName: "iOS")
             await refreshBadge()
+            await enablePushNotifications()
         } catch {
             // Surface the real reason (connection / ATS / 401 / parsing) instead of guessing.
             errorMessage = "Sign in failed: \(error.localizedDescription)"
@@ -67,9 +82,29 @@ final class SessionStore: ObservableObject {
     }
 
     func logout() async {
+        if let token = lastDeviceToken { try? await deviceTokens.unregister(token: token) }
         try? await auth.logout()
         user = nil
         unreadCount = 0
+    }
+
+    // MARK: - Push notifications
+
+    /// Ask for notification permission, then register for remote notifications. Safe to call
+    /// repeatedly — iOS only prompts once. Registers any token already captured by the AppDelegate.
+    func enablePushNotifications() async {
+        guard isLoggedIn else { return }
+        let granted = (try? await UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .badge, .sound])) ?? false
+        guard granted else { return }
+        UIApplication.shared.registerForRemoteNotifications()
+        if let token = PushRegistrar.shared.deviceToken { await registerDeviceToken(token) }
+    }
+
+    private func registerDeviceToken(_ token: String) async {
+        guard isLoggedIn else { return }
+        lastDeviceToken = token
+        do { try await deviceTokens.register(token: token, platform: "ios") } catch {}
     }
 
     /// Refresh the bell badge's unread count (best-effort).
@@ -94,6 +129,7 @@ final class SessionStore: ObservableObject {
             let credential = try await passkeyManager.signIn(optionsJson: challenge.publicKeyJson)
             user = try await passkey.loginVerify(state: challenge.state, credentialJson: credential)
             await refreshBadge()
+            await enablePushNotifications()
         } catch PasskeyManager.PasskeyError.canceled {
             // User dismissed the sheet — no error.
         } catch {

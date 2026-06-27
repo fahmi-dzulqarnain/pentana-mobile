@@ -49,3 +49,13 @@ fun relativeTimeFrom(createdAt: String?): String {
     val created = parseIso(createdAt) ?: return ""
     return relativeTime(System.currentTimeMillis(), created)
 }
+
+/** Up to two uppercase initials for an avatar. */
+fun initials(name: String): String {
+    val parts = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+    return when {
+        parts.isEmpty() -> "?"
+        parts.size == 1 -> parts[0].take(2).uppercase()
+        else -> (parts[0].take(1) + parts[1].take(1)).uppercase()
+    }
+}

@@ -247,6 +247,22 @@ class PentanaApiTest {
     }
 
     @Test
+    fun registerDeviceTokenPosts() = runTest {
+        val engine = jsonEngine("""{"message":"Device registered."}""", HttpStatusCode.Created)
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        DeviceTokensRepository(client).register("dev-abc", "ios") // succeeds (no throw)
+    }
+
+    @Test
+    fun unregisterDeviceTokenDeletes() = runTest {
+        val engine = jsonEngine("""{"message":"Device removed."}""")
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        DeviceTokensRepository(client).unregister("dev-abc") // succeeds (no throw)
+    }
+
+    @Test
     fun passkeyListIsParsed() = runTest {
         val engine = jsonEngine(
             """{"data":[{"id":5,"name":"iPhone","last_used_at":null,"created_at":"2026-06-27T00:00:00+00:00"}]}""",

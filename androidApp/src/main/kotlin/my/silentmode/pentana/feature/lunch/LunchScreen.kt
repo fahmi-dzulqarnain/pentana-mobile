@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import my.silentmode.pentana.core.dateTimeMedium
 import my.silentmode.pentana.shared.model.LunchDto
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.ChipKind
@@ -132,7 +133,7 @@ private fun LunchCard(lunch: LunchDto, onChoose: (Long) -> Unit, onNotAttending:
             ) {
                 Icon(Icons.Filled.Schedule, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                 Text(
-                    (if (lunch.isOpen) "Order by " else "") + lunch.deadline,
+                    (if (lunch.isOpen) "Order by " else "Closed ") + dateTimeMedium(lunch.deadline),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

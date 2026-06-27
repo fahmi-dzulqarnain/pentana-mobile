@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.silentmode.pentana.core.initials
+import my.silentmode.pentana.feature.bills.BillsScreen
 import my.silentmode.pentana.feature.home.HomeScreen
 import my.silentmode.pentana.feature.login.LoginScreen
 import my.silentmode.pentana.shared.model.UserDto
@@ -67,7 +68,7 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
         Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
             when (active) {
                 NavDest.Home -> HomeScreen(userName = user.name, onSwitchTab = { active = it })
-                NavDest.Bills -> TabPlaceholder("Bills")
+                NavDest.Bills -> BillsScreen()
                 NavDest.Lunch -> TabPlaceholder("Lunch")
                 NavDest.Activities -> TabPlaceholder("Activities")
             }

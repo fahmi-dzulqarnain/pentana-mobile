@@ -20,6 +20,7 @@ import my.silentmode.pentana.core.initials
 import my.silentmode.pentana.feature.bills.BillsScreen
 import my.silentmode.pentana.feature.home.HomeScreen
 import my.silentmode.pentana.feature.login.LoginScreen
+import my.silentmode.pentana.feature.lunch.LunchScreen
 import my.silentmode.pentana.shared.model.UserDto
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.LoadingState
@@ -69,7 +70,7 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
             when (active) {
                 NavDest.Home -> HomeScreen(userName = user.name, onSwitchTab = { active = it })
                 NavDest.Bills -> BillsScreen()
-                NavDest.Lunch -> TabPlaceholder("Lunch")
+                NavDest.Lunch -> LunchScreen()
                 NavDest.Activities -> TabPlaceholder("Activities")
             }
         }

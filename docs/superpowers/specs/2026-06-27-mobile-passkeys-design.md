@@ -6,7 +6,7 @@ existing `spatie/laravel-passkeys` setup but over JSON APIs for the mobile app.
 
 ## Identities (canonical values)
 - **Relying-party ID:** `pentana.silentmode.net`
-- **App bundle id:** `my.silentmode.pentana.iosApp`
+- **App bundle id:** `my.silentmode.pentana`
 - **Apple Team ID:** `7778Y2522V`
 - **Associated Domain entitlement:** `webcredentials:pentana.silentmode.net`
 
@@ -16,7 +16,7 @@ existing `spatie/laravel-passkeys` setup but over JSON APIs for the mobile app.
 3. `https://pentana.silentmode.net/.well-known/apple-app-site-association` returns, as
    `application/json` (no extension, no redirect):
    ```json
-   { "webcredentials": { "apps": ["7778Y2522V.my.silentmode.pentana.iosApp"] } }
+   { "webcredentials": { "apps": ["7778Y2522V.my.silentmode.pentana"] } }
    ```
 4. The iOS app ships with the `webcredentials:pentana.silentmode.net` entitlement (real
    provisioning profile / signed build — the entitlement needs the paid Apple Developer team).

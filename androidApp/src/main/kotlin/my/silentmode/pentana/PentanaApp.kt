@@ -22,6 +22,8 @@ import my.silentmode.pentana.feature.bills.BillsScreen
 import my.silentmode.pentana.feature.home.HomeScreen
 import my.silentmode.pentana.feature.login.LoginScreen
 import my.silentmode.pentana.feature.lunch.LunchScreen
+import my.silentmode.pentana.feature.notifications.NotificationsSheet
+import my.silentmode.pentana.feature.profile.ProfileSheet
 import my.silentmode.pentana.shared.model.UserDto
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.LoadingState
@@ -52,7 +54,8 @@ private fun NavDest.barTitle(): String? = if (this == NavDest.Home) null else la
 @Composable
 private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) {
     var active by rememberSaveable { mutableStateOf(NavDest.Home) }
-    // Profile / Notifications / sheets are wired in later tasks.
+    var showProfile by rememberSaveable { mutableStateOf(false) }
+    var showNotifications by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -60,8 +63,8 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
                 title = active.barTitle(),
                 unread = unread,
                 avatarInitials = initials(user.name),
-                onAvatar = { /* Profile sheet — Task 11 */ },
-                onBell = { session.markNotificationsRead() /* Notifications sheet — Task 11 */ },
+                onAvatar = { showProfile = true },
+                onBell = { showNotifications = true },
             )
         },
         bottomBar = { PentNavBar(active = active, onSelect = { active = it }) },
@@ -75,5 +78,19 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
                 NavDest.Activities -> ActivitiesScreen()
             }
         }
+    }
+
+    if (showProfile) {
+        ProfileSheet(
+            user = user,
+            onSignOut = { showProfile = false; session.logout() },
+            onDismiss = { showProfile = false },
+        )
+    }
+    if (showNotifications) {
+        NotificationsSheet(
+            onMarkAllRead = session::markNotificationsRead,
+            onDismiss = { showNotifications = false },
+        )
     }
 }

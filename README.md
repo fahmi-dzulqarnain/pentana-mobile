@@ -12,6 +12,7 @@ first; Jetpack Compose on Android later). Talks to the Laravel `/api/v1` Sanctum
 | iOS app (SwiftUI) | ✅ Liquid Glass redesign · **Home · Bills · Lunch · Activities** + Profile & Notifications sheets |
 | On-device / LAN login | ✅ ATS exception + LAN base URL wired and verified |
 | Passkeys | ✅ built — sign-in + on-device registration; **needs the live HTTPS domain to function** (see [Passkeys](#passkeys-sign-in--on-device-registration)) |
+| Push notifications | ✅ built — APNs for the bell notifications; **needs the `.p8` key + Push capability** (see [Push notifications](#push-notifications)) |
 | Android (Compose) | ⬜ later — the shared module already builds for `androidTarget` |
 
 Both the shared module (`./gradlew :shared:allTests`) and the iOS app (`xcodebuild`) build
@@ -214,6 +215,35 @@ The app can register a passkey on the phone and sign in with it, reusing the bac
    for the passkey calls, and `passkeyRelyingParty` stays `pentana.silentmode.net`.
 4. A signed build whose team (`7778Y2522V`) has the **Associated Domains** capability enabled for
    the App ID `my.silentmode.pentana`.
+
+## Push notifications
+
+The member-facing notifications (activity published / cancelled / reminder, waitlist promoted,
+lunch published) are delivered as **APNs pushes** in addition to the in-app bell + email. Full
+design: [`docs/superpowers/specs/2026-06-27-push-notifications-design.md`](docs/superpowers/specs/2026-06-27-push-notifications-design.md).
+
+**Pieces**
+- **Backend** (`pentana-system`): `laravel-notification-channels/apn` (token auth via
+  `config('broadcasting.connections.apn')`); `device_tokens` table; `POST`/`DELETE
+  /api/v1/device-tokens` (auth; POST upserts + reassigns a token to the current member);
+  notifications gain `toApn()` and add the `apn` channel **only when APNs is configured and the
+  member has a token** (so dev/tests are untouched).
+- **Shared**: `DeviceTokensRepository.register/unregister`.
+- **iOS**: `aps-environment` entitlement; `AppDelegate` + `PushRegistrar` capture the APNs token
+  and foreground/tap events; after sign-in the app requests permission, registers, and POSTs the
+  token; logout unregisters it.
+
+> Like passkeys, the code builds and ships inert until the Apple-side pieces exist. Real delivery
+> needs a **physical device**; the simulator can be exercised with
+> `xcrun simctl push <udid> my.silentmode.pentana payload.apns`.
+
+### Deploy checklist (the `.p8`)
+1. Enable **Push Notifications** on the App ID `my.silentmode.pentana`.
+2. Generate an **APNs Auth Key (.p8)** → note the **Key ID**.
+3. Server env: `APN_KEY_ID`, `APN_TEAM_ID=7778Y2522V`, `APN_BUNDLE_ID=my.silentmode.pentana`,
+   `APN_PRIVATE_KEY_PATH` (path to the `.p8`), `APN_PRIVATE_KEY_SECRET` (usually empty),
+   `APN_PRODUCTION` (`false` for dev/TestFlight sandbox, `true` for App Store).
+4. Run the `device_tokens` migration on Supabase.
 
 ## Android (later)
 

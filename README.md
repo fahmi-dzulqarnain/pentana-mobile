@@ -2,7 +2,7 @@
 
 Native member app for [PENTANA](https://github.com/fahmi-dzulqarnain/pentana-system).
 **Kotlin Multiplatform** for shared logic + **native UI per platform** (SwiftUI on iOS
-first; Jetpack Compose on Android later). Talks to the Laravel `/api/v1` Sanctum API.
+first, Jetpack Compose on Android). Talks to the Laravel `/api/v1` Sanctum API.
 
 ## Status
 
@@ -13,10 +13,10 @@ first; Jetpack Compose on Android later). Talks to the Laravel `/api/v1` Sanctum
 | On-device / LAN login | ✅ ATS exception + LAN base URL wired and verified |
 | Passkeys | ✅ built — sign-in + on-device registration; **needs the live HTTPS domain to function** (see [Passkeys](#passkeys-sign-in--on-device-registration)) |
 | Push notifications | ✅ built — APNs for the bell notifications; **needs the `.p8` key + Push capability** (see [Push notifications](#push-notifications)) |
-| Android (Compose) | ⬜ later — the shared module already builds for `androidTarget` |
+| Android app (Compose) | ✅ Material 3 / Material You · **Home · Bills · Lunch · Activities** + Profile & Notifications sheets · email/password login (passkeys + push deferred) |
 
-Both the shared module (`./gradlew :shared:allTests`) and the iOS app (`xcodebuild`) build
-and pass clean.
+The shared module (`./gradlew :shared:allTests`), the iOS app (`xcodebuild`), and the Android
+app (`./gradlew :androidApp:assembleDebug`) all build and pass clean.
 
 ## Toolchain
 
@@ -72,6 +72,17 @@ iosApp/
     HomeView.swift  LoginView.swift  BillsView.swift  SubmitProofView.swift
     LunchView.swift  ActivitiesView.swift  RegisterActivityView.swift
     ProfileView.swift  NotificationsView.swift
+
+androidApp/                                 # Android app (Jetpack Compose, Material 3)
+  build.gradle.kts                          # com.android.application + compose compiler
+  src/main/kotlin/my/silentmode/pentana/
+    App.kt  MainActivity.kt  PentanaApp.kt  # Application(+AppContainer), edge-to-edge host, Scaffold+NavBar+sheets
+    core/        AppConfig.kt  AppContainer.kt  PrefsTokenStore.kt  Format.kt  Photo.kt
+    ui/theme/    Color/Type/Shape/Theme + PentanaColors (domain colours, dynamic colour)
+    ui/components/  chrome, cards, chips, list items, buttons, inputs, states
+    ui/session/  SessionViewModel.kt
+    feature/{login,home,bills,lunch,activities,profile,notifications}/  # screen + ViewModel (+ sheets)
+  src/test/...                              # JVM tests: Format, submit-proof + reg-form validation
 ```
 
 ## 1. Run the backend API
@@ -245,8 +256,33 @@ design: [`docs/superpowers/specs/2026-06-27-push-notifications-design.md`](docs/
    `APN_PRODUCTION` (`false` for dev/TestFlight sandbox, `true` for App Store).
 4. Run the `device_tokens` migration on Supabase.
 
-## Android (later)
+## Android app (Compose)
 
-The shared module already compiles for `androidTarget` with an OkHttp engine. Adding the app
-means a new `androidApp` module with Jetpack Compose UI that reuses the same repositories —
-no shared-code changes expected.
+Material 3 (Material You) UI at parity with iOS, reusing the same `:shared` repositories — no
+shared-code changes. State-driven navigation (`Scaffold` + `NavigationBar` + `ModalBottomSheet`),
+AndroidX `ViewModel` + `StateFlow`, manual DI via `AppContainer`, `EncryptedSharedPreferences`
+token store, Material You **dynamic colour** on API 31+ with the brand orange as fallback.
+
+**Point it at your server** — edit `androidApp/src/main/kotlin/my/silentmode/pentana/core/AppConfig.kt`:
+
+```kotlin
+const val BASE_URL = "http://<mac-LAN-ip>:8000/api/v1"   // e.g. http://192.168.0.177:8000/api/v1
+```
+
+The LAN IP works for the emulator and a physical device on the same Wi-Fi. Plain HTTP is
+allowed in debug by `usesCleartextTraffic="true"` in the manifest — drop it (and use the HTTPS
+prod URL) for a release build.
+
+**Build & run:**
+
+```bash
+./gradlew :androidApp:installDebug       # build + install on a running emulator/device
+./gradlew :androidApp:testDebugUnitTest  # JVM unit tests (formatting, validation, mapping)
+```
+
+Or open the repo in Android Studio and Run the `androidApp` configuration.
+
+**Deferred** (same boundary as the early iOS app): Credential Manager **passkeys** and **FCM
+push** are not built yet — push would also need an FCM channel on the Laravel backend (it is
+APNs-only today). The shared `PasskeyRepository` / `DeviceTokensRepository` stay unused on
+Android for now.

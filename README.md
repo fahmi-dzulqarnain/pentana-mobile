@@ -9,8 +9,9 @@ first; Jetpack Compose on Android later). Talks to the Laravel `/api/v1` Sanctum
 | Area | State |
 |------|-------|
 | KMP shared module | ✅ networking, DTOs, repositories, token store, MockEngine tests |
-| iOS app (SwiftUI) | ✅ Login → **Bills · Lunch · Activities** (incl. payment-proof upload + registration questions) |
+| iOS app (SwiftUI) | ✅ Liquid Glass redesign · **Home · Bills · Lunch · Activities** + Profile & Notifications sheets |
 | On-device / LAN login | ✅ ATS exception + LAN base URL wired and verified |
+| Passkeys | ✅ built — sign-in + on-device registration; **needs the live HTTPS domain to function** (see [Passkeys](#passkeys-sign-in--on-device-registration)) |
 | Android (Compose) | ⬜ later — the shared module already builds for `androidTarget` |
 
 Both the shared module (`./gradlew :shared:allTests`) and the iOS app (`xcodebuild`) build
@@ -47,22 +48,29 @@ shared/                                   # Kotlin Multiplatform module
     BillsRepository.kt    # bills / summary / payment-proofs / submitPaymentProof (multipart)
     LunchRepository.kt    # lunches / respond (chooseOption / markNotAttending)
     ActivitiesRepository.kt # activities / register(id, answers) / cancel
-    model/                # @Serializable DTOs: Dtos.kt, LunchDtos.kt, ActivityDtos.kt
+    DashboardRepository.kt  # GET /dashboard aggregate
+    NotificationsRepository.kt # list / markAllRead
+    PasskeyRepository.kt  # passkey login/register options+verify, list/delete
+    model/                # @Serializable DTOs (Dtos, Lunch, Activity, Dashboard, Notification, Passkey)
   src/iosMain/...         # HttpEngine.ios.kt  -> Darwin.create()
   src/androidMain/...     # HttpEngine.android.kt -> OkHttp.create()
   src/commonTest/...      # PentanaApiTest.kt — repositories against Ktor MockEngine
 
 iosApp/
   Info.plist                              # partial plist (ATS exception), merged via INFOPLIST_FILE
+  iosApp.entitlements                     # Associated Domains (webcredentials:) for passkeys
   iosApp.xcodeproj
   iosApp/
     iosAppApp.swift        # @main; owns the SessionStore
     SessionStore.swift     # @MainActor DI: ApiClient + repos + auth state
-    AppConfig.swift        # API base URL  <-- set this for your network
+    AppConfig.swift        # API base URL + passkey relying party  <-- set these
     KeychainTokenStore.swift  # TokenStore backed by the iOS Keychain
-    ContentView.swift      # root switch + TabView (Bills / Lunch / Activities)
-    LoginView.swift  BillsView.swift  SubmitProofView.swift
+    PasskeyManager.swift   # ASAuthorization bridge (the only non-shared passkey piece)
+    PentanaTheme.swift  PentanaComponents.swift   # design system (tokens, glass, components)
+    ContentView.swift      # root switch + glass TabView (Home / Bills / Lunch / Activities)
+    HomeView.swift  LoginView.swift  BillsView.swift  SubmitProofView.swift
     LunchView.swift  ActivitiesView.swift  RegisterActivityView.swift
+    ProfileView.swift  NotificationsView.swift
 ```
 
 ## 1. Run the backend API
@@ -175,6 +183,37 @@ Bills, Lunch, and Activities were each built this way — copy the closest one.
 - API responses are wrapped as `{ "data": ... }` (`DataEnvelope<T>`).
 - The Sanctum bearer token is stored via `TokenStore`; `AuthRepository.login()` saves it and
   every subsequent request sends it automatically.
+
+## Passkeys (sign-in + on-device registration)
+
+The app can register a passkey on the phone and sign in with it, reusing the backend's
+`spatie/laravel-passkeys` setup over JSON APIs. Full design + rationale:
+[`docs/superpowers/specs/2026-06-27-mobile-passkeys-design.md`](docs/superpowers/specs/2026-06-27-mobile-passkeys-design.md).
+
+**Pieces**
+- **Backend** (`pentana-system`): `POST /api/v1/passkeys/login/{options,verify}` (public,
+  discoverable → token), `…/register/{options,verify}` + `GET`/`DELETE /passkeys` (auth).
+  Stateless — the challenge is cached under a random `state` token. AASA is published at
+  `public/.well-known/apple-app-site-association`.
+- **Shared**: `PasskeyRepository` (HTTP only; WebAuthn options/credential cross as JSON strings).
+- **iOS**: `PasskeyManager` (ASAuthorization), `AppConfig.passkeyRelyingParty`, the
+  `webcredentials:` entitlement, a "Sign in with a passkey" button on Login, and a Passkeys
+  section in Profile.
+
+> **Passkeys only work against the live HTTPS domain.** iOS derives the WebAuthn origin from
+> the Associated Domain, so the simulator/LAN-IP setup can't run the ceremony — the code builds
+> and the rest of the app is unaffected, but the passkey buttons fail at the OS step until the
+> domain is up.
+
+### Deploy checklist (all must be true before passkeys work)
+1. `pentana.silentmode.my` serves the app over **HTTPS**; `APP_URL=https://pentana.silentmode.my`.
+2. `https://pentana.silentmode.my/.well-known/apple-app-site-association` returns
+   `{"webcredentials":{"apps":["7778Y2522V.my.silentmode.pentana.iosApp"]}}` (ensure nginx
+   serves `.well-known` — many configs deny dotfolders by default).
+3. The app's `AppConfig.baseURL` points at `https://pentana.silentmode.my/api/v1` (not the LAN IP)
+   for the passkey calls, and `passkeyRelyingParty` stays `pentana.silentmode.my`.
+4. A signed build whose team (`7778Y2522V`) has the **Associated Domains** capability enabled for
+   the App ID `my.silentmode.pentana.iosApp`.
 
 ## Android (later)
 

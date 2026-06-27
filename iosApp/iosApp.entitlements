@@ -4,7 +4,7 @@
 <dict>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>webcredentials:pentana.silentmode.my</string>
+		<string>webcredentials:pentana.silentmode.net</string>
 	</array>
 </dict>
 </plist>

@@ -5,23 +5,23 @@
 existing `spatie/laravel-passkeys` setup but over JSON APIs for the mobile app.
 
 ## Identities (canonical values)
-- **Relying-party ID:** `pentana.silentmode.my`
+- **Relying-party ID:** `pentana.silentmode.net`
 - **App bundle id:** `my.silentmode.pentana.iosApp`
 - **Apple Team ID:** `7778Y2522V`
-- **Associated Domain entitlement:** `webcredentials:pentana.silentmode.my`
+- **Associated Domain entitlement:** `webcredentials:pentana.silentmode.net`
 
 ## Prerequisites / deploy checklist (passkeys are inert until ALL are true)
-1. `pentana.silentmode.my` serves the Laravel app over **HTTPS** (Cloudflare Tunnel).
-2. `APP_URL=https://pentana.silentmode.my` in production (so the spatie RP id resolves to the host).
-3. `https://pentana.silentmode.my/.well-known/apple-app-site-association` returns, as
+1. `pentana.silentmode.net` serves the Laravel app over **HTTPS** (Cloudflare Tunnel).
+2. `APP_URL=https://pentana.silentmode.net` in production (so the spatie RP id resolves to the host).
+3. `https://pentana.silentmode.net/.well-known/apple-app-site-association` returns, as
    `application/json` (no extension, no redirect):
    ```json
    { "webcredentials": { "apps": ["7778Y2522V.my.silentmode.pentana.iosApp"] } }
    ```
-4. The iOS app ships with the `webcredentials:pentana.silentmode.my` entitlement (real
+4. The iOS app ships with the `webcredentials:pentana.silentmode.net` entitlement (real
    provisioning profile / signed build — the entitlement needs the paid Apple Developer team).
 5. The app's API base for passkey calls is the **live domain** (the OS sets the assertion
-   origin to `https://pentana.silentmode.my`; the server validates against that RP id). The
+   origin to `https://pentana.silentmode.net`; the server validates against that RP id). The
    LAN-IP dev base cannot be used for the passkey ceremony.
 
 > Until 1–5 hold, the code builds and the non-passkey app keeps working on the LAN IP, but the
@@ -57,8 +57,8 @@ existing `spatie/laravel-passkeys` setup but over JSON APIs for the mobile app.
 
 ## iOS (`pentana-mobile`)
 - **`iosApp.entitlements`** with `com.apple.developer.associated-domains =
-  ["webcredentials:pentana.silentmode.my"]`; `CODE_SIGN_ENTITLEMENTS` wired in the project.
-- **`AppConfig.passkeyRelyingParty = "pentana.silentmode.my"`**.
+  ["webcredentials:pentana.silentmode.net"]`; `CODE_SIGN_ENTITLEMENTS` wired in the project.
+- **`AppConfig.passkeyRelyingParty = "pentana.silentmode.net"`**.
 - **`PasskeyManager`** (Swift): wraps `ASAuthorizationPlatformPublicKeyCredentialProvider`
   with async `register(optionsJson)` / `signIn(optionsJson)` (continuation + delegate +
   presentation-context provider). The only non-shared part.

@@ -206,12 +206,12 @@ The app can register a passkey on the phone and sign in with it, reusing the bac
 > domain is up.
 
 ### Deploy checklist (all must be true before passkeys work)
-1. `pentana.silentmode.my` serves the app over **HTTPS**; `APP_URL=https://pentana.silentmode.my`.
-2. `https://pentana.silentmode.my/.well-known/apple-app-site-association` returns
+1. `pentana.silentmode.net` serves the app over **HTTPS**; `APP_URL=https://pentana.silentmode.net`.
+2. `https://pentana.silentmode.net/.well-known/apple-app-site-association` returns
    `{"webcredentials":{"apps":["7778Y2522V.my.silentmode.pentana.iosApp"]}}` (ensure nginx
    serves `.well-known` — many configs deny dotfolders by default).
-3. The app's `AppConfig.baseURL` points at `https://pentana.silentmode.my/api/v1` (not the LAN IP)
-   for the passkey calls, and `passkeyRelyingParty` stays `pentana.silentmode.my`.
+3. The app's `AppConfig.baseURL` points at `https://pentana.silentmode.net/api/v1` (not the LAN IP)
+   for the passkey calls, and `passkeyRelyingParty` stays `pentana.silentmode.net`.
 4. A signed build whose team (`7778Y2522V`) has the **Associated Domains** capability enabled for
    the App ID `my.silentmode.pentana.iosApp`.
 

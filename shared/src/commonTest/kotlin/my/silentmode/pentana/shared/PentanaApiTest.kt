@@ -222,14 +222,14 @@ class PentanaApiTest {
     @Test
     fun passkeyLoginOptionsReturnsStateAndPublicKey() = runTest {
         val engine = jsonEngine(
-            """{"state":"abc123","publicKey":{"challenge":"Y2hhbGxlbmdl","rpId":"pentana.silentmode.my","allowCredentials":[]}}""",
+            """{"state":"abc123","publicKey":{"challenge":"Y2hhbGxlbmdl","rpId":"pentana.silentmode.net","allowCredentials":[]}}""",
         )
         val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore(), engine)
 
         val challenge = PasskeyRepository(client).loginOptions()
 
         assertEquals("abc123", challenge.state)
-        assertTrue(challenge.publicKeyJson.contains("pentana.silentmode.my"))
+        assertTrue(challenge.publicKeyJson.contains("pentana.silentmode.net"))
     }
 
     @Test

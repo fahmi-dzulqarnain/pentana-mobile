@@ -35,6 +35,9 @@ android {
 
 dependencies {
     implementation(project(":shared"))
+    // ApiClient's public constructor signature references Ktor's HttpClientEngine, so the
+    // app needs ktor-client-core on its compile classpath (:shared exposes it as implementation).
+    implementation(libs.ktor.client.core)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

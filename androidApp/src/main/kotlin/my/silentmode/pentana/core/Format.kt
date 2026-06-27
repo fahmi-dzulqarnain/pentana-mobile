@@ -50,6 +50,11 @@ fun relativeTimeFrom(createdAt: String?): String {
     return relativeTime(System.currentTimeMillis(), created)
 }
 
+/** Long date for the Home greeting hero, e.g. "Friday, 27 June". */
+fun todayLong(): String =
+    java.time.LocalDate.now()
+        .format(java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM", java.util.Locale.ENGLISH))
+
 /** Up to two uppercase initials for an avatar. */
 fun initials(name: String): String {
     val parts = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }

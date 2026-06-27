@@ -1,5 +1,6 @@
 package my.silentmode.pentana.feature.login
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,12 +29,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import my.silentmode.pentana.R
 import my.silentmode.pentana.shared.model.UserDto
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.BtnVariant
@@ -56,13 +59,11 @@ fun LoginScreen(onSignedIn: (UserDto) -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Brand placeholder — Task 12 swaps in the PENTANA mark asset.
-            Box(
-                Modifier.size(76.dp).clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("P", style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.onPrimaryContainer, fontWeight = FontWeight.Bold)
-            }
+            Image(
+                painter = painterResource(R.drawable.pentana_mark),
+                contentDescription = null,
+                modifier = Modifier.size(76.dp).clip(RoundedCornerShape(24.dp)),
+            )
             Spacer(Modifier.height(18.dp))
             Text("PENTANA", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, letterSpacing = 0.12.em)
             Text("Member sign in", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)

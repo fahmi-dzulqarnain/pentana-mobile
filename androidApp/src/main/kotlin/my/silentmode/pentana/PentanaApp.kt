@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.silentmode.pentana.core.initials
+import my.silentmode.pentana.feature.activities.ActivitiesScreen
 import my.silentmode.pentana.feature.bills.BillsScreen
 import my.silentmode.pentana.feature.home.HomeScreen
 import my.silentmode.pentana.feature.login.LoginScreen
@@ -71,13 +72,8 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
                 NavDest.Home -> HomeScreen(userName = user.name, onSwitchTab = { active = it })
                 NavDest.Bills -> BillsScreen()
                 NavDest.Lunch -> LunchScreen()
-                NavDest.Activities -> TabPlaceholder("Activities")
+                NavDest.Activities -> ActivitiesScreen()
             }
         }
     }
-}
-
-@Composable
-private fun TabPlaceholder(name: String) {
-    Text("$name — coming up", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }

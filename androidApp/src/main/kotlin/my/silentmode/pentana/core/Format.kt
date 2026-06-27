@@ -50,6 +50,14 @@ fun relativeTimeFrom(createdAt: String?): String {
     return relativeTime(System.currentTimeMillis(), created)
 }
 
+/** Medium date-time for activity cards, e.g. "Thu 3 Jul · 7:00 AM". Falls back to the raw string. */
+fun dateTimeMedium(iso: String?): String {
+    val millis = parseIso(iso) ?: return iso ?: ""
+    return java.time.Instant.ofEpochMilli(millis)
+        .atZone(java.time.ZoneId.systemDefault())
+        .format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM · h:mm a", java.util.Locale.ENGLISH))
+}
+
 /** Long date for the Home greeting hero, e.g. "Friday, 27 June". */
 fun todayLong(): String =
     java.time.LocalDate.now()

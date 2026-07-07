@@ -30,6 +30,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.silentmode.pentana.core.dateTimeMedium
 import my.silentmode.pentana.shared.model.LunchDto
+import my.silentmode.pentana.shared.presentation.LunchStatus
+import my.silentmode.pentana.shared.presentation.LunchStore
+import my.silentmode.pentana.shared.presentation.LunchUiState
+import my.silentmode.pentana.shared.presentation.lunchClosedSummary
+import my.silentmode.pentana.shared.presentation.lunchStatus
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.ChipKind
 import my.silentmode.pentana.ui.components.EmptyState
@@ -44,12 +49,13 @@ import my.silentmode.pentana.ui.theme.LocalPentanaColors
 @Composable
 fun LunchScreen() {
     val vm = appViewModel { LunchViewModel(it.lunch) }
-    val state by vm.state.collectAsStateWithLifecycle()
-    PullToRefreshBox(isRefreshing = vm.refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
+    val state by vm.store.state.collectAsStateWithLifecycle()
+    val refreshing by vm.store.refreshing.collectAsStateWithLifecycle()
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm.store::refresh, modifier = Modifier.fillMaxSize()) {
         when (val s = state) {
             is LunchUiState.Loading -> LoadingState()
-            is LunchUiState.Error -> ErrorState(s.message, vm::load)
-            is LunchUiState.Content -> if (s.lunches.isEmpty()) LunchEmpty() else LunchList(s.lunches, vm)
+            is LunchUiState.Error -> ErrorState(s.message, vm.store::load)
+            is LunchUiState.Content -> if (s.lunches.isEmpty()) LunchEmpty() else LunchList(s.lunches, vm.store)
         }
     }
 }
@@ -67,13 +73,13 @@ private fun LunchEmpty() {
 }
 
 @Composable
-private fun LunchList(lunches: List<LunchDto>, vm: LunchViewModel) {
+private fun LunchList(lunches: List<LunchDto>, store: LunchStore) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         lunches.forEach { lunch ->
             LunchCard(
                 lunch = lunch,
-                onChoose = { optionId -> vm.choose(lunch.id, optionId) },
-                onNotAttending = { vm.notAttending(lunch.id) },
+                onChoose = { optionId -> store.choose(lunch.id, optionId) },
+                onNotAttending = { store.notAttending(lunch.id) },
             )
         }
     }
@@ -95,7 +101,7 @@ private fun LunchCard(lunch: LunchDto, onChoose: (Long) -> Unit, onNotAttending:
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            StatusChip(lunchChip(lunch))
+            StatusChip(chipKind(lunchStatus(lunch)))
         }
 
         if (!lunch.isOpen) {
@@ -105,7 +111,7 @@ private fun LunchCard(lunch: LunchDto, onChoose: (Long) -> Unit, onNotAttending:
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(Icons.Filled.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
-                Text(closedSummary(lunch), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(lunchClosedSummary(lunch), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
             lunch.options.forEach { opt ->
@@ -142,15 +148,8 @@ private fun LunchCard(lunch: LunchDto, onChoose: (Long) -> Unit, onNotAttending:
     }
 }
 
-private fun lunchChip(lunch: LunchDto): ChipKind = when {
-    lunch.isOpen && !lunch.responded -> ChipKind.VoteNow
-    lunch.isOpen && lunch.responded -> ChipKind.Responded
-    else -> ChipKind.Closed
-}
-
-private fun closedSummary(lunch: LunchDto): String {
-    if (!lunch.responded) return "Ordering closed — no order placed."
-    if (lunch.myMealOptionId == null) return "Ordering closed — you marked not attending."
-    val name = lunch.options.firstOrNull { it.mealOptionId == lunch.myMealOptionId }?.name
-    return if (name != null) "Ordering closed — you ordered $name." else "Ordering closed — order placed."
+private fun chipKind(status: LunchStatus): ChipKind = when (status) {
+    LunchStatus.VoteNow -> ChipKind.VoteNow
+    LunchStatus.Responded -> ChipKind.Responded
+    LunchStatus.Closed -> ChipKind.Closed
 }

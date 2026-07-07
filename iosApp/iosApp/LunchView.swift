@@ -3,7 +3,7 @@
 //  iosApp
 //
 
-import Shared
+@preconcurrency import Shared
 import SwiftUI
 
 struct LunchView: View {
@@ -17,10 +17,14 @@ struct LunchView: View {
             .task {
                 let s = store ?? session.makeLunchStore()
                 store = s
-                Task { for await value in s.state { state = value } }
-                Task { for await r in s.refreshing { refreshing = r.boolValue } }
+                // Collect both flows as structured children so they're cancelled when the
+                // view disappears and restart on reappear. The store is kept alive across
+                // reappear — its scope only runs one-shot load/choose coroutines, so it needs
+                // no explicit clear() (it's released when the view is destroyed).
+                async let states: Void = { for await value in s.state { await MainActor.run { state = value } } }()
+                async let refreshes: Void = { for await r in s.refreshing { await MainActor.run { refreshing = r.boolValue } } }()
+                _ = await (states, refreshes)
             }
-            .onDisappear { store?.clear() }
     }
 
     @ViewBuilder private var content: some View {

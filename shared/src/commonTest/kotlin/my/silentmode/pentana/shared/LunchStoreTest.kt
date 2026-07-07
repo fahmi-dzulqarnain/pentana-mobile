@@ -6,6 +6,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.fullPath
 import io.ktor.http.headersOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -107,6 +108,29 @@ class LunchStoreTest {
         assertIs<LunchUiState.Content>(state)
         assertTrue(state.lunches.first().responded)
         assertNull(state.lunches.first().myMealOptionId)
+    }
+
+    @Test fun choose_marks_lunch_in_flight_until_it_completes() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val engine = MockEngine { request ->
+            val body = if (request.url.fullPath.endsWith("/respond")) {
+                gate.await() // hold the response so the in-flight window is observable
+                chosenLunchJson
+            } else {
+                openLunchJson
+            }
+            respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val s = LunchStore(LunchRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
+        s.state.first { it is LunchUiState.Content } // let the initial load settle
+        assertTrue(s.inFlight.value.isEmpty())
+        s.choose(lunchId = 1, mealOptionId = 10)
+        s.inFlight.first { it.contains(1L) } // the request is pending
+        s.choose(lunchId = 1, mealOptionId = 11) // guarded: ignored while one is in flight
+        gate.complete(Unit)
+        s.inFlight.first { it.isEmpty() } // cleared after completion
+        // the guarded second tap never ran, so the first option stands
+        assertEquals(10L, (s.state.value as LunchUiState.Content).lunches.first().myMealOptionId)
     }
 
     @Test fun error_emits_error() = runTest {

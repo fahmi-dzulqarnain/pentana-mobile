@@ -32,6 +32,10 @@ class LunchStore(private val repo: LunchRepository) {
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
 
+    /** Lunch ids with a vote/not-attending request in flight — drives per-card pending UI + the tap-guard. */
+    private val _inFlight = MutableStateFlow<Set<Long>>(emptySet())
+    val inFlight: StateFlow<Set<Long>> = _inFlight.asStateFlow()
+
     init { load() }
 
     fun load() {
@@ -60,23 +64,31 @@ class LunchStore(private val repo: LunchRepository) {
     }
 
     fun choose(lunchId: Long, mealOptionId: Long) {
+        if (lunchId in _inFlight.value) return
         scope.launch {
+            _inFlight.value = _inFlight.value + lunchId
             try {
                 replace(repo.chooseOption(lunchId, mealOptionId))
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
+            } finally {
+                _inFlight.value = _inFlight.value - lunchId
             }
         }
     }
 
     fun notAttending(lunchId: Long) {
+        if (lunchId in _inFlight.value) return
         scope.launch {
+            _inFlight.value = _inFlight.value + lunchId
             try {
                 replace(repo.markNotAttending(lunchId))
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
+            } finally {
+                _inFlight.value = _inFlight.value - lunchId
             }
         }
     }

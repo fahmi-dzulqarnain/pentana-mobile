@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.silentmode.pentana.core.dateTimeMedium
@@ -51,11 +52,12 @@ fun LunchScreen() {
     val vm = appViewModel { LunchViewModel(it.lunch) }
     val state by vm.store.state.collectAsStateWithLifecycle()
     val refreshing by vm.store.refreshing.collectAsStateWithLifecycle()
+    val inFlight by vm.store.inFlight.collectAsStateWithLifecycle()
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm.store::refresh, modifier = Modifier.fillMaxSize()) {
         when (val s = state) {
             is LunchUiState.Loading -> LoadingState()
             is LunchUiState.Error -> ErrorState(s.message, vm.store::load)
-            is LunchUiState.Content -> if (s.lunches.isEmpty()) LunchEmpty() else LunchList(s.lunches, vm.store)
+            is LunchUiState.Content -> if (s.lunches.isEmpty()) LunchEmpty() else LunchList(s.lunches, inFlight, vm.store)
         }
     }
 }
@@ -73,11 +75,12 @@ private fun LunchEmpty() {
 }
 
 @Composable
-private fun LunchList(lunches: List<LunchDto>, store: LunchStore) {
+private fun LunchList(lunches: List<LunchDto>, inFlight: Set<Long>, store: LunchStore) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         lunches.forEach { lunch ->
             LunchCard(
                 lunch = lunch,
+                busy = lunch.id in inFlight,
                 onChoose = { optionId -> store.choose(lunch.id, optionId) },
                 onNotAttending = { store.notAttending(lunch.id) },
             )
@@ -86,7 +89,7 @@ private fun LunchList(lunches: List<LunchDto>, store: LunchStore) {
 }
 
 @Composable
-private fun LunchCard(lunch: LunchDto, onChoose: (Long) -> Unit, onNotAttending: () -> Unit) {
+private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, onNotAttending: () -> Unit) {
     PentFilledCard {
         Row(
             Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 12.dp),
@@ -114,20 +117,22 @@ private fun LunchCard(lunch: LunchDto, onChoose: (Long) -> Unit, onNotAttending:
                 Text(lunchClosedSummary(lunch), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            lunch.options.forEach { opt ->
+            Column(Modifier.alpha(if (busy) 0.5f else 1f)) {
+                lunch.options.forEach { opt ->
+                    SingleSelectRow(
+                        title = opt.name ?: "Option",
+                        selected = lunch.myMealOptionId == opt.mealOptionId,
+                        onClick = { if (!busy) onChoose(opt.mealOptionId) },
+                        showDivider = true,
+                    )
+                }
                 SingleSelectRow(
-                    title = opt.name ?: "Option",
-                    selected = lunch.myMealOptionId == opt.mealOptionId,
-                    onClick = { onChoose(opt.mealOptionId) },
-                    showDivider = true,
+                    title = "Not attending",
+                    selected = lunch.responded && lunch.myMealOptionId == null,
+                    onClick = { if (!busy) onNotAttending() },
+                    showDivider = false,
                 )
             }
-            SingleSelectRow(
-                title = "Not attending",
-                selected = lunch.responded && lunch.myMealOptionId == null,
-                onClick = onNotAttending,
-                showDivider = false,
-            )
         }
 
         if (lunch.deadline != null) {

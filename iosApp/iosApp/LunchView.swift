@@ -11,6 +11,7 @@ struct LunchView: View {
     @State private var store: LunchStore?
     @State private var state: LunchUiState = LunchUiStateLoading.shared
     @State private var refreshing = false
+    @State private var inFlight: Set<Int64> = []
 
     var body: some View {
         content
@@ -23,7 +24,8 @@ struct LunchView: View {
                 // no explicit clear() (it's released when the view is destroyed).
                 async let states: Void = { for await value in s.state { await MainActor.run { state = value } } }()
                 async let refreshes: Void = { for await r in s.refreshing { await MainActor.run { refreshing = r.boolValue } } }()
-                _ = await (states, refreshes)
+                async let flights: Void = { for await ids in s.inFlight { await MainActor.run { inFlight = Set(ids.map { $0.int64Value }) } } }()
+                _ = await (states, refreshes, flights)
             }
     }
 
@@ -51,6 +53,7 @@ struct LunchView: View {
                         ForEach(c.lunches, id: \.id) { lunch in
                             LunchCard(
                                 lunch: lunch,
+                                busy: inFlight.contains(lunch.id),
                                 choose: { opt in store?.choose(lunchId: lunch.id, mealOptionId: opt) },
                                 notAttending: { store?.notAttending(lunchId: lunch.id) })
                         }
@@ -66,6 +69,7 @@ struct LunchView: View {
 
 private struct LunchCard: View {
     let lunch: LunchDto
+    let busy: Bool
     let choose: (Int64) -> Void
     let notAttending: () -> Void
 
@@ -82,18 +86,22 @@ private struct LunchCard: View {
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 12)
 
             if lunch.isOpen {
-                ForEach(Array(lunch.options.enumerated()), id: \.element.mealOptionId) { _, option in
+                VStack(spacing: 0) {
+                    ForEach(Array(lunch.options.enumerated()), id: \.element.mealOptionId) { _, option in
+                        PentHairline()
+                        optionRow(title: option.name ?? "Option",
+                                  chosen: lunch.responded && lunch.myMealOptionId?.int64Value == option.mealOptionId) {
+                            choose(option.mealOptionId)
+                        }
+                    }
                     PentHairline()
-                    optionRow(title: option.name ?? "Option",
-                              chosen: lunch.responded && lunch.myMealOptionId?.int64Value == option.mealOptionId) {
-                        choose(option.mealOptionId)
+                    optionRow(title: "Not attending",
+                              chosen: lunch.responded && lunch.myMealOptionId == nil) {
+                        notAttending()
                     }
                 }
-                PentHairline()
-                optionRow(title: "Not attending",
-                          chosen: lunch.responded && lunch.myMealOptionId == nil) {
-                    notAttending()
-                }
+                .opacity(busy ? 0.6 : 1)
+                .allowsHitTesting(!busy)
             } else {
                 HStack(spacing: 8) {
                     Image(systemName: "lock.fill").font(.system(size: 13)).foregroundStyle(Pent.label3)

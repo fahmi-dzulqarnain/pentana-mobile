@@ -1,5 +1,6 @@
 package my.silentmode.pentana.shared.presentation
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -50,17 +51,33 @@ class LunchStore(private val repo: LunchRepository) {
     private suspend fun fetch() {
         _state.value = try {
             LunchUiState.Content(repo.lunches())
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             LunchUiState.Error("Something went wrong. Pull down to refresh.")
         }
     }
 
     fun choose(lunchId: Long, mealOptionId: Long) {
-        scope.launch { runCatching { replace(repo.chooseOption(lunchId, mealOptionId)) } }
+        scope.launch {
+            try {
+                replace(repo.chooseOption(lunchId, mealOptionId))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+        }
     }
 
     fun notAttending(lunchId: Long) {
-        scope.launch { runCatching { replace(repo.markNotAttending(lunchId)) } }
+        scope.launch {
+            try {
+                replace(repo.markNotAttending(lunchId))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+        }
     }
 
     private fun replace(updated: LunchDto) {

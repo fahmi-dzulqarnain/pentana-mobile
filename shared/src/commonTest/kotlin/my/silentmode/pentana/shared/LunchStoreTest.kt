@@ -80,8 +80,24 @@ class LunchStoreTest {
         assertEquals(LunchStatus.VoteNow, lunchStatus(lunch(isOpen = true, responded = false)))
     }
 
+    @Test fun status_is_responded_when_open_and_responded() {
+        assertEquals(LunchStatus.Responded, lunchStatus(lunch(isOpen = true, responded = true)))
+    }
+
+    @Test fun status_is_closed_when_not_open() {
+        assertEquals(LunchStatus.Closed, lunchStatus(lunch(isOpen = false, responded = false)))
+    }
+
     @Test fun closed_summary_names_the_ordered_option() {
         assertEquals("Ordering closed — you ordered Beef.", lunchClosedSummary(lunch(isOpen = false, responded = true, myMealOptionId = 11)))
+    }
+
+    @Test fun closed_summary_reports_no_order_when_not_responded() {
+        assertEquals("Ordering closed — no order placed.", lunchClosedSummary(lunch(isOpen = false, responded = false)))
+    }
+
+    @Test fun closed_summary_reports_not_attending_when_no_option() {
+        assertEquals("Ordering closed — you marked not attending.", lunchClosedSummary(lunch(isOpen = false, responded = true, myMealOptionId = null)))
     }
 
     private fun lunch(isOpen: Boolean, responded: Boolean, myMealOptionId: Long? = null) = LunchDto(

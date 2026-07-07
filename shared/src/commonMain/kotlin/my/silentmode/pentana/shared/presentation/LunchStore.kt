@@ -65,8 +65,8 @@ class LunchStore(private val repo: LunchRepository) {
 
     fun choose(lunchId: Long, mealOptionId: Long) {
         if (lunchId in _inFlight.value) return
+        _inFlight.value = _inFlight.value + lunchId // synchronous check-and-set: no dispatch gap before the guard arms
         scope.launch {
-            _inFlight.value = _inFlight.value + lunchId
             try {
                 replace(repo.chooseOption(lunchId, mealOptionId))
             } catch (e: CancellationException) {
@@ -80,8 +80,8 @@ class LunchStore(private val repo: LunchRepository) {
 
     fun notAttending(lunchId: Long) {
         if (lunchId in _inFlight.value) return
+        _inFlight.value = _inFlight.value + lunchId // synchronous check-and-set: no dispatch gap before the guard arms
         scope.launch {
-            _inFlight.value = _inFlight.value + lunchId
             try {
                 replace(repo.markNotAttending(lunchId))
             } catch (e: CancellationException) {

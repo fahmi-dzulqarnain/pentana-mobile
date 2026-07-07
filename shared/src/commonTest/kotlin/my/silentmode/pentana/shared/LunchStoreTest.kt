@@ -110,10 +110,12 @@ class LunchStoreTest {
         assertNull(state.lunches.first().myMealOptionId)
     }
 
-    @Test fun choose_marks_lunch_in_flight_until_it_completes() = runTest {
+    @Test fun choose_marks_in_flight_and_guards_duplicate_submits() = runTest {
         val gate = CompletableDeferred<Unit>()
+        var respondCount = 0
         val engine = MockEngine { request ->
             val body = if (request.url.fullPath.endsWith("/respond")) {
+                respondCount++
                 gate.await() // hold the response so the in-flight window is observable
                 chosenLunchJson
             } else {
@@ -126,10 +128,10 @@ class LunchStoreTest {
         assertTrue(s.inFlight.value.isEmpty())
         s.choose(lunchId = 1, mealOptionId = 10)
         s.inFlight.first { it.contains(1L) } // the request is pending
-        s.choose(lunchId = 1, mealOptionId = 11) // guarded: ignored while one is in flight
+        s.choose(lunchId = 1, mealOptionId = 11) // guarded: must not start a second submit
         gate.complete(Unit)
         s.inFlight.first { it.isEmpty() } // cleared after completion
-        // the guarded second tap never ran, so the first option stands
+        assertEquals(1, respondCount) // the guard dropped the duplicate submit
         assertEquals(10L, (s.state.value as LunchUiState.Content).lunches.first().myMealOptionId)
     }
 

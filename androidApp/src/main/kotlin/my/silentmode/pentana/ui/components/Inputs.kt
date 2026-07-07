@@ -156,10 +156,11 @@ fun SingleSelectRow(
     modifier: Modifier = Modifier,
     sub: String? = null,
     showDivider: Boolean = false,
+    enabled: Boolean = true,
 ) {
     Column(modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
+            Modifier.fillMaxWidth().selectable(selected = selected, enabled = enabled, onClick = onClick, role = Role.RadioButton)
                 .padding(horizontal = 18.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),

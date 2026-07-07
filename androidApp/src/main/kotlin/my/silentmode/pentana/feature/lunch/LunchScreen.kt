@@ -117,20 +117,22 @@ private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, 
                 Text(lunchClosedSummary(lunch), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            Column(Modifier.alpha(if (busy) 0.5f else 1f)) {
+            Column(Modifier.alpha(if (busy) 0.6f else 1f)) {
                 lunch.options.forEach { opt ->
                     SingleSelectRow(
                         title = opt.name ?: "Option",
                         selected = lunch.myMealOptionId == opt.mealOptionId,
-                        onClick = { if (!busy) onChoose(opt.mealOptionId) },
+                        onClick = { onChoose(opt.mealOptionId) },
                         showDivider = true,
+                        enabled = !busy,
                     )
                 }
                 SingleSelectRow(
                     title = "Not attending",
                     selected = lunch.responded && lunch.myMealOptionId == null,
-                    onClick = { if (!busy) onNotAttending() },
+                    onClick = onNotAttending,
                     showDivider = false,
+                    enabled = !busy,
                 )
             }
         }

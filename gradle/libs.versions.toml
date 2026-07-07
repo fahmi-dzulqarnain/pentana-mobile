@@ -10,6 +10,7 @@ activity-compose = "1.9.3"
 lifecycle = "2.8.7"
 security-crypto = "1.1.0-alpha06"
 core-ktx = "1.13.1"
+skie = "0.10.13"
 
 [libraries]
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
@@ -42,3 +43,4 @@ kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", versio
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+skie = { id = "co.touchlab.skie", version.ref = "skie" }

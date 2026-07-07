@@ -19,8 +19,9 @@ sealed interface LunchUiState {
 }
 
 /**
- * Shared presentation logic for the Lunch screen. Owns its coroutine scope; each platform
- * calls [clear] on teardown (Android onCleared, iOS onDisappear).
+ * Shared presentation logic for the Lunch screen. Owns its coroutine scope; the host controls
+ * teardown. Android calls [clear] from ViewModel.onCleared(); iOS reuses the store across view
+ * reappearance and lets it release with the view, so it does not call [clear] on disappear.
  */
 class LunchStore(private val repo: LunchRepository) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

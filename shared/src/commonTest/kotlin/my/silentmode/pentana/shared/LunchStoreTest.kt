@@ -23,7 +23,9 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class LunchStoreTest {
@@ -44,6 +46,27 @@ class LunchStoreTest {
         "responded":true,"my_meal_option_id":10}}
     """.trimIndent()
 
+    private val notAttendingLunchJson = """
+        {"data":{"id":1,"date":"2026-07-13","caterer":"Dapur Selera","menu":"Nasi Lemak Royale",
+        "deadline":"2026-07-12T18:00:00+08:00","is_open":true,
+        "options":[{"meal_option_id":10,"name":"Chicken"},{"meal_option_id":11,"name":"Beef"}],
+        "responded":true,"my_meal_option_id":null}}
+    """.trimIndent()
+
+    // Two lunches so replace()'s per-id targeting is actually exercised.
+    private val twoLunchesJson = """
+        {"data":[
+        {"id":1,"date":"2026-07-13","caterer":"Dapur Selera","menu":"Nasi Lemak Royale",
+        "deadline":"2026-07-12T18:00:00+08:00","is_open":true,
+        "options":[{"meal_option_id":10,"name":"Chicken"},{"meal_option_id":11,"name":"Beef"}],
+        "responded":false,"my_meal_option_id":null},
+        {"id":2,"date":"2026-07-20","caterer":"The Daily Grind","menu":"Chicken Chop",
+        "deadline":"2026-07-19T18:00:00+08:00","is_open":true,
+        "options":[{"meal_option_id":20,"name":"Fish"},{"meal_option_id":21,"name":"Pasta"}],
+        "responded":false,"my_meal_option_id":null}
+        ]}
+    """.trimIndent()
+
     private fun store(handler: (String) -> Pair<HttpStatusCode, String>): LunchStore {
         val engine = MockEngine { request ->
             val (status, body) = handler(request.url.fullPath)
@@ -61,14 +84,29 @@ class LunchStoreTest {
         assertEquals("Nasi Lemak Royale", state.lunches.first().menu)
     }
 
-    @Test fun choose_updates_the_lunch() = runTest {
-        val s = store { path -> if (path.endsWith("/respond")) HttpStatusCode.OK to chosenLunchJson else HttpStatusCode.OK to openLunchJson }
-        s.state.first { it is LunchUiState.Content } // let the initial load settle before choosing
+    @Test fun choose_updates_only_the_target_lunch() = runTest {
+        val s = store { path -> if (path.endsWith("/respond")) HttpStatusCode.OK to chosenLunchJson else HttpStatusCode.OK to twoLunchesJson }
+        s.state.first { it is LunchUiState.Content && it.lunches.size == 2 } // let the initial load settle before choosing
         s.choose(lunchId = 1, mealOptionId = 10)
+        val state = s.state.first { it is LunchUiState.Content && it.lunches.first { l -> l.id == 1L }.responded }
+        assertIs<LunchUiState.Content>(state)
+        val chosen = state.lunches.first { it.id == 1L }
+        assertTrue(chosen.responded)
+        assertEquals(10L, chosen.myMealOptionId)
+        // the other lunch is left untouched
+        val other = state.lunches.first { it.id == 2L }
+        assertFalse(other.responded)
+        assertNull(other.myMealOptionId)
+    }
+
+    @Test fun not_attending_updates_the_lunch() = runTest {
+        val s = store { path -> if (path.endsWith("/respond")) HttpStatusCode.OK to notAttendingLunchJson else HttpStatusCode.OK to openLunchJson }
+        s.state.first { it is LunchUiState.Content } // let the initial load settle before responding
+        s.notAttending(lunchId = 1)
         val state = s.state.first { it is LunchUiState.Content && it.lunches.first().responded }
         assertIs<LunchUiState.Content>(state)
         assertTrue(state.lunches.first().responded)
-        assertEquals(10L, state.lunches.first().myMealOptionId)
+        assertNull(state.lunches.first().myMealOptionId)
     }
 
     @Test fun error_emits_error() = runTest {

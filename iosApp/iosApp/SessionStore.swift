@@ -54,8 +54,9 @@ final class SessionStore: ObservableObject {
 
     var isLoggedIn: Bool { user != nil }
 
-    /// Vend a fresh shared Lunch presentation store, backed by the shared `LunchRepository`.
-    /// The view owns its lifecycle (`clear()` on disappear).
+    /// Vend a shared Lunch presentation store, backed by the shared `LunchRepository`.
+    /// The view holds it for its lifetime and reuses it across reappearance (it is not
+    /// cleared on disappear); it releases with the view.
     func makeLunchStore() -> LunchStore { LunchStore(repo: lunch) }
 
     /// On launch: if a token exists, fetch the profile; drop it if the token is stale.

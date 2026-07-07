@@ -8,70 +8,62 @@ import SwiftUI
 
 struct LunchView: View {
     @EnvironmentObject private var session: SessionStore
-    @State private var lunches: [LunchDto] = []
-    @State private var isLoading = true
-    @State private var busyLunchId: Int64?
+    @State private var store: LunchStore?
+    @State private var state: LunchUiState = LunchUiStateLoading.shared
+    @State private var refreshing = false
 
     var body: some View {
-        VStack {
-            if isLoading && lunches.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            } else {
-                ScrollView {
-                    if lunches.isEmpty && !isLoading {
-                        EmptyStateView(symbol: "fork.knife", tint: Pent.lunch, bg: Pent.lunchBg,
-                                       title: "No upcoming lunches", message: "New catered lunches show up here to vote on.")
-                            .containerRelativeFrame(.vertical, alignment: .center)
-                    } else {
-                        VStack(spacing: 14) {
-                            ForEach(lunches, id: \.id) { lunch in
-                                LunchCard(
-                                    lunch: lunch,
-                                    busy: busyLunchId == lunch.id,
-                                    choose: {
-                                        opt in await update(lunch) {
-                                            try await session.lunch.chooseOption(lunchId: lunch.id, mealOptionId: opt)
-                                        }
-                                    },
-                                    notAttending: {
-                                        await update(lunch) {
-                                            try await session.lunch.markNotAttending(lunchId: lunch.id)
-                                        }
-                                    })
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 28)
-                    }
-                }
-                .refreshable { await load() }
+        content
+            .task {
+                let s = store ?? session.makeLunchStore()
+                store = s
+                Task { for await value in s.state { state = value } }
+                Task { for await r in s.refreshing { refreshing = r.boolValue } }
             }
+            .onDisappear { store?.clear() }
+    }
+
+    @ViewBuilder private var content: some View {
+        switch onEnum(of: state) {
+        case .loading:
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        case .error(let e):
+            ScrollView {
+                EmptyStateView(symbol: "exclamationmark.triangle", tint: Pent.warn, bg: Pent.warnBg,
+                               title: "Couldn't load lunches", message: e.message,
+                               actionTitle: "Try again", action: { store?.load() })
+                    .containerRelativeFrame(.vertical, alignment: .center)
+            }
+            .refreshable { store?.refresh() }
+        case .content(let c):
+            ScrollView {
+                if c.lunches.isEmpty {
+                    EmptyStateView(symbol: "fork.knife", tint: Pent.lunch, bg: Pent.lunchBg,
+                                   title: "No upcoming lunches", message: "New catered lunches show up here to vote on.")
+                        .containerRelativeFrame(.vertical, alignment: .center)
+                } else {
+                    VStack(spacing: 14) {
+                        ForEach(c.lunches, id: \.id) { lunch in
+                            LunchCard(
+                                lunch: lunch,
+                                choose: { opt in store?.choose(lunchId: lunch.id, mealOptionId: opt) },
+                                notAttending: { store?.notAttending(lunchId: lunch.id) })
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 28)
+                }
+            }
+            .refreshable { store?.refresh() }
         }
-        .task { await load() }
-    }
-
-    private func update(_ lunch: LunchDto, _ op: @escaping () async throws -> LunchDto) async {
-        busyLunchId = lunch.id
-        do {
-            let updated = try await op()
-            if let i = lunches.firstIndex(where: { $0.id == lunch.id }) { lunches[i] = updated }
-        } catch {}
-        busyLunchId = nil
-    }
-
-    private func load() async {
-        isLoading = true
-        do { lunches = try await session.lunch.lunches() } catch {}
-        isLoading = false
     }
 }
 
 private struct LunchCard: View {
     let lunch: LunchDto
-    let busy: Bool
-    let choose: (Int64) async -> Void
-    let notAttending: () async -> Void
+    let choose: (Int64) -> Void
+    let notAttending: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -90,18 +82,18 @@ private struct LunchCard: View {
                     PentHairline()
                     optionRow(title: option.name ?? "Option",
                               chosen: lunch.responded && lunch.myMealOptionId?.int64Value == option.mealOptionId) {
-                        Task { await choose(option.mealOptionId) }
+                        choose(option.mealOptionId)
                     }
                 }
                 PentHairline()
                 optionRow(title: "Not attending",
                           chosen: lunch.responded && lunch.myMealOptionId == nil) {
-                    Task { await notAttending() }
+                    notAttending()
                 }
             } else {
                 HStack(spacing: 8) {
                     Image(systemName: "lock.fill").font(.system(size: 13)).foregroundStyle(Pent.label3)
-                    Text(closedSummary).font(.pentFoot).fontWeight(.medium).foregroundStyle(Pent.label2)
+                    Text(lunchClosedSummary(lunch: lunch)).font(.pentFoot).fontWeight(.medium).foregroundStyle(Pent.label2)
                     Spacer()
                 }
                 .padding(.horizontal, 16).padding(.vertical, 12)
@@ -118,8 +110,6 @@ private struct LunchCard: View {
         }
         .background(Pent.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Pent.separator, lineWidth: 0.5))
-        .opacity(busy ? 0.6 : 1)
-        .allowsHitTesting(!busy)
     }
 
     private func optionRow(title: String, chosen: Bool, tap: @escaping () -> Void) -> some View {
@@ -150,21 +140,16 @@ private struct LunchCard: View {
         return date
     }
     private var statusKind: PillKind {
-        if !lunch.isOpen { return .closed }
-        return lunch.responded ? .responded : .voteNow
+        switch lunchStatus(lunch: lunch) {
+        case .voteNow: return .voteNow
+        case .responded: return .responded
+        case .closed: return .closed
+        }
     }
     private var deadlineText: String {
         guard let dl = lunch.deadline, let when = PentDates.dateTime(dl) else {
             return lunch.isOpen ? "Ordering open" : "Ordering closed"
         }
         return lunch.isOpen ? "Order by \(when)" : "Ordering closed \(when)"
-    }
-    private var closedSummary: String {
-        guard lunch.responded else { return "Ordering closed — no order placed." }
-        if let id = lunch.myMealOptionId?.int64Value,
-           let name = lunch.options.first(where: { $0.mealOptionId == id })?.name {
-            return "Ordering closed — you ordered \(name)."
-        }
-        return "Ordering closed — you marked not attending."
     }
 }

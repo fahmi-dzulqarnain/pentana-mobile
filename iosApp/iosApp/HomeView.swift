@@ -6,52 +6,61 @@
 //  ambient field, from the single GET /dashboard aggregate. Cards switch tabs.
 //
 
-import Shared
+@preconcurrency import Shared
 import SwiftUI
 
 struct HomeView: View {
     @EnvironmentObject private var session: SessionStore
     @Binding var selection: Int
-    @State private var dashboard: DashboardDto?
-    @State private var isLoading = true
+    @State private var store: HomeStore?
+    @State private var state: HomeUiState = HomeUiStateLoading.shared
 
     var body: some View {
-        VStack {
-            if isLoading && dashboard == nil {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            } else {
-                ScrollView {
-                    if let d = dashboard {
-                        VStack(alignment: .leading, spacing: 11) {
-                            Text(todayString)
-                                .font(.pentSub).foregroundStyle(Pent.label2)
-                                .padding(.horizontal, 4).padding(.bottom, 2)
-
-                            duesCard(d)
-                            lunchCard(d.nextLunch)
-                            activityCard(d.nextActivity, openCount: Int(d.openActivitiesCount))
-                            proofsCard(pending: Int(d.pendingProofsCount))
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 28)
-                    } else {
-                        EmptyStateView(symbol: "icloud.slash", tint: Pent.bad, bg: Pent.badBg,
-                                       title: "Couldn't load", message: "Couldn't load your summary. Pull to refresh.")
-                            .containerRelativeFrame(.vertical, alignment: .center)
-                    }
-                }
-                .refreshable { await load() }
+        content
+            .task {
+                let s = store ?? session.makeHomeStore()
+                store = s
+                async let states: Void = { for await value in s.state { await MainActor.run { state = value } } }()
+                _ = await states
             }
+    }
+
+    @ViewBuilder private var content: some View {
+        switch onEnum(of: state) {
+        case .loading:
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        case .error(let e):
+            ScrollView {
+                EmptyStateView(symbol: "icloud.slash", tint: Pent.bad, bg: Pent.badBg,
+                               title: "Couldn't load", message: e.message)
+                    .containerRelativeFrame(.vertical, alignment: .center)
+            }
+            .refreshable { store?.refresh() }
+        case .content(let c):
+            ScrollView {
+                VStack(alignment: .leading, spacing: 11) {
+                    Text(todayString)
+                        .font(.pentSub).foregroundStyle(Pent.label2)
+                        .padding(.horizontal, 4).padding(.bottom, 2)
+
+                    duesCard(c.data)
+                    lunchCard(c.data.nextLunch)
+                    activityCard(c.data.nextActivity, openCount: Int(c.data.openActivitiesCount))
+                    proofsCard(pending: Int(c.data.pendingProofsCount))
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 28)
+            }
+            .refreshable { store?.refresh() }
         }
-        .task { await load() }
     }
 
     // MARK: Cards
 
     @ViewBuilder
     private func duesCard(_ d: DashboardDto) -> some View {
-        let cleared = d.bills.totalOutstanding == "0.00" && Int(d.pendingProofsCount) == 0
+        let cleared = duesCleared(d: d)
         if cleared {
             HStack(spacing: 13) {
                 Circle().fill(Pent.okBg).frame(width: 46, height: 46)
@@ -81,12 +90,10 @@ struct HomeView: View {
         HomeCard(symbol: "fork.knife", tint: Pent.lunch, bg: Pent.lunchBg, title: "Next lunch") { selection = 2 } content: {
             if let lunch {
                 Text(lunchLine(lunch)).font(.pentCallout).fontWeight(.medium).foregroundStyle(Pent.label)
-                if lunch.responded {
-                    StatusPill(.responded).padding(.top, 4)
-                } else if lunch.isOpen {
-                    StatusPill(.voteNow).padding(.top, 4)
-                } else {
-                    StatusPill(.closed).padding(.top, 4)
+                switch dashboardLunchStatus(lunch: lunch) {
+                case .voteNow: StatusPill(.voteNow).padding(.top, 4)
+                case .responded: StatusPill(.responded).padding(.top, 4)
+                case .closed: StatusPill(.closed).padding(.top, 4)
                 }
             } else {
                 Text("None scheduled").font(.pentCallout).foregroundStyle(Pent.label2)
@@ -100,7 +107,9 @@ struct HomeView: View {
             if let activity {
                 Text(activity.title).font(.pentCallout).fontWeight(.medium).foregroundStyle(Pent.label)
                 HStack(spacing: 6) {
-                    StatusPill(activity.myStatus == "waitlisted" ? .waitlisted : .registered)
+                    // nextActivity is always one of the member's registrations, so anything non-waitlisted
+                    // renders as Registered (matches this platform's previous behaviour; .none is theoretical).
+                    StatusPill(dashboardActivityStatus(activity: activity) == .waitlisted ? .waitlisted : .registered)
                     if openCount > 0 {
                         Text("· \(openCount) open to join").font(.pentFoot).foregroundStyle(Pent.label2)
                     }
@@ -127,12 +136,6 @@ struct HomeView: View {
     }
 
     // MARK: Data + format
-
-    private func load() async {
-        isLoading = true
-        do { dashboard = try await session.dashboard.dashboard() } catch {}
-        isLoading = false
-    }
 
     private var todayString: String {
         let f = DateFormatter(); f.dateFormat = "EEEE, d MMMM"

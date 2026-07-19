@@ -59,6 +59,10 @@ final class SessionStore: ObservableObject {
     /// cleared on disappear); it releases with the view.
     func makeLunchStore() -> LunchStore { LunchStore(repo: lunch) }
 
+    /// Vend a shared Home presentation store, backed by the shared `DashboardRepository`.
+    /// Same lifecycle contract as makeLunchStore(): held in @State, reused across reappear, not cleared.
+    func makeHomeStore() -> HomeStore { HomeStore(repo: dashboard) }
+
     /// On launch: if a token exists, fetch the profile; drop it if the token is stale.
     func bootstrap() async {
         if auth.isLoggedIn() {

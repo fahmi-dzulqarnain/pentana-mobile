@@ -398,6 +398,7 @@ class BillsStoreTest {
         assertEquals(1, billsFetches)
         store.submitProof(imageBytes = ByteArray(4), fileName = "proof.jpg", amount = "50.00", note = null)
         store.submit.first { it is SubmitState.Success }
+        advanceUntilIdle() // the refetch runs after Success — drain it before asserting
         assertEquals(2, billsFetches) // success refetches the list
     }
 

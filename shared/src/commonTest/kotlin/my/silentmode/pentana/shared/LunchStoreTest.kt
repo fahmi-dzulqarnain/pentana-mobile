@@ -136,6 +136,35 @@ class LunchStoreTest {
         assertEquals(10L, (s.state.value as LunchUiState.Content).lunches.first().myMealOptionId)
     }
 
+    @Test fun guarded_duplicate_does_not_clear_visible_action_error() = runTest {
+        // Pins the ordering inside choose(): the actionError clear must stay BELOW the in-flight
+        // guard, so a guarded duplicate tap cannot wipe an error the user is reading.
+        val gate = CompletableDeferred<Unit>()
+        val engine = MockEngine { request ->
+            val path = request.url.fullPath
+            when {
+                path.endsWith("/lunches/1/respond") ->
+                    respond("{}", HttpStatusCode.InternalServerError, headersOf(HttpHeaders.ContentType, "application/json"))
+                path.endsWith("/lunches/2/respond") -> {
+                    gate.await() // hold lunch 2 in flight so the duplicate tap hits the guard
+                    respond(chosenLunchJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                }
+                else -> respond(twoLunchesJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+            }
+        }
+        val s = LunchStore(LunchRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
+        s.state.first { it is LunchUiState.Content && it.lunches.size == 2 }
+        s.choose(lunchId = 2, mealOptionId = 20) // in flight, held by the gate (no error yet to clear)
+        s.inFlight.first { 2L in it }
+        s.choose(lunchId = 1, mealOptionId = 10) // fails -> error becomes visible
+        s.inFlight.first { 1L !in it }
+        assertNotNull(s.actionError.value)
+        s.choose(lunchId = 2, mealOptionId = 21) // guarded duplicate — must NOT clear the visible error
+        assertNotNull(s.actionError.value)
+        gate.complete(Unit)
+        s.inFlight.first { it.isEmpty() }
+    }
+
     @Test fun choose_failure_sets_action_error() = runTest {
         val s = store { path -> if (path.endsWith("/respond")) HttpStatusCode.InternalServerError to "{}" else HttpStatusCode.OK to openLunchJson }
         s.state.first { it is LunchUiState.Content }

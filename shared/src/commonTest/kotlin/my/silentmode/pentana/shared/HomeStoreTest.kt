@@ -43,7 +43,7 @@ class HomeStoreTest {
         "pending_proofs_count":1}}
     """.trimIndent()
 
-    private fun store(handler: () -> Pair<HttpStatusCode, String>): HomeStore {
+    private fun makeStore(handler: () -> Pair<HttpStatusCode, String>): HomeStore {
         val engine = MockEngine { _ ->
             val (status, body) = handler()
             respond(body, status, headersOf(HttpHeaders.ContentType, "application/json"))
@@ -52,41 +52,41 @@ class HomeStoreTest {
     }
 
     @Test fun load_emits_content() = runTest {
-        val s = store { HttpStatusCode.OK to dashboardJson }
-        val state = s.state.first { it !is HomeUiState.Loading }
+        val store = makeStore { HttpStatusCode.OK to dashboardJson }
+        val state = store.state.first { it !is HomeUiState.Loading }
         assertIs<HomeUiState.Content>(state)
         assertEquals("120.00", state.data.bills.totalOutstanding)
         assertEquals("Beach Cleanup", state.data.nextActivity?.title)
     }
 
     @Test fun error_emits_error() = runTest {
-        val s = store { HttpStatusCode.InternalServerError to "{}" }
-        val state = s.state.first { it !is HomeUiState.Loading }
+        val store = makeStore { HttpStatusCode.InternalServerError to "{}" }
+        val state = store.state.first { it !is HomeUiState.Loading }
         assertIs<HomeUiState.Error>(state)
         assertEquals("Couldn't load your summary. Pull to refresh.", state.message)
     }
 
     @Test fun refresh_toggles_refreshing_and_updates_content() = runTest {
         var outstanding = "120.00"
-        val s = store { HttpStatusCode.OK to dashboardJson.replace("120.00", outstanding) }
-        s.state.first { it is HomeUiState.Content }
+        val store = makeStore { HttpStatusCode.OK to dashboardJson.replace("120.00", outstanding) }
+        store.state.first { it is HomeUiState.Content }
         outstanding = "0.00"
-        s.refresh()
-        val state = s.state.first { it is HomeUiState.Content && it.data.bills.totalOutstanding == "0.00" }
+        store.refresh()
+        val state = store.state.first { it is HomeUiState.Content && it.data.bills.totalOutstanding == "0.00" }
         assertIs<HomeUiState.Content>(state)
-        assertFalse(s.refreshing.value)
+        assertFalse(store.refreshing.value)
     }
 
     @Test fun refresh_failure_replaces_content_with_error() = runTest {
         var fail = false
-        val s = store { if (fail) HttpStatusCode.InternalServerError to "{}" else HttpStatusCode.OK to dashboardJson }
-        s.state.first { it is HomeUiState.Content }
+        val store = makeStore { if (fail) HttpStatusCode.InternalServerError to "{}" else HttpStatusCode.OK to dashboardJson }
+        store.state.first { it is HomeUiState.Content }
         fail = true
-        s.refresh()
-        val state = s.state.first { it is HomeUiState.Error }
+        store.refresh()
+        val state = store.state.first { it is HomeUiState.Error }
         assertIs<HomeUiState.Error>(state)
         assertEquals("Couldn't load your summary. Pull to refresh.", state.message)
-        assertFalse(s.refreshing.value)
+        assertFalse(store.refreshing.value)
     }
 
     // Derived display

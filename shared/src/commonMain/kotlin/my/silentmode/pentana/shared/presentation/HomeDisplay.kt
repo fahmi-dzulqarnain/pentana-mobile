@@ -8,8 +8,8 @@ import my.silentmode.pentana.shared.model.DashboardLunchDto
 enum class DashboardActivityStatus { Registered, Waitlisted, None }
 
 /** "All clear" celebration card instead of the dues card. */
-fun duesCleared(d: DashboardDto): Boolean =
-    d.bills.totalOutstanding == "0.00" && d.pendingProofsCount == 0
+fun duesCleared(dashboard: DashboardDto): Boolean =
+    dashboard.bills.totalOutstanding == "0.00" && dashboard.pendingProofsCount == 0
 
 /**
  * Status chip for the next-lunch card. Both platforms agree `responded` wins over closed

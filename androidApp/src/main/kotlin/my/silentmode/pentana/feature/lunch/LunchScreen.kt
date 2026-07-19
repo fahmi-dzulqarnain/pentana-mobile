@@ -66,10 +66,10 @@ fun LunchScreen() {
         }
     }
     PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm.store::refresh, modifier = Modifier.fillMaxSize()) {
-        when (val s = state) {
+        when (val uiState = state) {
             is LunchUiState.Loading -> LoadingState()
-            is LunchUiState.Error -> ErrorState(s.message, vm.store::load)
-            is LunchUiState.Content -> if (s.lunches.isEmpty()) LunchEmpty() else LunchList(s.lunches, inFlight, vm.store)
+            is LunchUiState.Error -> ErrorState(uiState.message, vm.store::load)
+            is LunchUiState.Content -> if (uiState.lunches.isEmpty()) LunchEmpty() else LunchList(uiState.lunches, inFlight, vm.store)
         }
         SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter))
     }
@@ -77,11 +77,11 @@ fun LunchScreen() {
 
 @Composable
 private fun LunchEmpty() {
-    val pc = LocalPentanaColors.current
+    val colors = LocalPentanaColors.current
     EmptyState(
         icon = Icons.Filled.Restaurant,
-        iconColor = pc.lunch.color,
-        container = pc.lunch.container,
+        iconColor = colors.lunch.color,
+        container = colors.lunch.container,
         title = "No upcoming lunches",
         body = "New catered lunches show up here to vote on.",
     )

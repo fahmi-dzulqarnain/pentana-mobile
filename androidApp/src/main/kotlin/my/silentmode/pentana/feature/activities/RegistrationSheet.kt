@@ -55,8 +55,8 @@ fun RegistrationSheet(activity: ActivityDto, vm: ActivitiesViewModel, onDismiss:
                 Spacer(Modifier.height(14.dp))
             }
 
-            activity.questions.forEach { q ->
-                QuestionField(q, answers)
+            activity.questions.forEach { question ->
+                QuestionField(question, answers)
                 Spacer(Modifier.height(14.dp))
             }
 
@@ -78,12 +78,12 @@ fun RegistrationSheet(activity: ActivityDto, vm: ActivitiesViewModel, onDismiss:
 }
 
 @Composable
-private fun QuestionField(q: QuestionDto, answers: SnapshotStateMap<String, String>) {
-    val label = q.label + if (q.required) " *" else ""
-    when (q.type) {
-        "textarea" -> PentTextField(answers[q.key] ?: "", { answers[q.key] = it }, label, multiline = true)
-        "select" -> PentDropdown(label, answers[q.key] ?: "", q.options ?: emptyList(), { answers[q.key] = it }, placeholder = "Select")
-        "checkbox" -> PentCheckbox(q.label, checked = answers[q.key] == "true", onCheckedChange = { answers[q.key] = checkboxValue(it) })
-        else -> PentTextField(answers[q.key] ?: "", { answers[q.key] = it }, label)
+private fun QuestionField(question: QuestionDto, answers: SnapshotStateMap<String, String>) {
+    val label = question.label + if (question.required) " *" else ""
+    when (question.type) {
+        "textarea" -> PentTextField(answers[question.key] ?: "", { answers[question.key] = it }, label, multiline = true)
+        "select" -> PentDropdown(label, answers[question.key] ?: "", question.options ?: emptyList(), { answers[question.key] = it }, placeholder = "Select")
+        "checkbox" -> PentCheckbox(question.label, checked = answers[question.key] == "true", onCheckedChange = { answers[question.key] = checkboxValue(it) })
+        else -> PentTextField(answers[question.key] ?: "", { answers[question.key] = it }, label)
     }
 }

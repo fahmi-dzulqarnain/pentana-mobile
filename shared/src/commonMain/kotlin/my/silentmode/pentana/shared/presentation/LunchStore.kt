@@ -62,8 +62,8 @@ class LunchStore(private val repo: LunchRepository) {
     private suspend fun fetch() {
         _state.value = try {
             LunchUiState.Content(repo.lunches())
-        } catch (e: CancellationException) {
-            throw e
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (_: Exception) {
             LunchUiState.Error("Something went wrong. Pull down to refresh.")
         }
@@ -76,8 +76,8 @@ class LunchStore(private val repo: LunchRepository) {
         scope.launch {
             try {
                 replace(repo.chooseOption(lunchId, mealOptionId))
-            } catch (e: CancellationException) {
-                throw e
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (_: Exception) {
                 _actionError.value = "Couldn't save your choice. Please try again."
             } finally {
@@ -93,8 +93,8 @@ class LunchStore(private val repo: LunchRepository) {
         scope.launch {
             try {
                 replace(repo.markNotAttending(lunchId))
-            } catch (e: CancellationException) {
-                throw e
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (_: Exception) {
                 _actionError.value = "Couldn't save your choice. Please try again."
             } finally {

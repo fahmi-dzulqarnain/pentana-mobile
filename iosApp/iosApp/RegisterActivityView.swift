@@ -37,8 +37,8 @@ struct RegisterActivityView: View {
                         .background(Pent.badBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
 
-                    ForEach(activity.questions, id: \.key) { q in
-                        questionField(q)
+                    ForEach(activity.questions, id: \.key) { question in
+                        questionField(question)
                     }
                 }
                 .padding(18)
@@ -72,24 +72,24 @@ struct RegisterActivityView: View {
     }
 
     @ViewBuilder
-    private func questionField(_ q: QuestionDto) -> some View {
-        switch q.type {
+    private func questionField(_ question: QuestionDto) -> some View {
+        switch question.type {
         case "checkbox":
             Button {
-                answers[q.key] = (answers[q.key] == "1") ? "0" : "1"
+                answers[question.key] = (answers[question.key] == "1") ? "0" : "1"
             } label: {
                 HStack(spacing: 11) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(answers[q.key] == "1" ? Pent.accentSolid : Color.clear)
+                            .fill(answers[question.key] == "1" ? Pent.accentSolid : Color.clear)
                             .frame(width: 24, height: 24)
                             .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .strokeBorder(answers[q.key] == "1" ? Color.clear : Pent.label4, lineWidth: 1.5))
-                        if answers[q.key] == "1" {
+                                .strokeBorder(answers[question.key] == "1" ? Color.clear : Pent.label4, lineWidth: 1.5))
+                        if answers[question.key] == "1" {
                             Image(systemName: "checkmark").font(.system(size: 14, weight: .bold)).foregroundStyle(Pent.onBrand)
                         }
                     }
-                    Text(label(q)).font(.pentBody).foregroundStyle(Pent.label)
+                    Text(label(question)).font(.pentBody).foregroundStyle(Pent.label)
                     Spacer()
                 }
                 .contentShape(Rectangle())
@@ -97,28 +97,28 @@ struct RegisterActivityView: View {
             .buttonStyle(.plain)
             .frame(maxWidth: .infinity, alignment: .leading)
         case "select":
-            selectField(q)
+            selectField(question)
         case "textarea":
-            PentField(label: label(q), placeholder: "Your answer", text: binding(q.key), multiline: true, required: q.required)
+            PentField(label: label(question), placeholder: "Your answer", text: binding(question.key), multiline: true, required: question.required)
         default:
-            PentField(label: label(q), placeholder: "Your answer", text: binding(q.key), required: q.required)
+            PentField(label: label(question), placeholder: "Your answer", text: binding(question.key), required: question.required)
         }
     }
 
-    private func selectField(_ q: QuestionDto) -> some View {
+    private func selectField(_ question: QuestionDto) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            (Text(label(q).uppercased()) + (q.required ? Text(" *").foregroundColor(Pent.bad) : Text("")))
+            (Text(label(question).uppercased()) + (question.required ? Text(" *").foregroundColor(Pent.bad) : Text("")))
                 .font(.system(size: 12.5, weight: .semibold)).tracking(0.4)
                 .foregroundStyle(Pent.label2).padding(.horizontal, 4)
             Menu {
-                ForEach(q.options ?? [], id: \.self) { opt in
-                    Button(opt) { answers[q.key] = opt }
+                ForEach(question.options ?? [], id: \.self) { opt in
+                    Button(opt) { answers[question.key] = opt }
                 }
             } label: {
                 HStack {
-                    Text(answers[q.key]?.isEmpty == false ? answers[q.key]! : "Select an option")
+                    Text(answers[question.key]?.isEmpty == false ? answers[question.key]! : "Select an option")
                         .font(.pentBody)
-                        .foregroundStyle(answers[q.key]?.isEmpty == false ? Pent.label : Pent.label4)
+                        .foregroundStyle(answers[question.key]?.isEmpty == false ? Pent.label : Pent.label4)
                     Spacer()
                     Image(systemName: "chevron.down").font(.system(size: 14, weight: .semibold)).foregroundStyle(Pent.label3)
                 }
@@ -129,15 +129,15 @@ struct RegisterActivityView: View {
         }
     }
 
-    private func label(_ q: QuestionDto) -> String { q.label }
+    private func label(_ question: QuestionDto) -> String { question.label }
     private func binding(_ key: String) -> Binding<String> {
         Binding(get: { answers[key] ?? "" }, set: { answers[key] = $0 })
     }
     private var requiredAnswered: Bool {
-        activity.questions.allSatisfy { q in
-            guard q.required else { return true }
-            if q.type == "checkbox" { return answers[q.key] == "1" }
-            return !(answers[q.key] ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        activity.questions.allSatisfy { question in
+            guard question.required else { return true }
+            if question.type == "checkbox" { return answers[question.key] == "1" }
+            return !(answers[question.key] ?? "").trimmingCharacters(in: .whitespaces).isEmpty
         }
     }
 

@@ -16,15 +16,15 @@ struct LunchView: View {
     var body: some View {
         content
             .task {
-                let s = store ?? session.makeLunchStore()
-                store = s
+                let activeStore = store ?? session.makeLunchStore()
+                store = activeStore
                 // Collect the store's flows as structured children so they're cancelled when the
                 // view disappears and restart on reappear. The store is kept alive across
                 // reappear — its scope only runs one-shot load/choose coroutines, so it needs
                 // no explicit clear() (it's released when the view is destroyed).
-                async let states: Void = { for await value in s.state { await MainActor.run { state = value } } }()
-                async let flights: Void = { for await ids in s.inFlight { await MainActor.run { inFlight = Set(ids.map { $0.int64Value }) } } }()
-                async let errors: Void = { for await e in s.actionError { await MainActor.run { actionError = e } } }()
+                async let states: Void = { for await value in activeStore.state { await MainActor.run { state = value } } }()
+                async let flights: Void = { for await ids in activeStore.inFlight { await MainActor.run { inFlight = Set(ids.map { $0.int64Value }) } } }()
+                async let errors: Void = { for await message in activeStore.actionError { await MainActor.run { actionError = message } } }()
                 _ = await (states, flights, errors)
             }
             .alert(
@@ -42,23 +42,23 @@ struct LunchView: View {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        case .error(let e):
+        case .error(let error):
             ScrollView {
                 EmptyStateView(symbol: "exclamationmark.triangle", tint: Pent.warn, bg: Pent.warnBg,
-                               title: "Couldn't load lunches", message: e.message,
+                               title: "Couldn't load lunches", message: error.message,
                                actionTitle: "Try again", action: { store?.load() })
                     .containerRelativeFrame(.vertical, alignment: .center)
             }
             .refreshable { store?.refresh() }
-        case .content(let c):
+        case .content(let content):
             ScrollView {
-                if c.lunches.isEmpty {
+                if content.lunches.isEmpty {
                     EmptyStateView(symbol: "fork.knife", tint: Pent.lunch, bg: Pent.lunchBg,
                                    title: "No upcoming lunches", message: "New catered lunches show up here to vote on.")
                         .containerRelativeFrame(.vertical, alignment: .center)
                 } else {
                     VStack(spacing: 14) {
-                        ForEach(c.lunches, id: \.id) { lunch in
+                        ForEach(content.lunches, id: \.id) { lunch in
                             LunchCard(
                                 lunch: lunch,
                                 busy: inFlight.contains(lunch.id),
@@ -167,7 +167,7 @@ private struct LunchCard: View {
         }
     }
     private var deadlineText: String {
-        guard let dl = lunch.deadline, let when = PentDates.dateTime(dl) else {
+        guard let deadline = lunch.deadline, let when = PentDates.dateTime(deadline) else {
             return lunch.isOpen ? "Ordering open" : "Ordering closed"
         }
         return lunch.isOpen ? "Order by \(when)" : "Ordering closed \(when)"

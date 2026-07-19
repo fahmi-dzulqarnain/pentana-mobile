@@ -66,7 +66,7 @@ struct ActivitiesView: View {
         busyId = nil
     }
     private func replace(_ updated: ActivityDto) {
-        if let i = activities.firstIndex(where: { $0.id == updated.id }) { activities[i] = updated }
+        if let index = activities.firstIndex(where: { $0.id == updated.id }) { activities[index] = updated }
     }
     private func load() async {
         isLoading = true
@@ -104,8 +104,8 @@ private struct ActivityCard: View {
                 if let when = activity.startsAt.flatMap(PentDates.dateTime) {
                     Label(when, systemImage: "calendar").labelStyle(IconLeading(tint: Pent.activ))
                 }
-                if let where_ = activity.location, !where_.isEmpty {
-                    Label(where_, systemImage: "mappin.and.ellipse").labelStyle(IconLeading(tint: Pent.activ))
+                if let location = activity.location, !location.isEmpty {
+                    Label(location, systemImage: "mappin.and.ellipse").labelStyle(IconLeading(tint: Pent.activ))
                 }
             }
             .font(.pentFoot).foregroundStyle(Pent.label2)
@@ -164,8 +164,8 @@ private struct ActivityCard: View {
             case .waitlisted: return ("Full", Pent.warn, Pent.warnBg)
             case .closed: return ("Closed", Pent.neutral, Pent.neutralBg)
             case .open:
-                if let n = activity.spotsLeft?.int32Value {
-                    return ("\(n) spot\(n == 1 ? "" : "s") left", Pent.activ, Pent.activBg)
+                if let spotsLeft = activity.spotsLeft?.int32Value {
+                    return ("\(spotsLeft) spot\(spotsLeft == 1 ? "" : "s") left", Pent.activ, Pent.activBg)
                 }
                 return ("Open", Pent.activ, Pent.activBg)
             }
@@ -180,12 +180,12 @@ private struct ActivityCard: View {
 
     private func plainText(_ html: String?) -> String? {
         guard let html, !html.isEmpty else { return nil }
-        let s = html
+        let cleaned = html
             .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
             .replacingOccurrences(of: "&nbsp;", with: " ")
             .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return s.isEmpty ? nil : s
+        return cleaned.isEmpty ? nil : cleaned
     }
 }
 

@@ -198,7 +198,7 @@ fun PhotoPickerTile(
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val p = LocalPentanaColors.current
+    val colors = LocalPentanaColors.current
     if (selectedName == null) {
         Column(
             modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
@@ -206,8 +206,8 @@ fun PhotoPickerTile(
                 .clickable { onPick() }.padding(vertical = 22.dp, horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(p.proof.container), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.PhotoCamera, null, tint = p.proof.color, modifier = Modifier.size(22.dp))
+            Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(colors.proof.container), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.PhotoCamera, null, tint = colors.proof.color, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.height(8.dp))
             Text("Add receipt photo", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
@@ -221,12 +221,12 @@ fun PhotoPickerTile(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)).background(p.proof.container), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Receipt, null, tint = p.proof.color, modifier = Modifier.size(24.dp))
+            Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)).background(colors.proof.container), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Receipt, null, tint = colors.proof.color, modifier = Modifier.size(24.dp))
             }
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(Icons.Filled.CheckCircle, null, tint = p.ok.color, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Filled.CheckCircle, null, tint = colors.ok.color, modifier = Modifier.size(16.dp))
                     Text("Photo selected", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
                 }
                 Text(listOfNotNull(selectedName, selectedSize).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

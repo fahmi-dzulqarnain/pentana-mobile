@@ -52,8 +52,8 @@ class HomeStore(private val repo: DashboardRepository) {
     private suspend fun fetch() {
         _state.value = try {
             HomeUiState.Content(repo.dashboard())
-        } catch (e: CancellationException) {
-            throw e
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (_: Exception) {
             HomeUiState.Error("Couldn't load your summary. Pull to refresh.")
         }

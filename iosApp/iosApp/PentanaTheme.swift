@@ -28,13 +28,13 @@ extension Color {
     init(light: UInt, dark: UInt, lightAlpha: Double = 1, darkAlpha: Double = 1) {
         self = Color(uiColor: UIColor { trait in
             let isDark = trait.userInterfaceStyle == .dark
-            let h = isDark ? dark : light
-            let a = isDark ? darkAlpha : lightAlpha
+            let hex = isDark ? dark : light
+            let alpha = isDark ? darkAlpha : lightAlpha
             return UIColor(
-                red: CGFloat((h >> 16) & 0xFF) / 255,
-                green: CGFloat((h >> 8) & 0xFF) / 255,
-                blue: CGFloat(h & 0xFF) / 255,
-                alpha: CGFloat(a)
+                red: CGFloat((hex >> 16) & 0xFF) / 255,
+                green: CGFloat((hex >> 8) & 0xFF) / 255,
+                blue: CGFloat(hex & 0xFF) / 255,
+                alpha: CGFloat(alpha)
             )
         })
     }

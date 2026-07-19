@@ -82,12 +82,12 @@ fun PentTopBar(
 @Composable
 fun PentNavBar(active: NavDest, onSelect: (NavDest) -> Unit, modifier: Modifier = Modifier) {
     NavigationBar(modifier = modifier, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-        NavDest.entries.forEach { d ->
+        NavDest.entries.forEach { dest ->
             NavigationBarItem(
-                selected = active == d,
-                onClick = { onSelect(d) },
-                icon = { Icon(d.icon, contentDescription = d.label) },
-                label = { Text(d.label) },
+                selected = active == dest,
+                onClick = { onSelect(dest) },
+                icon = { Icon(dest.icon, contentDescription = dest.label) },
+                label = { Text(dest.label) },
                 colors = NavigationBarItemDefaults.colors(
                     indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
                     selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,

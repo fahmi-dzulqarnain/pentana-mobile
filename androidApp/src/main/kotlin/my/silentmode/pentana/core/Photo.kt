@@ -12,15 +12,15 @@ fun readPhoto(context: Context, uri: Uri): PickedPhoto {
     val resolver = context.contentResolver
     val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
     var name = "receipt.jpg"
-    resolver.query(uri, null, null, null, null)?.use { c ->
-        val idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-        if (idx >= 0 && c.moveToFirst()) c.getString(idx)?.let { name = it }
+    resolver.query(uri, null, null, null, null)?.use { cursor ->
+        val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (idx >= 0 && cursor.moveToFirst()) cursor.getString(idx)?.let { name = it }
     }
     return PickedPhoto(bytes, name, formatBytes(bytes.size))
 }
 
-private fun formatBytes(n: Int): String = when {
-    n >= 1_000_000 -> "%.1f MB".format(n / 1_000_000.0)
-    n >= 1_000 -> "${n / 1000} KB"
-    else -> "$n B"
+private fun formatBytes(byteCount: Int): String = when {
+    byteCount >= 1_000_000 -> "%.1f MB".format(byteCount / 1_000_000.0)
+    byteCount >= 1_000 -> "${byteCount / 1000} KB"
+    else -> "$byteCount B"
 }

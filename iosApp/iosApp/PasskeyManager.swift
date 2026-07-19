@@ -66,8 +66,8 @@ final class PasskeyManager: NSObject {
         return obj
     }
 
-    static func b64urlDecode(_ s: String?) -> Data? {
-        guard var str = s else { return nil }
+    static func b64urlDecode(_ value: String?) -> Data? {
+        guard var str = value else { return nil }
         str = str.replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
         while str.count % 4 != 0 { str += "=" }
         return Data(base64Encoded: str)
@@ -82,18 +82,18 @@ final class PasskeyManager: NSObject {
 
     private static func stringify(_ obj: [String: Any]) -> String {
         guard let data = try? JSONSerialization.data(withJSONObject: obj),
-              let s = String(data: data, encoding: .utf8) else { return "{}" }
-        return s
+              let json = String(data: data, encoding: .utf8) else { return "{}" }
+        return json
     }
 }
 
 extension PasskeyManager: ASAuthorizationControllerDelegate {
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
-        let cont = continuation
+        let pendingContinuation = continuation
         continuation = nil
         switch authorization.credential {
         case let reg as ASAuthorizationPlatformPublicKeyCredentialRegistration:
-            cont?.resume(returning: Self.stringify([
+            pendingContinuation?.resume(returning: Self.stringify([
                 "id": Self.b64urlEncode(reg.credentialID),
                 "rawId": Self.b64urlEncode(reg.credentialID),
                 "type": "public-key",
@@ -103,7 +103,7 @@ extension PasskeyManager: ASAuthorizationControllerDelegate {
                 ],
             ]))
         case let assertion as ASAuthorizationPlatformPublicKeyCredentialAssertion:
-            cont?.resume(returning: Self.stringify([
+            pendingContinuation?.resume(returning: Self.stringify([
                 "id": Self.b64urlEncode(assertion.credentialID),
                 "rawId": Self.b64urlEncode(assertion.credentialID),
                 "type": "public-key",
@@ -115,17 +115,17 @@ extension PasskeyManager: ASAuthorizationControllerDelegate {
                 ],
             ]))
         default:
-            cont?.resume(throwing: PasskeyError.failed)
+            pendingContinuation?.resume(throwing: PasskeyError.failed)
         }
     }
 
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
-        let cont = continuation
+        let pendingContinuation = continuation
         continuation = nil
         if let authError = error as? ASAuthorizationError, authError.code == .canceled {
-            cont?.resume(throwing: PasskeyError.canceled)
+            pendingContinuation?.resume(throwing: PasskeyError.canceled)
         } else {
-            cont?.resume(throwing: error)
+            pendingContinuation?.resume(throwing: error)
         }
     }
 }

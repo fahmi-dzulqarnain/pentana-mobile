@@ -26,16 +26,16 @@ struct NotificationsView: View {
                     }
                 }
                 .task {
-                    let s = store ?? session.makeNotificationsStore()
-                    store = s
+                    let activeStore = store ?? session.makeNotificationsStore()
+                    store = activeStore
                     async let states: Void = {
-                        for await value in s.state {
+                        for await value in activeStore.state {
                             let shouldMark = await MainActor.run { () -> Bool in
                                 state = value
                                 // Opening the sheet with unread items marks everything read (badge lives
                                 // in the session layer until the shared SessionManager lands).
-                                guard case .content(let c) = onEnum(of: value),
-                                      c.items.contains(where: { !$0.read }), !markedRead else { return false }
+                                guard case .content(let content) = onEnum(of: value),
+                                      content.items.contains(where: { !$0.read }), !markedRead else { return false }
                                 markedRead = true
                                 return true
                             }
@@ -52,15 +52,15 @@ struct NotificationsView: View {
         case .loading:
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        case .error(let e):
+        case .error(let error):
             ScrollView {
-                EmptyStateView(symbol: "bell.fill", title: "Couldn't load", message: e.message)
+                EmptyStateView(symbol: "bell.fill", title: "Couldn't load", message: error.message)
                     .containerRelativeFrame(.vertical, alignment: .center)
             }
-        case .content(let c):
+        case .content(let content):
             ScrollView {
                 VStack(spacing: 0) {
-                    if c.items.isEmpty {
+                    if content.items.isEmpty {
                         EmptyStateView(symbol: "bell.fill", title: "No notifications yet",
                                        message: "Lunch, activity and payment updates will show up here.")
                             .containerRelativeFrame(.vertical, alignment: .center)
@@ -73,9 +73,9 @@ struct NotificationsView: View {
                         .padding(.bottom, 6)
 
                         InsetGroup {
-                            ForEach(Array(c.items.enumerated()), id: \.element.id) { index, item in
+                            ForEach(Array(content.items.enumerated()), id: \.element.id) { index, item in
                                 NotifRow(item: item)
-                                if index < c.items.count - 1 { PentHairline(leadingInset: 60) }
+                                if index < content.items.count - 1 { PentHairline(leadingInset: 60) }
                             }
                         }
                     }
@@ -104,8 +104,8 @@ private struct NotifRow: View {
                 HStack(alignment: .top, spacing: 8) {
                     Text(item.title).font(.pentBody).fontWeight(item.read ? .medium : .semibold).foregroundStyle(Pent.label)
                     Spacer(minLength: 4)
-                    if let t = item.createdAt.flatMap(PentDates.relative) {
-                        Text(t).font(.pentCap).foregroundStyle(Pent.label3).fixedSize()
+                    if let relativeTime = item.createdAt.flatMap(PentDates.relative) {
+                        Text(relativeTime).font(.pentCap).foregroundStyle(Pent.label3).fixedSize()
                     }
                 }
                 if let body = item.body, !body.isEmpty {

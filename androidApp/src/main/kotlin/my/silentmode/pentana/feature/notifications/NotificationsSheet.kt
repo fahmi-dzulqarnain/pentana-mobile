@@ -64,12 +64,12 @@ fun NotificationsSheet(onMarkAllRead: () -> Unit, onDismiss: () -> Unit) {
                 Text("Notifications", style = MaterialTheme.typography.titleLarge)
                 PentButton("Mark all read", onMarkAllRead, variant = BtnVariant.Text)
             }
-            when (val s = state) {
+            when (val uiState = state) {
                 is NotifUiState.Loading -> Box(Modifier.fillMaxWidth().height(220.dp)) { LoadingState() }
                 is NotifUiState.Error -> Box(Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
-                    Text(s.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(uiState.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                is NotifUiState.Content -> if (s.items.isEmpty()) {
+                is NotifUiState.Content -> if (uiState.items.isEmpty()) {
                     EmptyState(
                         icon = Icons.Filled.Notifications,
                         iconColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -78,7 +78,7 @@ fun NotificationsSheet(onMarkAllRead: () -> Unit, onDismiss: () -> Unit) {
                     )
                 } else {
                     PentFilledCard {
-                        s.items.forEachIndexed { i, n -> NotifRow(n, last = i == s.items.lastIndex) }
+                        uiState.items.forEachIndexed { index, notification -> NotifRow(notification, last = index == uiState.items.lastIndex) }
                     }
                 }
             }
@@ -87,9 +87,9 @@ fun NotificationsSheet(onMarkAllRead: () -> Unit, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun NotifRow(n: NotificationDto, last: Boolean) {
-    val unread = !n.read
-    val (icon, container, tint) = notifVisual(n.title)
+private fun NotifRow(notification: NotificationDto, last: Boolean) {
+    val unread = !notification.read
+    val (icon, container, tint) = notifVisual(notification.title)
     Column {
         Row(
             Modifier.fillMaxWidth()
@@ -106,13 +106,13 @@ private fun NotifRow(n: NotificationDto, last: Boolean) {
             Column(Modifier.weight(1f)) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        n.title,
+                        notification.title,
                         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Medium),
                         modifier = Modifier.weight(1f),
                     )
-                    Text(relativeTimeFrom(n.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(relativeTimeFrom(notification.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                n.body?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                notification.body?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
         if (!last) HorizontalDivider(Modifier.padding(start = 76.dp), color = MaterialTheme.colorScheme.outlineVariant)
@@ -122,13 +122,13 @@ private fun NotifRow(n: NotificationDto, last: Boolean) {
 /** Map the shared kind decision to this platform's icon + colours. */
 @Composable
 private fun notifVisual(title: String): Triple<ImageVector, Color, Color> {
-    val pc = LocalPentanaColors.current
+    val colors = LocalPentanaColors.current
     return when (notificationKind(title)) {
-        NotificationKind.Lunch -> Triple(Icons.Filled.Restaurant, pc.lunch.container, pc.lunch.color)
-        NotificationKind.Cancelled -> Triple(Icons.Filled.Cancel, pc.bad.container, pc.bad.color)
-        NotificationKind.Payment -> Triple(Icons.Filled.Description, pc.proof.container, pc.proof.color)
-        NotificationKind.ActivityJoined -> Triple(Icons.Filled.Celebration, pc.activ.container, pc.activ.color)
-        NotificationKind.Activity -> Triple(Icons.Filled.CalendarMonth, pc.activ.container, pc.activ.color)
+        NotificationKind.Lunch -> Triple(Icons.Filled.Restaurant, colors.lunch.container, colors.lunch.color)
+        NotificationKind.Cancelled -> Triple(Icons.Filled.Cancel, colors.bad.container, colors.bad.color)
+        NotificationKind.Payment -> Triple(Icons.Filled.Description, colors.proof.container, colors.proof.color)
+        NotificationKind.ActivityJoined -> Triple(Icons.Filled.Celebration, colors.activ.container, colors.activ.color)
+        NotificationKind.Activity -> Triple(Icons.Filled.CalendarMonth, colors.activ.container, colors.activ.color)
         NotificationKind.General -> Triple(Icons.Filled.Notifications, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
     }
 }

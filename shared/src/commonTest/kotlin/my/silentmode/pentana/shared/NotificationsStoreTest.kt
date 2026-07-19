@@ -32,7 +32,7 @@ class NotificationsStoreTest {
         ],"unread_count":1}
     """.trimIndent()
 
-    private fun store(handler: () -> Pair<HttpStatusCode, String>): NotificationsStore {
+    private fun makeStore(handler: () -> Pair<HttpStatusCode, String>): NotificationsStore {
         val engine = MockEngine { _ ->
             val (status, body) = handler()
             respond(body, status, headersOf(HttpHeaders.ContentType, "application/json"))
@@ -41,16 +41,16 @@ class NotificationsStoreTest {
     }
 
     @Test fun load_emits_content() = runTest {
-        val s = store { HttpStatusCode.OK to pageJson }
-        val state = s.state.first { it !is NotifUiState.Loading }
+        val store = makeStore { HttpStatusCode.OK to pageJson }
+        val state = store.state.first { it !is NotifUiState.Loading }
         assertIs<NotifUiState.Content>(state)
         assertEquals(2, state.items.size)
         assertEquals("Lunch voting is open", state.items.first().title)
     }
 
     @Test fun error_emits_error() = runTest {
-        val s = store { HttpStatusCode.InternalServerError to "{}" }
-        val state = s.state.first { it !is NotifUiState.Loading }
+        val store = makeStore { HttpStatusCode.InternalServerError to "{}" }
+        val state = store.state.first { it !is NotifUiState.Loading }
         assertIs<NotifUiState.Error>(state)
         assertEquals("Couldn't load notifications.", state.message)
     }

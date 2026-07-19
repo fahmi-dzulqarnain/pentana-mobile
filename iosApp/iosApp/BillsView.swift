@@ -140,10 +140,10 @@ private struct BillRow: View {
     }
 
     /// "2026-06" -> "June 2026"
-    private func monthLabel(_ m: String) -> String {
-        let p = DateFormatter(); p.dateFormat = "yyyy-MM"; p.locale = Locale(identifier: "en_US_POSIX")
-        guard let d = p.date(from: m) else { return m }
-        let o = DateFormatter(); o.dateFormat = "MMMM yyyy"
-        return o.string(from: d)
+    private func monthLabel(_ month: String) -> String {
+        let parser = DateFormatter(); parser.dateFormat = "yyyy-MM"; parser.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = parser.date(from: month) else { return month }
+        let formatter = DateFormatter(); formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: date)
     }
 }

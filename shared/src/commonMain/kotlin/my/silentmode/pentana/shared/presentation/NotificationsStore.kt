@@ -37,8 +37,8 @@ class NotificationsStore(private val repo: NotificationsRepository) {
             _state.value = NotifUiState.Loading
             _state.value = try {
                 NotifUiState.Content(repo.notifications().data)
-            } catch (e: CancellationException) {
-                throw e
+            } catch (cancellation: CancellationException) {
+                throw cancellation
             } catch (_: Exception) {
                 NotifUiState.Error("Couldn't load notifications.")
             }

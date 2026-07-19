@@ -12,6 +12,7 @@ struct LunchView: View {
     @State private var state: LunchUiState = LunchUiStateLoading.shared
     @State private var refreshing = false
     @State private var inFlight: Set<Int64> = []
+    @State private var actionError: String?
 
     var body: some View {
         content
@@ -25,7 +26,16 @@ struct LunchView: View {
                 async let states: Void = { for await value in s.state { await MainActor.run { state = value } } }()
                 async let refreshes: Void = { for await r in s.refreshing { await MainActor.run { refreshing = r.boolValue } } }()
                 async let flights: Void = { for await ids in s.inFlight { await MainActor.run { inFlight = Set(ids.map { $0.int64Value }) } } }()
-                _ = await (states, refreshes, flights)
+                async let errors: Void = { for await e in s.actionError { await MainActor.run { actionError = e } } }()
+                _ = await (states, refreshes, flights, errors)
+            }
+            .alert(
+                "Something went wrong",
+                isPresented: Binding(get: { actionError != nil }, set: { if !$0 { store?.dismissActionError() } })
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(actionError ?? "")
             }
     }
 

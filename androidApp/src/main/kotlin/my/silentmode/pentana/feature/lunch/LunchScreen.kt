@@ -65,7 +65,7 @@ fun LunchScreen() {
             vm.store.dismissActionError()
         }
     }
-    PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm.store::refresh, modifier = Modifier.fillMaxSize()) {
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
         when (val uiState = state) {
             is LunchUiState.Loading -> LoadingState()
             is LunchUiState.Error -> ErrorState(uiState.message, vm.store::load)

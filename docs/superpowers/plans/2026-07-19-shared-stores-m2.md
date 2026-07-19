@@ -946,9 +946,12 @@ git commit -m "refactor(ios): Bills + proof submission consume shared BillsStore
 - [ ] **Step 1: Everything green**
 
 ```bash
-./gradlew :shared:allTests :androidApp:assembleDebug --rerun-tasks
+./gradlew :shared:allTests :androidApp:assembleDebug :androidApp:testDebugUnitTest --rerun-tasks
 xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
+
+(`:androidApp:testDebugUnitTest` is in the gate because `assembleDebug` never compiles androidApp
+test sources — a stale test import of a deleted symbol slipped through Task 6's gate exactly this way.)
 Expected: all suites green (Bills suite adds 10 tests; totals rise accordingly on all three targets); both apps build.
 
 - [ ] **Step 2: No duplicated logic remains**

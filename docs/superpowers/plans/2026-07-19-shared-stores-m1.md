@@ -26,7 +26,7 @@
 - Modify: `shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/LunchStore.kt`
 - Test: `shared/src/commonTest/kotlin/my/silentmode/pentana/shared/LunchStoreTest.kt`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `LunchStoreTest` (imports of `assertNotNull` from `kotlin.test` needed):
 
@@ -75,12 +75,12 @@ Add to `LunchStoreTest` (imports of `assertNotNull` from `kotlin.test` needed):
 }
 ```
 
-- [ ] **Step 2: Run — expect FAIL** (unresolved `actionError` / `dismissActionError`)
+- [x] **Step 2: Run — expect FAIL** (unresolved `actionError` / `dismissActionError`)
 
 Run: `./gradlew :shared:allTests`
 Expected: compile failure, unresolved reference `actionError`.
 
-- [ ] **Step 3: Implement in `LunchStore.kt`**
+- [x] **Step 3: Implement in `LunchStore.kt`**
 
 Add fields after the `inFlight` declaration:
 
@@ -130,12 +130,12 @@ fun notAttending(lunchId: Long) {
 }
 ```
 
-- [ ] **Step 4: Run — expect PASS**
+- [x] **Step 4: Run — expect PASS**
 
 Run: `./gradlew :shared:allTests`
 Expected: all tests pass (existing + 4 new).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/LunchStore.kt shared/src/commonTest/kotlin/my/silentmode/pentana/shared/LunchStoreTest.kt
@@ -149,7 +149,7 @@ git commit -m "feat(shared): actionError surfacing on LunchStore fire-and-forget
 **Files:**
 - Modify: `androidApp/src/main/kotlin/my/silentmode/pentana/feature/lunch/LunchScreen.kt`
 
-- [ ] **Step 1: Wire the Snackbar**
+- [x] **Step 1: Wire the Snackbar**
 
 In `LunchScreen()`, collect the error and host a Snackbar inside the `PullToRefreshBox` (its content is a `BoxScope`). New imports:
 
@@ -191,12 +191,12 @@ fun LunchScreen() {
 
 (`Alignment` is already imported in this file.)
 
-- [ ] **Step 2: Build**
+- [x] **Step 2: Build**
 
 Run: `./gradlew :androidApp:assembleDebug`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add androidApp/src/main/kotlin/my/silentmode/pentana/feature/lunch/LunchScreen.kt
@@ -210,7 +210,7 @@ git commit -m "feat(android): Snackbar for shared Lunch actionError"
 **Files:**
 - Modify: `iosApp/iosApp/LunchView.swift`
 
-- [ ] **Step 1: Collect the flow + present an alert**
+- [x] **Step 1: Collect the flow + present an alert**
 
 In `LunchView`, add state:
 
@@ -242,12 +242,12 @@ The setter clears the local state synchronously — waiting for the store's nil 
 Kotlin → SKIE → MainActor leaves a window where a body re-evaluation re-presents the alert.
 The message copy is shared (from the store); only the alert chrome/title is native.
 
-- [ ] **Step 2: Build**
+- [x] **Step 2: Build**
 
 Run: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`
 Expected: `BUILD SUCCEEDED`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add iosApp/iosApp/LunchView.swift
@@ -263,7 +263,7 @@ git commit -m "feat(ios): alert for shared Lunch actionError"
 - Create: `shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/HomeDisplay.kt`
 - Test: `shared/src/commonTest/kotlin/my/silentmode/pentana/shared/HomeStoreTest.kt`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```kotlin
 package my.silentmode.pentana.shared
@@ -383,12 +383,12 @@ class HomeStoreTest {
 }
 ```
 
-- [ ] **Step 2: Run — expect FAIL** (unresolved `HomeStore`/`HomeUiState`/`duesCleared`/…)
+- [x] **Step 2: Run — expect FAIL** (unresolved `HomeStore`/`HomeUiState`/`duesCleared`/…)
 
 Run: `./gradlew :shared:allTests`
 Expected: compile failure, unresolved references.
 
-- [ ] **Step 3: Implement `HomeDisplay.kt`**
+- [x] **Step 3: Implement `HomeDisplay.kt`**
 
 ```kotlin
 package my.silentmode.pentana.shared.presentation
@@ -421,7 +421,7 @@ fun dashboardActivityStatus(activity: DashboardActivityDto): DashboardActivitySt
 }
 ```
 
-- [ ] **Step 4: Implement `HomeStore.kt`**
+- [x] **Step 4: Implement `HomeStore.kt`**
 
 ```kotlin
 package my.silentmode.pentana.shared.presentation
@@ -489,12 +489,12 @@ class HomeStore(private val repo: DashboardRepository) {
 }
 ```
 
-- [ ] **Step 5: Run — expect PASS**
+- [x] **Step 5: Run — expect PASS**
 
 Run: `./gradlew :shared:allTests`
 Expected: all tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/HomeStore.kt shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/HomeDisplay.kt shared/src/commonTest/kotlin/my/silentmode/pentana/shared/HomeStoreTest.kt
@@ -509,7 +509,7 @@ git commit -m "feat(shared): HomeStore + dashboard display decisions + tests"
 - Modify: `androidApp/src/main/kotlin/my/silentmode/pentana/feature/home/HomeViewModel.kt`
 - Modify: `androidApp/src/main/kotlin/my/silentmode/pentana/feature/home/HomeScreen.kt`
 
-- [ ] **Step 1: Slim `HomeViewModel.kt`**
+- [x] **Step 1: Slim `HomeViewModel.kt`**
 
 Replace the whole file with:
 
@@ -528,7 +528,7 @@ class HomeViewModel(repo: DashboardRepository) : ViewModel() {
 
 (The local `HomeUiState` sealed interface and `refreshing` mutableState are gone — they come from the shared store.)
 
-- [ ] **Step 2: Update `HomeScreen.kt`**
+- [x] **Step 2: Update `HomeScreen.kt`**
 
 Import changes — remove nothing else; add:
 
@@ -595,12 +595,12 @@ Row(verticalAlignment = Alignment.CenterVertically) {
 }
 ```
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run: `./gradlew :androidApp:assembleDebug`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add androidApp/src/main/kotlin/my/silentmode/pentana/feature/home
@@ -615,7 +615,7 @@ git commit -m "refactor(android): Home consumes shared HomeStore + display decis
 - Modify: `iosApp/iosApp/SessionStore.swift`
 - Modify: `iosApp/iosApp/HomeView.swift`
 
-- [ ] **Step 1: Vend the store from `SessionStore`** — next to `makeLunchStore()`:
+- [x] **Step 1: Vend the store from `SessionStore`** — next to `makeLunchStore()`:
 
 ```swift
 /// Vend a shared Home presentation store, backed by the shared `DashboardRepository`.
@@ -623,7 +623,7 @@ git commit -m "refactor(android): Home consumes shared HomeStore + display decis
 func makeHomeStore() -> HomeStore { HomeStore(repo: dashboard) }
 ```
 
-- [ ] **Step 2: Rewrite `HomeView`'s state handling**
+- [x] **Step 2: Rewrite `HomeView`'s state handling**
 
 Change the import to `@preconcurrency import Shared`. Replace the `@State` vars, `body`, and delete the `load()` func:
 
@@ -702,12 +702,12 @@ StatusPill(dashboardActivityStatus(activity: activity) == .waitlisted ? .waitlis
 
 > SKIE notes: shared top-level functions are GLOBAL Swift functions with labelled params (`duesCleared(d:)`, `dashboardLunchStatus(lunch:)`, `dashboardActivityStatus(activity:)`); sealed `HomeUiState` → `onEnum(of:)` with `HomeUiStateLoading.shared` for the `data object`; enum cases lower-camelCased. `openActivitiesCount`/`pendingProofsCount` are Kotlin `Int` — they arrive as `Int32`, so the existing `Int(...)` conversions still apply.
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`
 Expected: `BUILD SUCCEEDED`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add iosApp/iosApp/SessionStore.swift iosApp/iosApp/HomeView.swift
@@ -723,7 +723,7 @@ git commit -m "refactor(ios): Home consumes shared HomeStore via SKIE"
 - Create: `shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/NotificationsDisplay.kt`
 - Test: `shared/src/commonTest/kotlin/my/silentmode/pentana/shared/NotificationsStoreTest.kt`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```kotlin
 package my.silentmode.pentana.shared
@@ -825,12 +825,12 @@ class NotificationsStoreTest {
 }
 ```
 
-- [ ] **Step 2: Run — expect FAIL** (unresolved references)
+- [x] **Step 2: Run — expect FAIL** (unresolved references)
 
 Run: `./gradlew :shared:allTests`
 Expected: compile failure.
 
-- [ ] **Step 3: Implement `NotificationsDisplay.kt`**
+- [x] **Step 3: Implement `NotificationsDisplay.kt`**
 
 ```kotlin
 package my.silentmode.pentana.shared.presentation
@@ -856,7 +856,7 @@ fun notificationKind(title: String): NotificationKind {
 }
 ```
 
-- [ ] **Step 4: Implement `NotificationsStore.kt`**
+- [x] **Step 4: Implement `NotificationsStore.kt`**
 
 ```kotlin
 package my.silentmode.pentana.shared.presentation
@@ -910,12 +910,12 @@ class NotificationsStore(private val repo: NotificationsRepository) {
 }
 ```
 
-- [ ] **Step 5: Run — expect PASS**
+- [x] **Step 5: Run — expect PASS**
 
 Run: `./gradlew :shared:allTests`
 Expected: all tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/NotificationsStore.kt shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/NotificationsDisplay.kt shared/src/commonTest/kotlin/my/silentmode/pentana/shared/NotificationsStoreTest.kt
@@ -930,7 +930,7 @@ git commit -m "feat(shared): NotificationsStore + notification kind mapping + te
 - Modify: `androidApp/src/main/kotlin/my/silentmode/pentana/feature/notifications/NotificationsViewModel.kt`
 - Modify: `androidApp/src/main/kotlin/my/silentmode/pentana/feature/notifications/NotificationsSheet.kt`
 
-- [ ] **Step 1: Slim `NotificationsViewModel.kt`**
+- [x] **Step 1: Slim `NotificationsViewModel.kt`**
 
 Replace the whole file with:
 
@@ -947,7 +947,7 @@ class NotificationsViewModel(repo: NotificationsRepository) : ViewModel() {
 }
 ```
 
-- [ ] **Step 2: Update `NotificationsSheet.kt`**
+- [x] **Step 2: Update `NotificationsSheet.kt`**
 
 Import changes — remove the (now deleted) local `NotifUiState` reference by importing the shared ones:
 
@@ -977,12 +977,12 @@ private fun notifVisual(title: String): Triple<ImageVector, Color, Color> {
 }
 ```
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run: `./gradlew :androidApp:assembleDebug`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add androidApp/src/main/kotlin/my/silentmode/pentana/feature/notifications
@@ -997,14 +997,14 @@ git commit -m "refactor(android): Notifications consumes shared store + kind map
 - Modify: `iosApp/iosApp/SessionStore.swift`
 - Modify: `iosApp/iosApp/NotificationsView.swift`
 
-- [ ] **Step 1: Vend the store from `SessionStore`** — next to the other factories:
+- [x] **Step 1: Vend the store from `SessionStore`** — next to the other factories:
 
 ```swift
 /// Vend a shared Notifications presentation store for the bell sheet.
 func makeNotificationsStore() -> NotificationsStore { NotificationsStore(repo: notifications) }
 ```
 
-- [ ] **Step 2: Rewrite `NotificationsView`'s state handling**
+- [x] **Step 2: Rewrite `NotificationsView`'s state handling**
 
 Change the import to `@preconcurrency import Shared`. Replace the `@State` vars, the loading/content plumbing, and delete `load()`:
 
@@ -1104,12 +1104,12 @@ private var glyph: (String, Color, Color) {
 
 > SKIE notes: `notificationKind(title:)` is a global Swift function; the returned Kotlin enum is a Swift enum with lower-camelCased cases, switchable exhaustively. `NotifUiState` sealed interface → `onEnum(of:)`, `NotifUiStateLoading.shared` for the singleton. Behaviour note: mark-read now fires only when unread items exist (matches today's iOS `if page.unreadCount > 0` check, keyed off the items themselves).
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`
 Expected: `BUILD SUCCEEDED`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add iosApp/iosApp/SessionStore.swift iosApp/iosApp/NotificationsView.swift
@@ -1120,7 +1120,7 @@ git commit -m "refactor(ios): Notifications consumes shared store via SKIE"
 
 ## Task 10: Full milestone verification
 
-- [ ] **Step 1: Everything green**
+- [x] **Step 1: Everything green**
 
 Run:
 ```bash
@@ -1129,7 +1129,7 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator 
 ```
 Expected: shared tests pass (JVM + iOS-sim); both apps build.
 
-- [ ] **Step 2: Confirm no duplicated logic remains**
+- [x] **Step 2: Confirm no duplicated logic remains**
 
 - `androidApp/.../home/HomeViewModel.kt` and `notifications/NotificationsViewModel.kt` contain no state machines (thin wrappers only).
 - No `total_outstanding == "0.00"` / `myStatus ==` / keyword-matching decisions left in `HomeScreen.kt`, `HomeView.swift`, `NotificationsSheet.kt`, `NotificationsView.swift` — grep:
@@ -1138,12 +1138,12 @@ grep -rn 'contains("lunch")\|"cancel" in\|t.contains' androidApp/src iosApp/iosA
 ```
 Expected: `CLEAN` (or only non-notification hits, to be judged).
 
-- [ ] **Step 3: Verify `AppConfig.kt` never staged**
+- [x] **Step 3: Verify `AppConfig.kt` never staged**
 
 Run: `git log --stat feat/shared-stores-m1 --oneline | grep -c AppConfig || echo NEVER-STAGED`
 Expected: `NEVER-STAGED` (count 0).
 
-- [ ] **Step 4: STOP — hand to Fahmi**
+- [x] **Step 4: STOP — hand to Fahmi**
 
 Do not push, do not merge. Report: test summary, build results, and the commit list for review (requesting-code-review runs before Fahmi merges locally).
 

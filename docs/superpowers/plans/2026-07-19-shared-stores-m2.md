@@ -386,10 +386,16 @@ class BillsStoreTest {
 
     @Test fun submit_success_transitions_and_refetches() = runTest {
         var billsFetches = 0
+        // Second fetch returns updated data so the test can await the refetch landing in state
+        // (the refetch runs AFTER Success — Success alone doesn't prove the list was refetched).
+        val refetchedBillsJson = billsJson.replace("\"outstanding\":\"70.00\"", "\"outstanding\":\"20.00\"")
         val store = makeStore { path ->
             when {
                 path.endsWith("/bills/summary") -> HttpStatusCode.OK to summaryJson
-                path.endsWith("/bills") -> { billsFetches += 1; HttpStatusCode.OK to billsJson }
+                path.endsWith("/bills") -> {
+                    billsFetches += 1
+                    HttpStatusCode.OK to (if (billsFetches == 1) billsJson else refetchedBillsJson)
+                }
                 path.endsWith("/payment-proofs") -> HttpStatusCode.OK to proofJson
                 else -> HttpStatusCode.NotFound to "{}"
             }
@@ -397,8 +403,8 @@ class BillsStoreTest {
         store.state.first { it is BillsUiState.Content }
         assertEquals(1, billsFetches)
         store.submitProof(imageBytes = ByteArray(4), fileName = "proof.jpg", amount = "50.00", note = null)
-        store.submit.first { it is SubmitState.Success }
-        advanceUntilIdle() // the refetch runs after Success — drain it before asserting
+        store.submit.first { it is SubmitState.Success } // instant feedback: Success precedes the refetch
+        store.state.first { it is BillsUiState.Content && it.bills.first().outstanding == "20.00" }
         assertEquals(2, billsFetches) // success refetches the list
     }
 

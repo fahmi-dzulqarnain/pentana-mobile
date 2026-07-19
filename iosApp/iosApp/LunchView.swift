@@ -19,7 +19,7 @@ struct LunchView: View {
             .task {
                 let s = store ?? session.makeLunchStore()
                 store = s
-                // Collect both flows as structured children so they're cancelled when the
+                // Collect the store's flows as structured children so they're cancelled when the
                 // view disappears and restart on reappear. The store is kept alive across
                 // reappear — its scope only runs one-shot load/choose coroutines, so it needs
                 // no explicit clear() (it's released when the view is destroyed).
@@ -31,7 +31,7 @@ struct LunchView: View {
             }
             .alert(
                 "Something went wrong",
-                isPresented: Binding(get: { actionError != nil }, set: { if !$0 { store?.dismissActionError() } })
+                isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil; store?.dismissActionError() } })
             ) {
                 Button("OK", role: .cancel) {}
             } message: {

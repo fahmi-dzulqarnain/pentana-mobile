@@ -69,8 +69,9 @@ class BillsStore(private val repo: BillsRepository) {
 
     /**
      * Uploads a payment proof. [Submitting][SubmitState.Submitting] doubles as the double-submit
-     * guard (the sheet is modal — no per-id set needed). Success refetches so the new proof is
-     * reflected; the sheet observes [submit] to show progress/error/done.
+     * guard (the sheet is modal — no per-id set needed). Sets [SubmitState.Success] immediately
+     * on upload completion (instant sheet feedback), then refetches so the list reflects the new
+     * proof; the sheet observes [submit] to show progress/error/done.
      */
     fun submitProof(imageBytes: ByteArray, fileName: String, amount: String, note: String?) {
         if (_submit.value is SubmitState.Submitting) return
@@ -79,8 +80,8 @@ class BillsStore(private val repo: BillsRepository) {
         scope.launch {
             try {
                 repo.submitPaymentProof(imageBytes, fileName, amount.trim(), note?.takeUnless { it.isBlank() })
-                fetch()
                 _submit.value = SubmitState.Success
+                fetch()
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Exception) {

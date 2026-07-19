@@ -5,9 +5,12 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -87,6 +90,28 @@ class HomeStoreTest {
         assertIs<HomeUiState.Error>(state)
         assertEquals("Couldn't load your summary. Pull to refresh.", state.message)
         assertFalse(store.refreshing.value)
+    }
+
+    @Test fun overlapping_refreshes_keep_flag_until_last_completes() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        var requestCount = 0
+        val engine = MockEngine { _ ->
+            requestCount += 1
+            if (requestCount == 2) gate.await() // hold the FIRST refresh (request 2; request 1 is the init load)
+            respond(dashboardJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val store = HomeStore(DashboardRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
+        store.state.first { it is HomeUiState.Content }
+
+        val heldRefresh = launch { store.refresh() }   // request 2 — parked on the gate
+        store.refreshing.first { it }                   // flag is up
+        store.refresh()                                 // request 3 — completes immediately
+        advanceUntilIdle()                              // drain everything not blocked on the gate
+        // The overlapping completed refresh must NOT drop the flag while the first is still in flight.
+        assertTrue(store.refreshing.value)
+        gate.complete(Unit)
+        heldRefresh.join()
+        store.refreshing.first { !it }                  // flag clears once the LAST refresh finishes
     }
 
     // Derived display

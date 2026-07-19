@@ -36,6 +36,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.silentmode.pentana.core.relativeTimeFrom
 import my.silentmode.pentana.shared.model.NotificationDto
+import my.silentmode.pentana.shared.presentation.NotifUiState
+import my.silentmode.pentana.shared.presentation.NotificationKind
+import my.silentmode.pentana.shared.presentation.notificationKind
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.EmptyState
 import my.silentmode.pentana.ui.components.LeadingIcon
@@ -49,7 +52,7 @@ import my.silentmode.pentana.ui.theme.LocalPentanaColors
 @Composable
 fun NotificationsSheet(onMarkAllRead: () -> Unit, onDismiss: () -> Unit) {
     val vm = appViewModel { NotificationsViewModel(it.notifications) }
-    val state by vm.state.collectAsStateWithLifecycle()
+    val state by vm.store.state.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // Opening the list marks everything read and clears the bell badge.
@@ -116,17 +119,16 @@ private fun NotifRow(n: NotificationDto, last: Boolean) {
     }
 }
 
-/** NotificationDto has no type field — infer the icon/colour from the title text. */
+/** Map the shared kind decision to this platform's icon + colours. */
 @Composable
 private fun notifVisual(title: String): Triple<ImageVector, Color, Color> {
     val pc = LocalPentanaColors.current
-    val t = title.lowercase()
-    return when {
-        "lunch" in t -> Triple(Icons.Filled.Restaurant, pc.lunch.container, pc.lunch.color)
-        "cancel" in t -> Triple(Icons.Filled.Cancel, pc.bad.container, pc.bad.color)
-        "proof" in t || "payment" in t -> Triple(Icons.Filled.Description, pc.proof.container, pc.proof.color)
-        "you're in" in t || "promoted" in t || "waitlist" in t -> Triple(Icons.Filled.Celebration, pc.activ.container, pc.activ.color)
-        "activity" in t || "spot" in t || "event" in t -> Triple(Icons.Filled.CalendarMonth, pc.activ.container, pc.activ.color)
-        else -> Triple(Icons.Filled.Notifications, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
+    return when (notificationKind(title)) {
+        NotificationKind.Lunch -> Triple(Icons.Filled.Restaurant, pc.lunch.container, pc.lunch.color)
+        NotificationKind.Cancelled -> Triple(Icons.Filled.Cancel, pc.bad.container, pc.bad.color)
+        NotificationKind.Payment -> Triple(Icons.Filled.Description, pc.proof.container, pc.proof.color)
+        NotificationKind.ActivityJoined -> Triple(Icons.Filled.Celebration, pc.activ.container, pc.activ.color)
+        NotificationKind.Activity -> Triple(Icons.Filled.CalendarMonth, pc.activ.container, pc.activ.color)
+        NotificationKind.General -> Triple(Icons.Filled.Notifications, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
     }
 }

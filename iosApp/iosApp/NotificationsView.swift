@@ -30,14 +30,16 @@ struct NotificationsView: View {
                     store = s
                     async let states: Void = {
                         for await value in s.state {
-                            await MainActor.run { state = value }
-                            // Opening the sheet with unread items marks everything read (badge lives
-                            // in the session layer until the shared SessionManager lands).
-                            if case .content(let c) = onEnum(of: value),
-                               c.items.contains(where: { !$0.read }), !markedRead {
-                                await MainActor.run { markedRead = true }
-                                await session.markNotificationsRead()
+                            let shouldMark = await MainActor.run { () -> Bool in
+                                state = value
+                                // Opening the sheet with unread items marks everything read (badge lives
+                                // in the session layer until the shared SessionManager lands).
+                                guard case .content(let c) = onEnum(of: value),
+                                      c.items.contains(where: { !$0.read }), !markedRead else { return false }
+                                markedRead = true
+                                return true
                             }
+                            if shouldMark { await session.markNotificationsRead() }
                         }
                     }()
                     _ = await states

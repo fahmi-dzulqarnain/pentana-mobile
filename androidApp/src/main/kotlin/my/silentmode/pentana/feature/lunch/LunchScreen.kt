@@ -20,10 +20,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -53,22 +57,31 @@ fun LunchScreen() {
     val state by vm.store.state.collectAsStateWithLifecycle()
     val refreshing by vm.store.refreshing.collectAsStateWithLifecycle()
     val inFlight by vm.store.inFlight.collectAsStateWithLifecycle()
-    PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm.store::refresh, modifier = Modifier.fillMaxSize()) {
-        when (val s = state) {
-            is LunchUiState.Loading -> LoadingState()
-            is LunchUiState.Error -> ErrorState(s.message, vm.store::load)
-            is LunchUiState.Content -> if (s.lunches.isEmpty()) LunchEmpty() else LunchList(s.lunches, inFlight, vm.store)
+    val actionError by vm.store.actionError.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(actionError) {
+        actionError?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            vm.store.dismissActionError()
         }
+    }
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm.store::refresh, modifier = Modifier.fillMaxSize()) {
+        when (val uiState = state) {
+            is LunchUiState.Loading -> LoadingState()
+            is LunchUiState.Error -> ErrorState(uiState.message, vm.store::load)
+            is LunchUiState.Content -> if (uiState.lunches.isEmpty()) LunchEmpty() else LunchList(uiState.lunches, inFlight, vm.store)
+        }
+        SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter))
     }
 }
 
 @Composable
 private fun LunchEmpty() {
-    val pc = LocalPentanaColors.current
+    val colors = LocalPentanaColors.current
     EmptyState(
         icon = Icons.Filled.Restaurant,
-        iconColor = pc.lunch.color,
-        container = pc.lunch.container,
+        iconColor = colors.lunch.color,
+        container = colors.lunch.container,
         title = "No upcoming lunches",
         body = "New catered lunches show up here to vote on.",
     )

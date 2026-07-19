@@ -55,16 +55,16 @@ fun ActivitiesScreen() {
     var sheetActivity by remember { mutableStateOf<ActivityDto?>(null) }
 
     PullToRefreshBox(isRefreshing = vm.refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
-        when (val s = state) {
+        when (val uiState = state) {
             is ActivitiesUiState.Loading -> LoadingState()
-            is ActivitiesUiState.Error -> ErrorState(s.message, vm::load)
-            is ActivitiesUiState.Content -> if (s.activities.isEmpty()) {
+            is ActivitiesUiState.Error -> ErrorState(uiState.message, vm::load)
+            is ActivitiesUiState.Content -> if (uiState.activities.isEmpty()) {
                 ActivitiesEmpty()
             } else {
                 ActivitiesList(
-                    activities = s.activities,
-                    onRegister = { a ->
-                        if (a.questions.isNotEmpty()) { vm.resetReg(); sheetActivity = a } else vm.register(a.id, emptyMap())
+                    activities = uiState.activities,
+                    onRegister = { activity ->
+                        if (activity.questions.isNotEmpty()) { vm.resetReg(); sheetActivity = activity } else vm.register(activity.id, emptyMap())
                     },
                     onCancel = { vm.cancel(it) },
                 )
@@ -72,18 +72,18 @@ fun ActivitiesScreen() {
         }
     }
 
-    sheetActivity?.let { a ->
-        RegistrationSheet(activity = a, vm = vm, onDismiss = { sheetActivity = null; vm.resetReg() })
+    sheetActivity?.let { activity ->
+        RegistrationSheet(activity = activity, vm = vm, onDismiss = { sheetActivity = null; vm.resetReg() })
     }
 }
 
 @Composable
 private fun ActivitiesEmpty() {
-    val pc = LocalPentanaColors.current
+    val colors = LocalPentanaColors.current
     EmptyState(
         icon = Icons.Filled.CalendarMonth,
-        iconColor = pc.activ.color,
-        container = pc.activ.container,
+        iconColor = colors.activ.color,
+        container = colors.activ.container,
         title = "No upcoming activities",
         body = "Check back soon for events to join.",
     )
@@ -98,7 +98,7 @@ private fun ActivitiesList(activities: List<ActivityDto>, onRegister: (ActivityD
 
 @Composable
 private fun ActivityCard(activity: ActivityDto, onRegister: (ActivityDto) -> Unit, onCancel: (Long) -> Unit) {
-    val pc = LocalPentanaColors.current
+    val colors = LocalPentanaColors.current
     PentElevatedCard {
         Column(Modifier.padding(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
@@ -107,8 +107,8 @@ private fun ActivityCard(activity: ActivityDto, onRegister: (ActivityDto) -> Uni
             }
             Spacer(Modifier.height(6.dp))
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                IconLine(Icons.Filled.CalendarToday, dateTimeMedium(activity.startsAt), pc.activ.color)
-                activity.location?.let { IconLine(Icons.Filled.Place, it, pc.activ.color) }
+                IconLine(Icons.Filled.CalendarToday, dateTimeMedium(activity.startsAt), colors.activ.color)
+                activity.location?.let { IconLine(Icons.Filled.Place, it, colors.activ.color) }
             }
             activity.description?.let {
                 Spacer(Modifier.height(8.dp))
@@ -147,22 +147,22 @@ private fun SpotsChip(activity: ActivityDto) {
 
 @Composable
 private fun ActionRow(activity: ActivityDto, onRegister: (ActivityDto) -> Unit, onCancel: (Long) -> Unit) {
-    val pc = LocalPentanaColors.current
+    val colors = LocalPentanaColors.current
     when {
         activity.myStatus == "registered" -> Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.CheckCircle, null, tint = pc.ok.color, modifier = Modifier.size(16.dp))
+            Icon(Icons.Filled.CheckCircle, null, tint = colors.ok.color, modifier = Modifier.size(16.dp))
             Spacer(Modifier.size(4.dp))
-            Text("You're registered", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = pc.ok.color)
+            Text("You're registered", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold), color = colors.ok.color)
             Spacer(Modifier.weight(1f))
             PentButton("Cancel registration", { onCancel(activity.id) }, variant = BtnVariant.Destructive)
         }
         activity.myStatus == "waitlisted" -> Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Schedule, null, tint = pc.warn.color, modifier = Modifier.size(15.dp))
+            Icon(Icons.Filled.Schedule, null, tint = colors.warn.color, modifier = Modifier.size(15.dp))
             Spacer(Modifier.size(4.dp))
             Text(
                 activity.waitlistPosition?.let { "Waitlisted — #$it" } ?: "Waitlisted",
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = pc.warn.color,
+                color = colors.warn.color,
             )
             Spacer(Modifier.weight(1f))
             PentButton("Cancel", { onCancel(activity.id) }, variant = BtnVariant.Destructive)

@@ -41,16 +41,16 @@ struct ProfileView: View {
 
                     SectionLabel(text: "Passkeys")
                     InsetGroup {
-                        ForEach(passkeys, id: \.id) { pk in
+                        ForEach(passkeys, id: \.id) { passkey in
                             HStack(spacing: 11) {
                                 Image(systemName: "key.horizontal.fill").font(.system(size: 16)).foregroundStyle(Pent.proof)
                                 VStack(alignment: .leading, spacing: 1) {
-                                    Text(pk.name ?? "Passkey").font(.pentBody).foregroundStyle(Pent.label)
-                                    Text(pk.lastUsedAt.flatMap(PentDates.relative).map { "Last used \($0)" } ?? "Never used")
+                                    Text(passkey.name ?? "Passkey").font(.pentBody).foregroundStyle(Pent.label)
+                                    Text(passkey.lastUsedAt.flatMap(PentDates.relative).map { "Last used \($0)" } ?? "Never used")
                                         .font(.pentFoot).foregroundStyle(Pent.label2)
                                 }
                                 Spacer()
-                                Button(role: .destructive) { Task { await removePasskey(pk.id) } } label: {
+                                Button(role: .destructive) { Task { await removePasskey(passkey.id) } } label: {
                                     Image(systemName: "trash").font(.system(size: 15)).foregroundStyle(Pent.bad)
                                 }
                                 .buttonStyle(.plain)
@@ -129,11 +129,11 @@ struct ProfileView: View {
     }
 
     private var birthday: String {
-        guard let b = session.user?.birthday, !b.isEmpty else { return "—" }
-        let p = DateFormatter(); p.dateFormat = "yyyy-MM-dd"; p.locale = Locale(identifier: "en_US_POSIX")
-        guard let d = p.date(from: b) else { return b }
-        let o = DateFormatter(); o.dateFormat = "d MMMM"
-        return o.string(from: d)
+        guard let rawBirthday = session.user?.birthday, !rawBirthday.isEmpty else { return "—" }
+        let parser = DateFormatter(); parser.dateFormat = "yyyy-MM-dd"; parser.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = parser.date(from: rawBirthday) else { return rawBirthday }
+        let formatter = DateFormatter(); formatter.dateFormat = "d MMMM"
+        return formatter.string(from: date)
     }
     private var creditString: String {
         String(format: "%.2f", session.user?.credit ?? 0)

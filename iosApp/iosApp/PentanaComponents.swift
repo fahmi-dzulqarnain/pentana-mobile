@@ -196,8 +196,8 @@ struct AvatarInitials: View {
 /// First initials of a name (max 2).
 func pentInitials(_ name: String?) -> String {
     let parts = (name ?? "").split(separator: " ").prefix(2)
-    let s = parts.compactMap { $0.first }.map(String.init).joined()
-    return s.isEmpty ? "·" : s.uppercased()
+    let initials = parts.compactMap { $0.first }.map(String.init).joined()
+    return initials.isEmpty ? "·" : initials.uppercased()
 }
 
 // MARK: - Empty state

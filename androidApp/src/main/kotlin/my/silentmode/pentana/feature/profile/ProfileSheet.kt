@@ -40,7 +40,7 @@ import my.silentmode.pentana.ui.theme.LocalPentanaColors
 @Composable
 fun ProfileSheet(user: UserDto, onSignOut: () -> Unit, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val pc = LocalPentanaColors.current
+    val colors = LocalPentanaColors.current
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
@@ -71,7 +71,7 @@ fun ProfileSheet(user: UserDto, onSignOut: () -> Unit, onDismiss: () -> Unit) {
                         Money(
                             myr(String.format(java.util.Locale.US, "%.2f", user.credit)),
                             style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
-                            color = pc.ok.color,
+                            color = colors.ok.color,
                         )
                     },
                 )

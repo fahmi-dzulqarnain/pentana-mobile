@@ -26,6 +26,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -68,7 +69,7 @@ class LunchStoreTest {
         ]}
     """.trimIndent()
 
-    private fun store(handler: (String) -> Pair<HttpStatusCode, String>): LunchStore {
+    private fun makeStore(handler: (String) -> Pair<HttpStatusCode, String>): LunchStore {
         val engine = MockEngine { request ->
             val (status, body) = handler(request.url.fullPath)
             respond(body, status, headersOf(HttpHeaders.ContentType, "application/json"))
@@ -77,19 +78,19 @@ class LunchStoreTest {
     }
 
     @Test fun load_emits_content() = runTest {
-        val s = store { HttpStatusCode.OK to openLunchJson }
+        val store = makeStore { HttpStatusCode.OK to openLunchJson }
         // The store loads on its own scope; await the async settle rather than reading .value early.
-        val state = s.state.first { it !is LunchUiState.Loading }
+        val state = store.state.first { it !is LunchUiState.Loading }
         assertIs<LunchUiState.Content>(state)
         assertEquals(1, state.lunches.size)
         assertEquals("Nasi Lemak Royale", state.lunches.first().menu)
     }
 
     @Test fun choose_updates_only_the_target_lunch() = runTest {
-        val s = store { path -> if (path.endsWith("/respond")) HttpStatusCode.OK to chosenLunchJson else HttpStatusCode.OK to twoLunchesJson }
-        s.state.first { it is LunchUiState.Content && it.lunches.size == 2 } // let the initial load settle before choosing
-        s.choose(lunchId = 1, mealOptionId = 10)
-        val state = s.state.first { it is LunchUiState.Content && it.lunches.first { l -> l.id == 1L }.responded }
+        val store = makeStore { path -> if (path.endsWith("/respond")) HttpStatusCode.OK to chosenLunchJson else HttpStatusCode.OK to twoLunchesJson }
+        store.state.first { it is LunchUiState.Content && it.lunches.size == 2 } // let the initial load settle before choosing
+        store.choose(lunchId = 1, mealOptionId = 10)
+        val state = store.state.first { it is LunchUiState.Content && it.lunches.first { lunch -> lunch.id == 1L }.responded }
         assertIs<LunchUiState.Content>(state)
         val chosen = state.lunches.first { it.id == 1L }
         assertTrue(chosen.responded)
@@ -101,10 +102,10 @@ class LunchStoreTest {
     }
 
     @Test fun not_attending_updates_the_lunch() = runTest {
-        val s = store { path -> if (path.endsWith("/respond")) HttpStatusCode.OK to notAttendingLunchJson else HttpStatusCode.OK to openLunchJson }
-        s.state.first { it is LunchUiState.Content } // let the initial load settle before responding
-        s.notAttending(lunchId = 1)
-        val state = s.state.first { it is LunchUiState.Content && it.lunches.first().responded }
+        val store = makeStore { path -> if (path.endsWith("/respond")) HttpStatusCode.OK to notAttendingLunchJson else HttpStatusCode.OK to openLunchJson }
+        store.state.first { it is LunchUiState.Content } // let the initial load settle before responding
+        store.notAttending(lunchId = 1)
+        val state = store.state.first { it is LunchUiState.Content && it.lunches.first().responded }
         assertIs<LunchUiState.Content>(state)
         assertTrue(state.lunches.first().responded)
         assertNull(state.lunches.first().myMealOptionId)
@@ -123,21 +124,93 @@ class LunchStoreTest {
             }
             respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
         }
-        val s = LunchStore(LunchRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
-        s.state.first { it is LunchUiState.Content } // let the initial load settle
-        assertTrue(s.inFlight.value.isEmpty())
-        s.choose(lunchId = 1, mealOptionId = 10)
-        s.inFlight.first { it.contains(1L) } // the request is pending
-        s.choose(lunchId = 1, mealOptionId = 11) // guarded: must not start a second submit
+        val store = LunchStore(LunchRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
+        store.state.first { it is LunchUiState.Content } // let the initial load settle
+        assertTrue(store.inFlight.value.isEmpty())
+        store.choose(lunchId = 1, mealOptionId = 10)
+        store.inFlight.first { it.contains(1L) } // the request is pending
+        store.choose(lunchId = 1, mealOptionId = 11) // guarded: must not start a second submit
         gate.complete(Unit)
-        s.inFlight.first { it.isEmpty() } // cleared after completion
+        store.inFlight.first { it.isEmpty() } // cleared after completion
         assertEquals(1, respondCount) // the guard dropped the duplicate submit
-        assertEquals(10L, (s.state.value as LunchUiState.Content).lunches.first().myMealOptionId)
+        assertEquals(10L, (store.state.value as LunchUiState.Content).lunches.first().myMealOptionId)
+    }
+
+    @Test fun guarded_duplicate_does_not_clear_visible_action_error() = runTest {
+        // Pins the ordering inside choose(): the actionError clear must stay BELOW the in-flight
+        // guard, so a guarded duplicate tap cannot wipe an error the user is reading.
+        val gate = CompletableDeferred<Unit>()
+        val engine = MockEngine { request ->
+            val path = request.url.fullPath
+            when {
+                path.endsWith("/lunches/1/respond") ->
+                    respond("{}", HttpStatusCode.InternalServerError, headersOf(HttpHeaders.ContentType, "application/json"))
+                path.endsWith("/lunches/2/respond") -> {
+                    gate.await() // hold lunch 2 in flight so the duplicate tap hits the guard
+                    respond(chosenLunchJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                }
+                else -> respond(twoLunchesJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+            }
+        }
+        val store = LunchStore(LunchRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
+        store.state.first { it is LunchUiState.Content && it.lunches.size == 2 }
+        store.choose(lunchId = 2, mealOptionId = 20) // in flight, held by the gate (no error yet to clear)
+        store.inFlight.first { 2L in it }
+        store.choose(lunchId = 1, mealOptionId = 10) // fails -> error becomes visible
+        store.inFlight.first { 1L !in it }
+        assertNotNull(store.actionError.value)
+        store.choose(lunchId = 2, mealOptionId = 21) // guarded duplicate — must NOT clear the visible error
+        assertNotNull(store.actionError.value)
+        gate.complete(Unit)
+        store.inFlight.first { it.isEmpty() }
+    }
+
+    @Test fun choose_failure_sets_action_error() = runTest {
+        val store = makeStore { path -> if (path.endsWith("/respond")) HttpStatusCode.InternalServerError to "{}" else HttpStatusCode.OK to openLunchJson }
+        store.state.first { it is LunchUiState.Content }
+        assertNull(store.actionError.value)
+        store.choose(lunchId = 1, mealOptionId = 10)
+        store.inFlight.first { it.isEmpty() } // action settled
+        assertEquals("Couldn't save your choice. Please try again.", store.actionError.value)
+    }
+
+    @Test fun dismiss_clears_action_error() = runTest {
+        val store = makeStore { path -> if (path.endsWith("/respond")) HttpStatusCode.InternalServerError to "{}" else HttpStatusCode.OK to openLunchJson }
+        store.state.first { it is LunchUiState.Content }
+        store.notAttending(lunchId = 1)
+        store.inFlight.first { it.isEmpty() }
+        assertNotNull(store.actionError.value)
+        store.dismissActionError()
+        assertNull(store.actionError.value)
+    }
+
+    @Test fun next_action_attempt_clears_previous_error() = runTest {
+        var failNext = true
+        val store = makeStore { path ->
+            if (path.endsWith("/respond")) {
+                if (failNext) { failNext = false; HttpStatusCode.InternalServerError to "{}" } else HttpStatusCode.OK to chosenLunchJson
+            } else HttpStatusCode.OK to openLunchJson
+        }
+        store.state.first { it is LunchUiState.Content }
+        store.choose(lunchId = 1, mealOptionId = 10)
+        store.inFlight.first { it.isEmpty() }
+        assertNotNull(store.actionError.value)
+        store.choose(lunchId = 1, mealOptionId = 10) // retry clears the stale error as it starts
+        store.inFlight.first { it.isEmpty() }
+        assertNull(store.actionError.value)
+    }
+
+    @Test fun successful_action_never_sets_error() = runTest {
+        val store = makeStore { path -> if (path.endsWith("/respond")) HttpStatusCode.OK to chosenLunchJson else HttpStatusCode.OK to openLunchJson }
+        store.state.first { it is LunchUiState.Content }
+        store.choose(lunchId = 1, mealOptionId = 10)
+        store.inFlight.first { it.isEmpty() }
+        assertNull(store.actionError.value)
     }
 
     @Test fun error_emits_error() = runTest {
-        val s = store { HttpStatusCode.InternalServerError to "{}" }
-        assertIs<LunchUiState.Error>(s.state.first { it !is LunchUiState.Loading })
+        val store = makeStore { HttpStatusCode.InternalServerError to "{}" }
+        assertIs<LunchUiState.Error>(store.state.first { it !is LunchUiState.Loading })
     }
 
     @Test fun status_is_vote_now_when_open_and_not_responded() {

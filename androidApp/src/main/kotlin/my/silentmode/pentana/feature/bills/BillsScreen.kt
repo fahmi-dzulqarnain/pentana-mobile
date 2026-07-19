@@ -63,10 +63,10 @@ fun BillsScreen() {
 
     Box(Modifier.fillMaxSize()) {
         PullToRefreshBox(isRefreshing = vm.refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
-            when (val s = state) {
+            when (val uiState = state) {
                 is BillsUiState.Loading -> LoadingState()
-                is BillsUiState.Error -> ErrorState(s.message, vm::load)
-                is BillsUiState.Content -> BillsContent(s.summary, s.bills)
+                is BillsUiState.Error -> ErrorState(uiState.message, vm::load)
+                is BillsUiState.Content -> BillsContent(uiState.summary, uiState.bills)
             }
         }
         SubmitFab(onClick = { showSheet = true }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp))
@@ -89,7 +89,7 @@ private fun BillsContent(summary: BillsSummaryDto, bills: List<BillDto>) {
         } else {
             SectionHeader("Bill history")
             PentFilledCard {
-                bills.forEachIndexed { i, bill -> BillRow(bill, last = i == bills.lastIndex) }
+                bills.forEachIndexed { index, bill -> BillRow(bill, last = index == bills.lastIndex) }
             }
         }
     }
@@ -120,12 +120,12 @@ private fun SummaryCard(summary: BillsSummaryDto) {
 
 @Composable
 private fun BillRow(bill: BillDto, last: Boolean) {
-    val pc = LocalPentanaColors.current
+    val colors = LocalPentanaColors.current
     val paid = bill.status.lowercase() == "paid"
     PentListItem(
         headline = bill.month,
         supporting = "Due ${myr(bill.amountDue)} · Paid ${myr(bill.amountPaid)}",
-        leading = { LeadingIcon(Icons.Filled.ReceiptLong, pc.dues.container, pc.dues.color, size = 40.dp, iconSize = 20.dp, radius = 12.dp) },
+        leading = { LeadingIcon(Icons.Filled.ReceiptLong, colors.dues.container, colors.dues.color, size = 40.dp, iconSize = 20.dp, radius = 12.dp) },
         trailing = {
             Column(horizontalAlignment = Alignment.End) {
                 Money(

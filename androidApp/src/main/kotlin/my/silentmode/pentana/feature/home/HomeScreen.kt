@@ -36,6 +36,12 @@ import my.silentmode.pentana.core.todayLong
 import my.silentmode.pentana.shared.model.DashboardActivityDto
 import my.silentmode.pentana.shared.model.DashboardDto
 import my.silentmode.pentana.shared.model.DashboardLunchDto
+import my.silentmode.pentana.shared.presentation.DashboardActivityStatus
+import my.silentmode.pentana.shared.presentation.HomeUiState
+import my.silentmode.pentana.shared.presentation.LunchStatus
+import my.silentmode.pentana.shared.presentation.dashboardActivityStatus
+import my.silentmode.pentana.shared.presentation.dashboardLunchStatus
+import my.silentmode.pentana.shared.presentation.duesCleared
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.ChipKind
 import my.silentmode.pentana.ui.components.DomainStatCard
@@ -54,19 +60,20 @@ import my.silentmode.pentana.ui.theme.MoneyMedium
 @Composable
 fun HomeScreen(userName: String, onSwitchTab: (NavDest) -> Unit) {
     val vm = appViewModel { HomeViewModel(it.dashboard) }
-    val state by vm.state.collectAsStateWithLifecycle()
-    PullToRefreshBox(isRefreshing = vm.refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
-        when (val s = state) {
+    val state by vm.store.state.collectAsStateWithLifecycle()
+    val refreshing by vm.store.refreshing.collectAsStateWithLifecycle()
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm.store::refresh, modifier = Modifier.fillMaxSize()) {
+        when (val uiState = state) {
             is HomeUiState.Loading -> LoadingState()
-            is HomeUiState.Error -> ErrorState(s.message, vm::load)
-            is HomeUiState.Content -> HomeContent(userName, s.data, onSwitchTab)
+            is HomeUiState.Error -> ErrorState(uiState.message, vm.store::load)
+            is HomeUiState.Content -> HomeContent(userName, uiState.data, onSwitchTab)
         }
     }
 }
 
 @Composable
-private fun HomeContent(userName: String, d: DashboardDto, onSwitchTab: (NavDest) -> Unit) {
-    val pc = LocalPentanaColors.current
+private fun HomeContent(userName: String, dashboard: DashboardDto, onSwitchTab: (NavDest) -> Unit) {
+    val colors = LocalPentanaColors.current
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 16.dp),
     ) {
@@ -80,11 +87,11 @@ private fun HomeContent(userName: String, d: DashboardDto, onSwitchTab: (NavDest
         }
         Spacer(Modifier.height(14.dp))
 
-        val allClear = d.bills.totalOutstanding == "0.00" && d.pendingProofsCount == 0
+        val allClear = duesCleared(dashboard)
         if (allClear) {
             PentElevatedCard {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    LeadingIcon(Icons.Filled.Celebration, pc.ok.container, pc.ok.color, size = 46.dp, iconSize = 24.dp, radius = 23.dp)
+                    LeadingIcon(Icons.Filled.Celebration, colors.ok.container, colors.ok.color, size = 46.dp, iconSize = 24.dp, radius = 23.dp)
                     Column {
                         Text("You're all clear", style = MaterialTheme.typography.titleLarge)
                         Text("No dues, nothing pending. Nice.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -92,17 +99,17 @@ private fun HomeContent(userName: String, d: DashboardDto, onSwitchTab: (NavDest
                 }
             }
         } else {
-            DomainStatCard(Icons.Filled.AccountBalanceWallet, pc.dues, "Dues", onClick = { onSwitchTab(NavDest.Bills) }) {
-                if (d.bills.totalOutstanding == "0.00") {
+            DomainStatCard(Icons.Filled.AccountBalanceWallet, colors.dues, "Dues", onClick = { onSwitchTab(NavDest.Bills) }) {
+                if (dashboard.bills.totalOutstanding == "0.00") {
                     Text("No dues outstanding", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
                 } else {
                     Row(verticalAlignment = Alignment.Bottom) {
-                        Money("MYR ${d.bills.totalOutstanding}", style = MoneyMedium, color = pc.dues.color)
+                        Money("MYR ${dashboard.bills.totalOutstanding}", style = MoneyMedium, color = colors.dues.color)
                         Text(" outstanding", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Text(
-                    "Credit ${myr(d.bills.availableCredit)} · ${d.bills.unpaidCount} unpaid",
+                    "Credit ${myr(dashboard.bills.availableCredit)} · ${dashboard.bills.unpaidCount} unpaid",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -110,19 +117,19 @@ private fun HomeContent(userName: String, d: DashboardDto, onSwitchTab: (NavDest
         }
         Spacer(Modifier.height(12.dp))
 
-        DomainStatCard(Icons.Filled.Restaurant, pc.lunch, "Next lunch", onClick = { onSwitchTab(NavDest.Lunch) }) {
-            LunchSummary(d.nextLunch)
+        DomainStatCard(Icons.Filled.Restaurant, colors.lunch, "Next lunch", onClick = { onSwitchTab(NavDest.Lunch) }) {
+            LunchSummary(dashboard.nextLunch)
         }
         Spacer(Modifier.height(12.dp))
 
-        DomainStatCard(Icons.Filled.CalendarMonth, pc.activ, "Activities", onClick = { onSwitchTab(NavDest.Activities) }) {
-            ActivitySummary(d.nextActivity, d.openActivitiesCount)
+        DomainStatCard(Icons.Filled.CalendarMonth, colors.activ, "Activities", onClick = { onSwitchTab(NavDest.Activities) }) {
+            ActivitySummary(dashboard.nextActivity, dashboard.openActivitiesCount)
         }
         Spacer(Modifier.height(12.dp))
 
-        DomainStatCard(Icons.Filled.Description, pc.proof, "Payment proofs", onClick = { onSwitchTab(NavDest.Bills) }) {
+        DomainStatCard(Icons.Filled.Description, colors.proof, "Payment proofs", onClick = { onSwitchTab(NavDest.Bills) }) {
             Text(
-                if (d.pendingProofsCount > 0) "${d.pendingProofsCount} awaiting review" else "Nothing pending",
+                if (dashboard.pendingProofsCount > 0) "${dashboard.pendingProofsCount} awaiting review" else "Nothing pending",
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
             )
         }
@@ -140,10 +147,10 @@ private fun LunchSummary(lunch: DashboardLunchDto?) {
         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
     )
     Spacer(Modifier.height(6.dp))
-    when {
-        lunch.isOpen && !lunch.responded -> StatusChip(ChipKind.VoteNow)
-        lunch.responded -> StatusChip(ChipKind.Responded)
-        else -> Text("Voting closed", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    when (dashboardLunchStatus(lunch)) {
+        LunchStatus.VoteNow -> StatusChip(ChipKind.VoteNow)
+        LunchStatus.Responded -> StatusChip(ChipKind.Responded)
+        LunchStatus.Closed -> Text("Voting closed", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -158,14 +165,15 @@ private fun ActivitySummary(activity: DashboardActivityDto?, openCount: Int) {
     }
     Text(activity.title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
     Spacer(Modifier.height(4.dp))
+    val status = dashboardActivityStatus(activity)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        when (activity.myStatus) {
-            "registered" -> StatusChip(ChipKind.Registered)
-            "waitlisted" -> StatusChip(ChipKind.Waitlisted)
-            else -> {}
+        when (status) {
+            DashboardActivityStatus.Registered -> StatusChip(ChipKind.Registered)
+            DashboardActivityStatus.Waitlisted -> StatusChip(ChipKind.Waitlisted)
+            DashboardActivityStatus.None -> {}
         }
         Text(
-            (if (activity.myStatus == "registered" || activity.myStatus == "waitlisted") " · " else "") + "$openCount open",
+            (if (status != DashboardActivityStatus.None) " · " else "") + "$openCount open",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 6.dp),

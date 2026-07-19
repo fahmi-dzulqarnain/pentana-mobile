@@ -86,8 +86,8 @@ class PentanaApiTest {
         try {
             BillsRepository(client).bills()
             throw AssertionError("Expected ApiException")
-        } catch (e: ApiException) {
-            assertEquals(401, e.status)
+        } catch (error: ApiException) {
+            assertEquals(401, error.status)
         }
     }
 

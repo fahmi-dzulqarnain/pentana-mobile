@@ -36,6 +36,12 @@ import my.silentmode.pentana.core.todayLong
 import my.silentmode.pentana.shared.model.DashboardActivityDto
 import my.silentmode.pentana.shared.model.DashboardDto
 import my.silentmode.pentana.shared.model.DashboardLunchDto
+import my.silentmode.pentana.shared.presentation.DashboardActivityStatus
+import my.silentmode.pentana.shared.presentation.HomeUiState
+import my.silentmode.pentana.shared.presentation.LunchStatus
+import my.silentmode.pentana.shared.presentation.dashboardActivityStatus
+import my.silentmode.pentana.shared.presentation.dashboardLunchStatus
+import my.silentmode.pentana.shared.presentation.duesCleared
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.ChipKind
 import my.silentmode.pentana.ui.components.DomainStatCard
@@ -54,11 +60,12 @@ import my.silentmode.pentana.ui.theme.MoneyMedium
 @Composable
 fun HomeScreen(userName: String, onSwitchTab: (NavDest) -> Unit) {
     val vm = appViewModel { HomeViewModel(it.dashboard) }
-    val state by vm.state.collectAsStateWithLifecycle()
-    PullToRefreshBox(isRefreshing = vm.refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
+    val state by vm.store.state.collectAsStateWithLifecycle()
+    val refreshing by vm.store.refreshing.collectAsStateWithLifecycle()
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm.store::refresh, modifier = Modifier.fillMaxSize()) {
         when (val s = state) {
             is HomeUiState.Loading -> LoadingState()
-            is HomeUiState.Error -> ErrorState(s.message, vm::load)
+            is HomeUiState.Error -> ErrorState(s.message, vm.store::load)
             is HomeUiState.Content -> HomeContent(userName, s.data, onSwitchTab)
         }
     }
@@ -80,7 +87,7 @@ private fun HomeContent(userName: String, d: DashboardDto, onSwitchTab: (NavDest
         }
         Spacer(Modifier.height(14.dp))
 
-        val allClear = d.bills.totalOutstanding == "0.00" && d.pendingProofsCount == 0
+        val allClear = duesCleared(d)
         if (allClear) {
             PentElevatedCard {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -140,10 +147,10 @@ private fun LunchSummary(lunch: DashboardLunchDto?) {
         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
     )
     Spacer(Modifier.height(6.dp))
-    when {
-        lunch.isOpen && !lunch.responded -> StatusChip(ChipKind.VoteNow)
-        lunch.responded -> StatusChip(ChipKind.Responded)
-        else -> Text("Voting closed", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    when (dashboardLunchStatus(lunch)) {
+        LunchStatus.VoteNow -> StatusChip(ChipKind.VoteNow)
+        LunchStatus.Responded -> StatusChip(ChipKind.Responded)
+        LunchStatus.Closed -> Text("Voting closed", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -158,14 +165,15 @@ private fun ActivitySummary(activity: DashboardActivityDto?, openCount: Int) {
     }
     Text(activity.title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium))
     Spacer(Modifier.height(4.dp))
+    val status = dashboardActivityStatus(activity)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        when (activity.myStatus) {
-            "registered" -> StatusChip(ChipKind.Registered)
-            "waitlisted" -> StatusChip(ChipKind.Waitlisted)
-            else -> {}
+        when (status) {
+            DashboardActivityStatus.Registered -> StatusChip(ChipKind.Registered)
+            DashboardActivityStatus.Waitlisted -> StatusChip(ChipKind.Waitlisted)
+            DashboardActivityStatus.None -> {}
         }
         Text(
-            (if (activity.myStatus == "registered" || activity.myStatus == "waitlisted") " · " else "") + "$openCount open",
+            (if (status != DashboardActivityStatus.None) " · " else "") + "$openCount open",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 6.dp),

@@ -77,6 +77,18 @@ class HomeStoreTest {
         assertFalse(s.refreshing.value)
     }
 
+    @Test fun refresh_failure_replaces_content_with_error() = runTest {
+        var fail = false
+        val s = store { if (fail) HttpStatusCode.InternalServerError to "{}" else HttpStatusCode.OK to dashboardJson }
+        s.state.first { it is HomeUiState.Content }
+        fail = true
+        s.refresh()
+        val state = s.state.first { it is HomeUiState.Error }
+        assertIs<HomeUiState.Error>(state)
+        assertEquals("Couldn't load your summary. Pull to refresh.", state.message)
+        assertFalse(s.refreshing.value)
+    }
+
     // Derived display
 
     @Test fun dues_cleared_when_no_outstanding_and_no_pending_proofs() {

@@ -72,6 +72,9 @@ class BillsStore(private val repo: BillsRepository) {
      * guard (the sheet is modal — no per-id set needed). Sets [SubmitState.Success] immediately
      * on upload completion (instant sheet feedback), then refetches so the list reflects the new
      * proof; the sheet observes [submit] to show progress/error/done.
+     *
+     * Callers must invoke this from the main thread — the Submitting check-and-set is a plain
+     * read-modify-write; Main confinement is what makes the double-submit guard sound.
      */
     fun submitProof(imageBytes: ByteArray, fileName: String, amount: String, note: String?) {
         if (_submit.value is SubmitState.Submitting) return

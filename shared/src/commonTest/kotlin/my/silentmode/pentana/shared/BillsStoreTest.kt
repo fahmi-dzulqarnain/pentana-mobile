@@ -144,6 +144,43 @@ class BillsStoreTest {
         assertEquals(1, proofRequests)
     }
 
+    @Test fun resubmit_after_error_is_allowed() = runTest {
+        // Pins the retry path: the guard must check Submitting specifically, not "anything
+        // other than Idle" — an Error state must not block a second attempt.
+        var proofRequests = 0
+        val store = makeStore { path ->
+            when {
+                path.endsWith("/bills/summary") -> HttpStatusCode.OK to summaryJson
+                path.endsWith("/bills") -> HttpStatusCode.OK to billsJson
+                path.endsWith("/payment-proofs") -> {
+                    proofRequests += 1
+                    if (proofRequests == 1) HttpStatusCode.InternalServerError to "{}" else HttpStatusCode.OK to proofJson
+                }
+                else -> HttpStatusCode.NotFound to "{}"
+            }
+        }
+        store.state.first { it is BillsUiState.Content }
+        store.submitProof(imageBytes = ByteArray(4), fileName = "proof.jpg", amount = "50.00", note = null)
+        store.submit.first { it is SubmitState.Error }
+        store.submitProof(imageBytes = ByteArray(4), fileName = "proof.jpg", amount = "50.00", note = null)
+        store.submit.first { it is SubmitState.Success }
+        assertEquals(2, proofRequests)
+    }
+
+    @Test fun invalid_amount_fires_no_request() = runTest {
+        // Pins the silent precheck: a non-numeric amount never reaches the network and leaves
+        // submit at Idle (the UI's canSubmitProof-gated button is the user-facing feedback).
+        var proofRequests = 0
+        val store = makeStore { path ->
+            if (path.endsWith("/payment-proofs")) { proofRequests += 1; HttpStatusCode.OK to proofJson }
+            else routing()(path)
+        }
+        store.state.first { it is BillsUiState.Content }
+        store.submitProof(imageBytes = ByteArray(4), fileName = "proof.jpg", amount = "abc", note = null)
+        assertEquals(0, proofRequests)
+        assertIs<SubmitState.Idle>(store.submit.value)
+    }
+
     @Test fun blank_note_and_padded_amount_still_submit() = runTest {
         var sawProofRequest = false
         val store = makeStore { path ->

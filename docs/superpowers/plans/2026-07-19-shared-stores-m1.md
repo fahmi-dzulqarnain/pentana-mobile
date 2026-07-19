@@ -230,7 +230,7 @@ Attach the alert to `content` (after `.task`):
 ```swift
 .alert(
     "Something went wrong",
-    isPresented: Binding(get: { actionError != nil }, set: { if !$0 { store?.dismissActionError() } })
+    isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil; store?.dismissActionError() } })
 ) {
     Button("OK", role: .cancel) {}
 } message: {
@@ -238,6 +238,8 @@ Attach the alert to `content` (after `.task`):
 }
 ```
 
+The setter clears the local state synchronously — waiting for the store's nil to round-trip
+Kotlin → SKIE → MainActor leaves a window where a body re-evaluation re-presents the alert.
 The message copy is shared (from the store); only the alert chrome/title is native.
 
 - [ ] **Step 2: Build**

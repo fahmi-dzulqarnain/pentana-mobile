@@ -94,4 +94,9 @@ class NotificationsStoreTest {
         // "cancel" is checked before "activity"/"hik" — a cancelled activity reads as a cancellation.
         assertEquals(NotificationKind.Cancelled, notificationKind("Activity cancelled: hiking trip"))
     }
+
+    @Test fun kind_lunch_beats_cancel() {
+        // "lunch" is checked before "cancel" — faithful to both platforms' original order.
+        assertEquals(NotificationKind.Lunch, notificationKind("Lunch cancelled for Monday"))
+    }
 }

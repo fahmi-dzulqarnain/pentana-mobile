@@ -86,6 +86,11 @@ class NotificationsStoreTest {
         assertEquals(NotificationKind.Activity, notificationKind("Workshop: intro to sourdough"))
     }
 
+    @Test fun kind_activity_joined_matches_typographic_apostrophe() {
+        // Backends often emit U+2019 ("you’re in") — must not fall through to General.
+        assertEquals(NotificationKind.ActivityJoined, notificationKind("You’re in! See you Saturday"))
+    }
+
     @Test fun kind_general_fallback() {
         assertEquals(NotificationKind.General, notificationKind("Welcome to Pentana"))
     }

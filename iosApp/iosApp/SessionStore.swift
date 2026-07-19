@@ -63,6 +63,9 @@ final class SessionStore: ObservableObject {
     /// Same lifecycle contract as makeLunchStore(): held in @State, reused across reappear, not cleared.
     func makeHomeStore() -> HomeStore { HomeStore(repo: dashboard) }
 
+    /// Vend a shared Notifications presentation store for the bell sheet.
+    func makeNotificationsStore() -> NotificationsStore { NotificationsStore(repo: notifications) }
+
     /// On launch: if a token exists, fetch the profile; drop it if the token is stale.
     func bootstrap() async {
         if auth.isLoggedIn() {

@@ -5,68 +5,83 @@
 //  Notifications sheet from the bell. Marks read on open (clears the badge).
 //
 
-import Shared
+@preconcurrency import Shared
 import SwiftUI
 
 struct NotificationsView: View {
     @EnvironmentObject private var session: SessionStore
     @Environment(\.dismiss) private var dismiss
-    @State private var items: [NotificationDto] = []
-    @State private var isLoading = true
+    @State private var store: NotificationsStore?
+    @State private var state: NotifUiState = NotifUiStateLoading.shared
+    @State private var markedRead = false
 
     var body: some View {
         NavigationStack {
-            Group {
-                if isLoading && items.isEmpty {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                } else {
-                    ScrollView {
-                        VStack(spacing: 0) {
-                            if items.isEmpty {
-                                EmptyStateView(symbol: "bell.fill", title: "No notifications yet",
-                                               message: "Lunch, activity and payment updates will show up here.")
-                                    .containerRelativeFrame(.vertical, alignment: .center)
-                            } else {
-                                HStack {
-                                    Spacer()
-                                    Button("Mark all read") { Task { await session.markNotificationsRead() } }
-                                        .font(.pentFoot).tint(Pent.accent)
-                                }
-                                .padding(.bottom, 6)
-
-                                InsetGroup {
-                                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                                        NotifRow(item: item)
-                                        if index < items.count - 1 { PentHairline(leadingInset: 60) }
-                                    }
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
+            content
+                .navigationTitle("Notifications")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }.tint(Pent.accent)
                     }
                 }
-            }
-            .navigationTitle("Notifications")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }.tint(Pent.accent)
+                .task {
+                    let s = store ?? session.makeNotificationsStore()
+                    store = s
+                    async let states: Void = {
+                        for await value in s.state {
+                            await MainActor.run { state = value }
+                            // Opening the sheet with unread items marks everything read (badge lives
+                            // in the session layer until the shared SessionManager lands).
+                            if case .content(let c) = onEnum(of: value),
+                               c.items.contains(where: { !$0.read }), !markedRead {
+                                await MainActor.run { markedRead = true }
+                                await session.markNotificationsRead()
+                            }
+                        }
+                    }()
+                    _ = await states
                 }
-            }
-            .task { await load() }
         }
     }
 
-    private func load() async {
-        isLoading = true
-        do {
-            let page = try await session.notifications.notifications()
-            items = page.data
-            if page.unreadCount > 0 { await session.markNotificationsRead() }
-        } catch {}
-        isLoading = false
+    @ViewBuilder private var content: some View {
+        switch onEnum(of: state) {
+        case .loading:
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        case .error(let e):
+            ScrollView {
+                EmptyStateView(symbol: "bell.fill", title: "Couldn't load", message: e.message)
+                    .containerRelativeFrame(.vertical, alignment: .center)
+            }
+        case .content(let c):
+            ScrollView {
+                VStack(spacing: 0) {
+                    if c.items.isEmpty {
+                        EmptyStateView(symbol: "bell.fill", title: "No notifications yet",
+                                       message: "Lunch, activity and payment updates will show up here.")
+                            .containerRelativeFrame(.vertical, alignment: .center)
+                    } else {
+                        HStack {
+                            Spacer()
+                            Button("Mark all read") { Task { await session.markNotificationsRead() } }
+                                .font(.pentFoot).tint(Pent.accent)
+                        }
+                        .padding(.bottom, 6)
+
+                        InsetGroup {
+                            ForEach(Array(c.items.enumerated()), id: \.element.id) { index, item in
+                                NotifRow(item: item)
+                                if index < c.items.count - 1 { PentHairline(leadingInset: 60) }
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+            }
+        }
     }
 }
 
@@ -100,14 +115,15 @@ private struct NotifRow: View {
         .background(item.read ? Color.clear : Pent.accentSolid.opacity(0.07))
     }
 
-    // Derive a domain glyph from the title keywords (no type on the DTO).
+    // Derive a domain glyph from the shared notification-kind classification.
     private var glyph: (String, Color, Color) {
-        let t = item.title.lowercased()
-        if t.contains("lunch") { return ("fork.knife", Pent.lunch, Pent.lunchBg) }
-        if t.contains("cancel") { return ("xmark.circle.fill", Pent.bad, Pent.badBg) }
-        if t.contains("proof") || t.contains("payment") || t.contains("dues") { return ("doc.text.fill", Pent.proof, Pent.proofBg) }
-        if t.contains("you're in") || t.contains("waitlist") { return ("party.popper.fill", Pent.activ, Pent.activBg) }
-        if t.contains("activity") || t.contains("hik") || t.contains("clean") || t.contains("workshop") { return ("calendar", Pent.activ, Pent.activBg) }
-        return ("bell.fill", Pent.neutral, Pent.neutralBg)
+        switch notificationKind(title: item.title) {
+        case .lunch: return ("fork.knife", Pent.lunch, Pent.lunchBg)
+        case .cancelled: return ("xmark.circle.fill", Pent.bad, Pent.badBg)
+        case .payment: return ("doc.text.fill", Pent.proof, Pent.proofBg)
+        case .activityJoined: return ("party.popper.fill", Pent.activ, Pent.activBg)
+        case .activity: return ("calendar", Pent.activ, Pent.activBg)
+        case .general: return ("bell.fill", Pent.neutral, Pent.neutralBg)
+        }
     }
 }

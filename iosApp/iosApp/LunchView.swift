@@ -10,7 +10,6 @@ struct LunchView: View {
     @EnvironmentObject private var session: SessionStore
     @State private var store: LunchStore?
     @State private var state: LunchUiState = LunchUiStateLoading.shared
-    @State private var refreshing = false
     @State private var inFlight: Set<Int64> = []
     @State private var actionError: String?
 
@@ -24,10 +23,9 @@ struct LunchView: View {
                 // reappear — its scope only runs one-shot load/choose coroutines, so it needs
                 // no explicit clear() (it's released when the view is destroyed).
                 async let states: Void = { for await value in s.state { await MainActor.run { state = value } } }()
-                async let refreshes: Void = { for await r in s.refreshing { await MainActor.run { refreshing = r.boolValue } } }()
                 async let flights: Void = { for await ids in s.inFlight { await MainActor.run { inFlight = Set(ids.map { $0.int64Value }) } } }()
                 async let errors: Void = { for await e in s.actionError { await MainActor.run { actionError = e } } }()
-                _ = await (states, refreshes, flights, errors)
+                _ = await (states, flights, errors)
             }
             .alert(
                 "Something went wrong",

@@ -26,6 +26,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -133,6 +134,49 @@ class LunchStoreTest {
         s.inFlight.first { it.isEmpty() } // cleared after completion
         assertEquals(1, respondCount) // the guard dropped the duplicate submit
         assertEquals(10L, (s.state.value as LunchUiState.Content).lunches.first().myMealOptionId)
+    }
+
+    @Test fun choose_failure_sets_action_error() = runTest {
+        val s = store { path -> if (path.endsWith("/respond")) HttpStatusCode.InternalServerError to "{}" else HttpStatusCode.OK to openLunchJson }
+        s.state.first { it is LunchUiState.Content }
+        assertNull(s.actionError.value)
+        s.choose(lunchId = 1, mealOptionId = 10)
+        s.inFlight.first { it.isEmpty() } // action settled
+        assertEquals("Couldn't save your choice. Please try again.", s.actionError.value)
+    }
+
+    @Test fun dismiss_clears_action_error() = runTest {
+        val s = store { path -> if (path.endsWith("/respond")) HttpStatusCode.InternalServerError to "{}" else HttpStatusCode.OK to openLunchJson }
+        s.state.first { it is LunchUiState.Content }
+        s.notAttending(lunchId = 1)
+        s.inFlight.first { it.isEmpty() }
+        assertNotNull(s.actionError.value)
+        s.dismissActionError()
+        assertNull(s.actionError.value)
+    }
+
+    @Test fun next_action_attempt_clears_previous_error() = runTest {
+        var failNext = true
+        val s = store { path ->
+            if (path.endsWith("/respond")) {
+                if (failNext) { failNext = false; HttpStatusCode.InternalServerError to "{}" } else HttpStatusCode.OK to chosenLunchJson
+            } else HttpStatusCode.OK to openLunchJson
+        }
+        s.state.first { it is LunchUiState.Content }
+        s.choose(lunchId = 1, mealOptionId = 10)
+        s.inFlight.first { it.isEmpty() }
+        assertNotNull(s.actionError.value)
+        s.choose(lunchId = 1, mealOptionId = 10) // retry clears the stale error as it starts
+        s.inFlight.first { it.isEmpty() }
+        assertNull(s.actionError.value)
+    }
+
+    @Test fun successful_action_never_sets_error() = runTest {
+        val s = store { path -> if (path.endsWith("/respond")) HttpStatusCode.OK to chosenLunchJson else HttpStatusCode.OK to openLunchJson }
+        s.state.first { it is LunchUiState.Content }
+        s.choose(lunchId = 1, mealOptionId = 10)
+        s.inFlight.first { it.isEmpty() }
+        assertNull(s.actionError.value)
     }
 
     @Test fun error_emits_error() = runTest {

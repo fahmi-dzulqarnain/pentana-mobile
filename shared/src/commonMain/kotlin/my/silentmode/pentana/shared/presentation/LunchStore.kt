@@ -36,6 +36,12 @@ class LunchStore(private val repo: LunchRepository) {
     private val _inFlight = MutableStateFlow<Set<Long>>(emptySet())
     val inFlight: StateFlow<Set<Long>> = _inFlight.asStateFlow()
 
+    /** Set when a fire-and-forget action fails; the UI shows it natively (Snackbar / alert). */
+    private val _actionError = MutableStateFlow<String?>(null)
+    val actionError: StateFlow<String?> = _actionError.asStateFlow()
+
+    fun dismissActionError() { _actionError.value = null }
+
     init { load() }
 
     fun load() {
@@ -66,12 +72,14 @@ class LunchStore(private val repo: LunchRepository) {
     fun choose(lunchId: Long, mealOptionId: Long) {
         if (lunchId in _inFlight.value) return
         _inFlight.value = _inFlight.value + lunchId // synchronous check-and-set: no dispatch gap before the guard arms
+        _actionError.value = null
         scope.launch {
             try {
                 replace(repo.chooseOption(lunchId, mealOptionId))
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
+                _actionError.value = "Couldn't save your choice. Please try again."
             } finally {
                 _inFlight.value = _inFlight.value - lunchId
             }
@@ -81,12 +89,14 @@ class LunchStore(private val repo: LunchRepository) {
     fun notAttending(lunchId: Long) {
         if (lunchId in _inFlight.value) return
         _inFlight.value = _inFlight.value + lunchId // synchronous check-and-set: no dispatch gap before the guard arms
+        _actionError.value = null
         scope.launch {
             try {
                 replace(repo.markNotAttending(lunchId))
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
+                _actionError.value = "Couldn't save your choice. Please try again."
             } finally {
                 _inFlight.value = _inFlight.value - lunchId
             }

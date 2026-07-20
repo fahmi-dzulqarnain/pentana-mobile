@@ -32,6 +32,8 @@ class LunchStore(private val repo: LunchRepository) {
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
 
+    private val refreshTracker = RefreshTracker(_refreshing)
+
     /** Lunch ids with a vote/not-attending request in flight — drives per-card pending UI + the tap-guard. */
     private val _inFlight = MutableStateFlow<Set<Long>>(emptySet())
     val inFlight: StateFlow<Set<Long>> = _inFlight.asStateFlow()
@@ -51,13 +53,8 @@ class LunchStore(private val repo: LunchRepository) {
         }
     }
 
-    fun refresh() {
-        scope.launch {
-            _refreshing.value = true
-            fetch()
-            _refreshing.value = false
-        }
-    }
+    /** Suspends until the fetch completes so iOS .refreshable can hold the system spinner. */
+    suspend fun refresh() = refreshTracker.run { fetch() }
 
     private suspend fun fetch() {
         _state.value = try {
@@ -69,39 +66,15 @@ class LunchStore(private val repo: LunchRepository) {
         }
     }
 
-    fun choose(lunchId: Long, mealOptionId: Long) {
-        if (lunchId in _inFlight.value) return
-        _inFlight.value = _inFlight.value + lunchId // synchronous check-and-set: no dispatch gap before the guard arms
-        _actionError.value = null
-        scope.launch {
-            try {
-                replace(repo.chooseOption(lunchId, mealOptionId))
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (_: Exception) {
-                _actionError.value = "Couldn't save your choice. Please try again."
-            } finally {
-                _inFlight.value = _inFlight.value - lunchId
-            }
+    fun choose(lunchId: Long, mealOptionId: Long) =
+        runGuardedAction(scope, _inFlight, _actionError, lunchId, SAVE_CHOICE_ERROR) {
+            replace(repo.chooseOption(lunchId, mealOptionId))
         }
-    }
 
-    fun notAttending(lunchId: Long) {
-        if (lunchId in _inFlight.value) return
-        _inFlight.value = _inFlight.value + lunchId // synchronous check-and-set: no dispatch gap before the guard arms
-        _actionError.value = null
-        scope.launch {
-            try {
-                replace(repo.markNotAttending(lunchId))
-            } catch (cancellation: CancellationException) {
-                throw cancellation
-            } catch (_: Exception) {
-                _actionError.value = "Couldn't save your choice. Please try again."
-            } finally {
-                _inFlight.value = _inFlight.value - lunchId
-            }
+    fun notAttending(lunchId: Long) =
+        runGuardedAction(scope, _inFlight, _actionError, lunchId, SAVE_CHOICE_ERROR) {
+            replace(repo.markNotAttending(lunchId))
         }
-    }
 
     private fun replace(updated: LunchDto) {
         val current = (_state.value as? LunchUiState.Content)?.lunches ?: return
@@ -109,4 +82,8 @@ class LunchStore(private val repo: LunchRepository) {
     }
 
     fun clear() { scope.cancel() }
+
+    private companion object {
+        const val SAVE_CHOICE_ERROR = "Couldn't save your choice. Please try again."
+    }
 }

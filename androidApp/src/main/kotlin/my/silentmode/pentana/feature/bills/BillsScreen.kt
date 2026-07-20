@@ -33,6 +33,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.silentmode.pentana.core.myr
 import my.silentmode.pentana.shared.model.BillDto
 import my.silentmode.pentana.shared.model.BillsSummaryDto
+import my.silentmode.pentana.shared.presentation.BillStatus
+import my.silentmode.pentana.shared.presentation.BillsUiState
+import my.silentmode.pentana.shared.presentation.billStatus
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.ChipKind
 import my.silentmode.pentana.ui.components.ErrorState
@@ -47,25 +50,26 @@ import my.silentmode.pentana.ui.components.SubmitFab
 import my.silentmode.pentana.ui.theme.LocalPentanaColors
 import my.silentmode.pentana.ui.theme.MoneyLarge
 
-private fun billChip(status: String): ChipKind = when (status.lowercase()) {
-    "paid" -> ChipKind.Paid
-    "partial" -> ChipKind.Partial
-    "overdue" -> ChipKind.Overdue
-    else -> ChipKind.Unpaid
+private fun billChip(status: BillStatus): ChipKind = when (status) {
+    BillStatus.Paid -> ChipKind.Paid
+    BillStatus.Partial -> ChipKind.Partial
+    BillStatus.Overdue -> ChipKind.Overdue
+    BillStatus.Unpaid -> ChipKind.Unpaid
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BillsScreen() {
     val vm = appViewModel { BillsViewModel(it.bills) }
-    val state by vm.state.collectAsStateWithLifecycle()
+    val state by vm.store.state.collectAsStateWithLifecycle()
+    val refreshing by vm.store.refreshing.collectAsStateWithLifecycle()
     var showSheet by rememberSaveable { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize()) {
-        PullToRefreshBox(isRefreshing = vm.refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
+        PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
             when (val uiState = state) {
                 is BillsUiState.Loading -> LoadingState()
-                is BillsUiState.Error -> ErrorState(uiState.message, vm::load)
+                is BillsUiState.Error -> ErrorState(uiState.message, vm.store::load)
                 is BillsUiState.Content -> BillsContent(uiState.summary, uiState.bills)
             }
         }
@@ -73,7 +77,7 @@ fun BillsScreen() {
     }
 
     if (showSheet) {
-        SubmitProofSheet(vm = vm, onDismiss = { showSheet = false; vm.resetSubmit() })
+        SubmitProofSheet(store = vm.store, onDismiss = { showSheet = false; vm.store.resetSubmit() })
     }
 }
 
@@ -121,7 +125,8 @@ private fun SummaryCard(summary: BillsSummaryDto) {
 @Composable
 private fun BillRow(bill: BillDto, last: Boolean) {
     val colors = LocalPentanaColors.current
-    val paid = bill.status.lowercase() == "paid"
+    val status = billStatus(bill)
+    val paid = status == BillStatus.Paid
     PentListItem(
         headline = bill.month,
         supporting = "Due ${myr(bill.amountDue)} · Paid ${myr(bill.amountPaid)}",
@@ -134,7 +139,7 @@ private fun BillRow(bill: BillDto, last: Boolean) {
                     color = if (paid) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(Modifier.height(5.dp))
-                StatusChip(billChip(bill.status))
+                StatusChip(billChip(status))
             }
         },
         showDivider = !last,

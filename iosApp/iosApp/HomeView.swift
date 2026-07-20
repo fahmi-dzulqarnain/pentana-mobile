@@ -36,7 +36,7 @@ struct HomeView: View {
                                title: "Couldn't load", message: error.message)
                     .containerRelativeFrame(.vertical, alignment: .center)
             }
-            .refreshable { store?.refresh() }
+            .refreshable { try? await store?.refresh() }
         case .content(let content):
             ScrollView {
                 VStack(alignment: .leading, spacing: 11) {
@@ -52,7 +52,7 @@ struct HomeView: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 28)
             }
-            .refreshable { store?.refresh() }
+            .refreshable { try? await store?.refresh() }
         }
     }
 

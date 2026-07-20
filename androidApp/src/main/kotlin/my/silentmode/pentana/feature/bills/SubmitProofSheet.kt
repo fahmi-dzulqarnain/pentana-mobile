@@ -26,18 +26,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.delay
 import my.silentmode.pentana.core.PickedPhoto
 import my.silentmode.pentana.core.readPhoto
+import my.silentmode.pentana.shared.presentation.BillsStore
+import my.silentmode.pentana.shared.presentation.SubmitState
+import my.silentmode.pentana.shared.presentation.canSubmitProof
 import my.silentmode.pentana.ui.components.PentButton
 import my.silentmode.pentana.ui.components.PentTextField
 import my.silentmode.pentana.ui.components.PhotoPickerTile
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SubmitProofSheet(vm: BillsViewModel, onDismiss: () -> Unit) {
+fun SubmitProofSheet(store: BillsStore, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
+    val submit by store.submit.collectAsStateWithLifecycle()
     var amount by rememberSaveable { mutableStateOf("") }
     var note by rememberSaveable { mutableStateOf("") }
     var photo by remember { mutableStateOf<PickedPhoto?>(null) }
@@ -46,8 +51,8 @@ fun SubmitProofSheet(vm: BillsViewModel, onDismiss: () -> Unit) {
         if (uri != null) photo = readPhoto(context, uri)
     }
 
-    LaunchedEffect(vm.submit) {
-        if (vm.submit is SubmitState.Success) {
+    LaunchedEffect(submit) {
+        if (submit is SubmitState.Success) {
             delay(700)
             onDismiss()
         }
@@ -86,18 +91,20 @@ fun SubmitProofSheet(vm: BillsViewModel, onDismiss: () -> Unit) {
                 onClear = { photo = null },
             )
 
-            (vm.submit as? SubmitState.Error)?.let {
+            (submit as? SubmitState.Error)?.let { submitError ->
                 Spacer(Modifier.height(12.dp))
-                Text(it.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                Text(submitError.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
             }
 
             Spacer(Modifier.height(16.dp))
             PentButton(
-                text = if (vm.submit is SubmitState.Success) "Submitted" else "Submit proof",
-                onClick = { photo?.let { vm.submitProof(amount, note, it) } },
+                text = if (submit is SubmitState.Success) "Submitted" else "Submit proof",
+                onClick = { photo?.let { picked -> store.submitProof(picked.bytes, picked.name, amount, note.ifBlank { null }) } },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = canSubmitProof(amount, photo != null),
-                loading = vm.submit is SubmitState.Submitting,
+                // Also disabled during the "Submitted" dwell — the store only guards Submitting,
+                // so a live button here could fire a duplicate proof upload.
+                enabled = canSubmitProof(amount, photo != null) && submit !is SubmitState.Success,
+                loading = submit is SubmitState.Submitting,
             )
         }
     }

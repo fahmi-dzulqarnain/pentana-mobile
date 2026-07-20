@@ -62,7 +62,7 @@ fun HomeScreen(userName: String, onSwitchTab: (NavDest) -> Unit) {
     val vm = appViewModel { HomeViewModel(it.dashboard) }
     val state by vm.store.state.collectAsStateWithLifecycle()
     val refreshing by vm.store.refreshing.collectAsStateWithLifecycle()
-    PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm.store::refresh, modifier = Modifier.fillMaxSize()) {
+    PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize()) {
         when (val uiState = state) {
             is HomeUiState.Loading -> LoadingState()
             is HomeUiState.Error -> ErrorState(uiState.message, vm.store::load)

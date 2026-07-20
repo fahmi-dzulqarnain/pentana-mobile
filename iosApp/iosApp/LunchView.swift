@@ -49,7 +49,7 @@ struct LunchView: View {
                                actionTitle: "Try again", action: { store?.load() })
                     .containerRelativeFrame(.vertical, alignment: .center)
             }
-            .refreshable { store?.refresh() }
+            .refreshable { try? await store?.refresh() }
         case .content(let content):
             ScrollView {
                 if content.lunches.isEmpty {
@@ -70,7 +70,7 @@ struct LunchView: View {
                     .padding(.bottom, 28)
                 }
             }
-            .refreshable { store?.refresh() }
+            .refreshable { try? await store?.refresh() }
         }
     }
 }

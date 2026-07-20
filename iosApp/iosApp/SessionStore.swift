@@ -66,6 +66,10 @@ final class SessionStore: ObservableObject {
     /// Vend a shared Notifications presentation store for the bell sheet.
     func makeNotificationsStore() -> NotificationsStore { NotificationsStore(repo: notifications) }
 
+    /// Vend a shared Bills presentation store. Same lifecycle contract as the other factories:
+    /// held in @State, reused across reappear, not cleared.
+    func makeBillsStore() -> BillsStore { BillsStore(repo: bills) }
+
     /// On launch: if a token exists, fetch the profile; drop it if the token is stale.
     func bootstrap() async {
         if auth.isLoggedIn() {

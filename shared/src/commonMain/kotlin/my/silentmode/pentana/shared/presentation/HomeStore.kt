@@ -32,6 +32,8 @@ class HomeStore(private val repo: DashboardRepository) {
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
 
+    private val refreshTracker = RefreshTracker(_refreshing)
+
     init { load() }
 
     fun load() {
@@ -41,13 +43,8 @@ class HomeStore(private val repo: DashboardRepository) {
         }
     }
 
-    fun refresh() {
-        scope.launch {
-            _refreshing.value = true
-            fetch()
-            _refreshing.value = false
-        }
-    }
+    /** Suspends until the fetch completes so iOS .refreshable can hold the system spinner. */
+    suspend fun refresh() = refreshTracker.run { fetch() }
 
     private suspend fun fetch() {
         _state.value = try {

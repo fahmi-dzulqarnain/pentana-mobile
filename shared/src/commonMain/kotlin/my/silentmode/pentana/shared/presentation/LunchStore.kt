@@ -41,6 +41,7 @@ class LunchStore(private val repo: LunchRepository) {
     /** Set when a fire-and-forget action fails; the UI shows it natively (Snackbar / alert). */
     private val _actionError = MutableStateFlow<String?>(null)
     val actionError: StateFlow<String?> = _actionError.asStateFlow()
+    private val actionRunner = GuardedActionRunner(scope, _inFlight, _actionError)
 
     fun dismissActionError() { _actionError.value = null }
 
@@ -67,12 +68,12 @@ class LunchStore(private val repo: LunchRepository) {
     }
 
     fun choose(lunchId: Long, mealOptionId: Long) =
-        runGuardedAction(scope, _inFlight, _actionError, lunchId, SAVE_CHOICE_ERROR) {
+        actionRunner.run(lunchId, SAVE_CHOICE_ERROR) {
             replace(repo.chooseOption(lunchId, mealOptionId))
         }
 
     fun notAttending(lunchId: Long) =
-        runGuardedAction(scope, _inFlight, _actionError, lunchId, SAVE_CHOICE_ERROR) {
+        actionRunner.run(lunchId, SAVE_CHOICE_ERROR) {
             replace(repo.markNotAttending(lunchId))
         }
 

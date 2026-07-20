@@ -6,19 +6,22 @@
 //  (text / textarea / select / checkbox) and submits the answers.
 //
 
-import Shared
+@preconcurrency import Shared
 import SwiftUI
 
 struct RegisterActivityView: View {
-    @EnvironmentObject private var session: SessionStore
     @Environment(\.dismiss) private var dismiss
-
+    let store: ActivitiesStore
     let activity: ActivityDto
-    var onRegistered: (ActivityDto) -> Void
 
     @State private var answers: [String: String] = [:]
-    @State private var isSubmitting = false
-    @State private var error: String?
+    @State private var regState: RegState = RegStateIdle.shared
+
+    private var isSubmitting: Bool { regState is RegStateSubmitting }
+    private var errorMessage: String? { (regState as? RegStateError)?.message }
+    private var canRegister: Bool {
+        requiredAnswered(questions: activity.questions, answers: answers) && !isSubmitting
+    }
 
     var body: some View {
         NavigationStack {
@@ -26,10 +29,10 @@ struct RegisterActivityView: View {
                 VStack(spacing: 14) {
                     banner
 
-                    if let error {
+                    if let errorMessage {
                         HStack(spacing: 9) {
                             Image(systemName: "exclamationmark.circle.fill")
-                            Text(error).font(.pentFoot).fontWeight(.semibold)
+                            Text(errorMessage).font(.pentFoot).fontWeight(.semibold)
                         }
                         .foregroundStyle(Pent.bad)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -54,10 +57,21 @@ struct RegisterActivityView: View {
                 Button(action: submit) {
                     if isSubmitting { ProgressView().tint(Pent.onBrand) } else { Text("Register") }
                 }
-                .buttonStyle(PentProminentButtonStyle(enabled: requiredAnswered && !isSubmitting))
-                .disabled(!requiredAnswered || isSubmitting)
+                .buttonStyle(PentProminentButtonStyle(enabled: canRegister))
+                .disabled(!canRegister)
                 .padding(.horizontal, 18).padding(.top, 8).padding(.bottom, 12)
                 .background(.bar)
+            }
+        }
+        .task {
+            for await value in store.reg {
+                await MainActor.run { regState = value }
+                if value is RegStateSuccess {
+                    await MainActor.run {
+                        store.resetReg()
+                        dismiss()
+                    }
+                }
             }
         }
     }
@@ -76,16 +90,16 @@ struct RegisterActivityView: View {
         switch question.type {
         case "checkbox":
             Button {
-                answers[question.key] = (answers[question.key] == "1") ? "0" : "1"
+                answers[question.key] = checkboxValue(checked: answers[question.key] != "true")
             } label: {
                 HStack(spacing: 11) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 7, style: .continuous)
-                            .fill(answers[question.key] == "1" ? Pent.accentSolid : Color.clear)
+                            .fill(answers[question.key] == "true" ? Pent.accentSolid : Color.clear)
                             .frame(width: 24, height: 24)
                             .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .strokeBorder(answers[question.key] == "1" ? Color.clear : Pent.label4, lineWidth: 1.5))
-                        if answers[question.key] == "1" {
+                                .strokeBorder(answers[question.key] == "true" ? Color.clear : Pent.label4, lineWidth: 1.5))
+                        if answers[question.key] == "true" {
                             Image(systemName: "checkmark").font(.system(size: 14, weight: .bold)).foregroundStyle(Pent.onBrand)
                         }
                     }
@@ -133,27 +147,8 @@ struct RegisterActivityView: View {
     private func binding(_ key: String) -> Binding<String> {
         Binding(get: { answers[key] ?? "" }, set: { answers[key] = $0 })
     }
-    private var requiredAnswered: Bool {
-        activity.questions.allSatisfy { question in
-            guard question.required else { return true }
-            if question.type == "checkbox" { return answers[question.key] == "1" }
-            return !(answers[question.key] ?? "").trimmingCharacters(in: .whitespaces).isEmpty
-        }
-    }
 
     private func submit() {
-        Task {
-            isSubmitting = true
-            error = nil
-            let payload = answers.filter { !$0.value.isEmpty }
-            do {
-                let updated = try await session.activities.register(activityId: activity.id, answers: payload)
-                onRegistered(updated)
-                dismiss()
-            } catch {
-                self.error = "Registration failed. Please check your answers and try again."
-            }
-            isSubmitting = false
-        }
+        store.register(activityId: activity.id, answers: answers)
     }
 }

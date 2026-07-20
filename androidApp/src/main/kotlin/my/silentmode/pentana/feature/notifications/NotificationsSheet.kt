@@ -58,6 +58,10 @@ fun NotificationsSheet(onMarkAllRead: () -> Unit, onDismiss: () -> Unit) {
     // Opening the list marks everything read and clears the bell badge.
     LaunchedEffect(Unit) { onMarkAllRead() }
 
+    // Refetch on every open so read-states are current (adjudication #2; the store's init-load
+    // makes the very first open double-fetch — accepted, cheap).
+    LaunchedEffect(Unit) { vm.store.load() }
+
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {

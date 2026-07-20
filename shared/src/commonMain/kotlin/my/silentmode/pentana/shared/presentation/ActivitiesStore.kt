@@ -112,6 +112,15 @@ class ActivitiesStore(private val repo: ActivitiesRepository) {
             replace(repo.cancel(activityId))
         }
 
+    /**
+     * Registration for activities WITHOUT questions — no sheet is open, so failures surface via
+     * [actionError] (Snackbar/alert) instead of the sheet-bound [reg] machine.
+     */
+    fun quickRegister(activityId: Long) =
+        actionRunner.run(activityId, "Registration failed. Please try again.") {
+            replace(repo.register(activityId, emptyMap()))
+        }
+
     fun resetReg() {
         regGeneration += 1
         _reg.value = RegState.Idle

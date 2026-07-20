@@ -36,15 +36,15 @@ import my.silentmode.pentana.ui.theme.PentanaTheme
 @Composable
 fun PentanaApp() {
     PentanaTheme {
-        val session = appViewModel { SessionViewModel(it.auth, it.notifications) }
-        val s by session.state.collectAsStateWithLifecycle()
+        val session = appViewModel { SessionViewModel(it.sessionManager) }
+        val sessionState by session.state.collectAsStateWithLifecycle()
 
         LaunchedEffect(Unit) { session.bootstrap() }
 
         when {
-            s.bootstrapping -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) { LoadingState() }
-            s.user == null -> LoginScreen(onSignedIn = session::onLoggedIn)
-            else -> MainScaffold(session, s.user!!, s.unread)
+            sessionState.bootstrapping -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) { LoadingState() }
+            sessionState.user == null -> LoginScreen()
+            else -> MainScaffold(session, sessionState.user!!, sessionState.unread)
         }
     }
 }

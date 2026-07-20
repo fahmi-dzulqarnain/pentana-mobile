@@ -84,7 +84,7 @@ fun ActivitiesScreen() {
                     activities = uiState.activities,
                     inFlight = inFlight,
                     onRegister = { activity ->
-                        if (activity.questions.isNotEmpty()) { vm.store.resetReg(); sheetActivity = activity } else vm.store.register(activity.id, emptyMap())
+                        if (activity.questions.isNotEmpty()) { vm.store.resetReg(); sheetActivity = activity } else vm.store.quickRegister(activity.id)
                     },
                     onCancel = { vm.store.cancel(it) },
                 )
@@ -157,7 +157,8 @@ private fun SpotsChip(activity: ActivityDto, cardState: ActivityCardState) {
     when (cardState) {
         ActivityCardState.Registered -> StatusChip(ChipKind.Registered)
         ActivityCardState.Waitlisted -> StatusChip(ChipKind.Waitlisted, label = "Full")
-        ActivityCardState.Open, ActivityCardState.Closed -> StatusChip(ChipKind.Open, label = spotsLabel(activity))
+        ActivityCardState.Open -> StatusChip(ChipKind.Open, label = spotsLabel(activity))
+        ActivityCardState.Closed -> StatusChip(ChipKind.Closed)
     }
 }
 

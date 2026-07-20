@@ -50,7 +50,8 @@ struct ActivitiesView: View {
         case .error(let error):
             ScrollView {
                 EmptyStateView(symbol: "calendar", tint: Pent.activ, bg: Pent.activBg,
-                               title: "Couldn't load", message: error.message)
+                               title: "Couldn't load", message: error.message,
+                               actionTitle: "Try again", action: { store?.load() })
                     .containerRelativeFrame(.vertical, alignment: .center)
             }
             .refreshable { try? await store?.refresh() }
@@ -66,7 +67,7 @@ struct ActivitiesView: View {
                             ActivityCard(activity: activity, busy: inFlight.contains(activity.id),
                                          onRegister: {
                                              if activity.questions.isEmpty {
-                                                 store?.register(activityId: activity.id, answers: [:])
+                                                 store?.quickRegister(activityId: activity.id)
                                              } else {
                                                  store?.resetReg()
                                                  registering = activity

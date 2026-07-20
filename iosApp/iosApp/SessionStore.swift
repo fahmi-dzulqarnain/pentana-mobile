@@ -32,6 +32,10 @@ final class SessionStore: ObservableObject {
     private let passkeyManager = PasskeyManager(relyingParty: AppConfig.passkeyRelyingParty)
     private var lastDeviceToken: String?
 
+    /// Shared session state machine (bootstrap/login/logout/badge). DI + APNs + passkeys stay
+    /// native here; the manager's flows are bridged into the @Published properties below.
+    private let manager: SessionManager
+
     init() {
         let client = ApiClient(baseUrl: AppConfig.baseURL, tokenStore: tokenStore, engine: nil)
         auth = AuthRepository(client: client)
@@ -42,6 +46,7 @@ final class SessionStore: ObservableObject {
         notifications = NotificationsRepository(client: client)
         passkey = PasskeyRepository(client: client)
         deviceTokens = DeviceTokensRepository(client: client)
+        manager = SessionManager(auth: auth, notifications: notifications)
 
         // Forward APNs device tokens / foreground pushes from the AppDelegate.
         PushRegistrar.shared.onToken = { [weak self] token in
@@ -49,6 +54,22 @@ final class SessionStore: ObservableObject {
         }
         PushRegistrar.shared.onReceive = { [weak self] in
             Task { await self?.refreshBadge() }
+        }
+
+        // Bridge the shared manager's flows into the @Published properties the views observe.
+        Task { [weak self] in
+            guard let self else { return }
+            for await sessionState in manager.state {
+                self.user = sessionState.user
+                self.unreadCount = Int(sessionState.unread)
+                self.isBootstrapping = sessionState.bootstrapping
+            }
+        }
+        Task { [weak self] in
+            guard let self else { return }
+            for await message in manager.loginError {
+                self.errorMessage = message
+            }
         }
     }
 
@@ -74,38 +95,26 @@ final class SessionStore: ObservableObject {
     /// held in @State, reused across reappear, not cleared.
     func makeActivitiesStore() -> ActivitiesStore { ActivitiesStore(repo: activities) }
 
-    /// On launch: if a token exists, fetch the profile; drop it if the token is stale.
+    /// On launch: shared bootstrap (token → profile → badge), then native push enablement.
     func bootstrap() async {
-        if auth.isLoggedIn() {
-            do {
-                user = try await auth.me()
-                await refreshBadge()
-                await enablePushNotifications()
-            } catch {
-                try? await auth.logout()
-                user = nil
-            }
+        try? await manager.bootstrap()
+        if manager.state.value.user != nil {
+            await enablePushNotifications()
         }
-        isBootstrapping = false
     }
 
     func login(email: String, password: String) async {
-        errorMessage = nil
-        do {
-            user = try await auth.login(email: email, password: password, deviceName: "iOS")
-            await refreshBadge()
+        // Flatten the double optional (`try?` over an async function returning UserDto? yields
+        // UserDto?? — a failed login would otherwise read as .some(nil) != nil).
+        let loggedIn = (try? await manager.login(email: email, password: password, deviceName: "iOS")) ?? nil
+        if loggedIn != nil {
             await enablePushNotifications()
-        } catch {
-            // Surface the real reason (connection / ATS / 401 / parsing) instead of guessing.
-            errorMessage = "Sign in failed: \(error.localizedDescription)"
         }
     }
 
     func logout() async {
         if let token = lastDeviceToken { try? await deviceTokens.unregister(token: token) }
-        try? await auth.logout()
-        user = nil
-        unreadCount = 0
+        try? await manager.logout()
     }
 
     // MARK: - Push notifications
@@ -127,16 +136,14 @@ final class SessionStore: ObservableObject {
         do { try await deviceTokens.register(token: token, platform: "ios") } catch {}
     }
 
-    /// Refresh the bell badge's unread count (best-effort).
+    /// Refresh the bell badge's unread count (best-effort; the manager no-ops when logged out).
     func refreshBadge() async {
-        guard isLoggedIn else { return }
-        do { unreadCount = Int(try await notifications.notifications().unreadCount) } catch {}
+        try? await manager.refreshBadge()
     }
 
     /// Mark every notification read and clear the badge.
     func markNotificationsRead() async {
-        do { _ = try await notifications.markAllRead() } catch {}
-        unreadCount = 0
+        try? await manager.markAllRead()
     }
 
     // MARK: - Passkeys
@@ -147,8 +154,8 @@ final class SessionStore: ObservableObject {
         do {
             let challenge = try await passkey.loginOptions()
             let credential = try await passkeyManager.signIn(optionsJson: challenge.publicKeyJson)
-            user = try await passkey.loginVerify(state: challenge.state, credentialJson: credential)
-            await refreshBadge()
+            let verifiedUser = try await passkey.loginVerify(state: challenge.state, credentialJson: credential)
+            manager.onLoggedIn(user: verifiedUser)
             await enablePushNotifications()
         } catch PasskeyManager.PasskeyError.canceled {
             // User dismissed the sheet — no error.

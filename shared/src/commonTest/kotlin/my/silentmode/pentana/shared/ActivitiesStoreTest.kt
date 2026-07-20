@@ -222,4 +222,22 @@ class ActivitiesStoreTest {
         assertIs<ActivitiesUiState.Error>(store.state.value)
         assertFalse(store.refreshing.value)
     }
+
+    @Test fun quick_register_success_replaces_activity() = runTest {
+        val store = makeStore(routing())
+        store.state.first { it is ActivitiesUiState.Content }
+        store.quickRegister(activityId = 1)
+        store.inFlight.first { it.isEmpty() }
+        assertEquals("registered", (store.state.value as ActivitiesUiState.Content).activities.first { it.id == 1L }.myStatus)
+        assertNull(store.actionError.value)
+    }
+
+    @Test fun quick_register_failure_surfaces_action_error_not_reg() = runTest {
+        val store = makeStore(routing(registerResult = HttpStatusCode.InternalServerError to "{}"))
+        store.state.first { it is ActivitiesUiState.Content }
+        store.quickRegister(activityId = 1)
+        store.inFlight.first { it.isEmpty() }
+        assertEquals("Registration failed. Please try again.", store.actionError.value)
+        assertIs<RegState.Idle>(store.reg.value) // the sheet machine is untouched
+    }
 }

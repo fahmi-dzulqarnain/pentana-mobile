@@ -35,7 +35,8 @@ struct BillsView: View {
         case .error(let error):
             ScrollView {
                 EmptyStateView(symbol: "creditcard.fill", tint: Pent.dues, bg: Pent.duesBg,
-                               title: "Couldn't load", message: error.message)
+                               title: "Couldn't load", message: error.message,
+                               actionTitle: "Try again", action: { store?.load() })
                     .containerRelativeFrame(.vertical, alignment: .center)
             }
             .refreshable { try? await store?.refresh() }

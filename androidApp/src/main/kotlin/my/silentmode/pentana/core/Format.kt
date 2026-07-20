@@ -2,6 +2,7 @@ package my.silentmode.pentana.core
 
 import java.time.Instant
 import java.time.OffsetDateTime
+import my.silentmode.pentana.shared.presentation.plainTextBlurb
 
 /** Money fields arrive as fixed-2dp strings from the API; just prefix the currency. */
 fun myr(amount: String): String = "MYR $amount"
@@ -10,12 +11,9 @@ fun myr(amount: String): String = "MYR $amount"
 fun firstName(fullName: String): String =
     fullName.trim().substringBefore(' ').ifBlank { "there" }
 
-/** Strip rich-text HTML to a plain, single-line, ellipsized excerpt. */
+/** Plain-text excerpt of a rich-text [text]: shared HTML-strip + native length cap. */
 fun excerpt(text: String, max: Int = 140): String {
-    val plain = text
-        .replace(Regex("<[^>]*>"), " ")
-        .replace(Regex("\\s+"), " ")
-        .trim()
+    val plain = plainTextBlurb(text) ?: return ""
     return if (plain.length <= max) plain else plain.take(max).trimEnd() + "…"
 }
 

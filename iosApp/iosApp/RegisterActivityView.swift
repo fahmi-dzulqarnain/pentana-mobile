@@ -20,7 +20,9 @@ struct RegisterActivityView: View {
     private var isSubmitting: Bool { regState is RegStateSubmitting }
     private var errorMessage: String? { (regState as? RegStateError)?.message }
     private var canRegister: Bool {
-        requiredAnswered(questions: activity.questions, answers: answers) && !isSubmitting
+        // Also disabled once Success lands — in the hop before resetReg()+dismiss() both store
+        // guards are already disarmed, so a live button could fire a duplicate registration.
+        requiredAnswered(questions: activity.questions, answers: answers) && !isSubmitting && !(regState is RegStateSuccess)
     }
 
     var body: some View {

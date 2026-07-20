@@ -226,6 +226,36 @@ class SessionManagerTest {
         assertNull(managed.manager.state.value.user)
     }
 
+    @Test fun stale_mark_all_read_across_logout_login_is_discarded() = runTest {
+        // Pins the same epoch rule on markAllRead: a mark-read parked across logout→login must
+        // not zero the NEW session's badge (which login's refresh just set).
+        val markReadGate = CompletableDeferred<Unit>()
+        val staleMarkParked = CompletableDeferred<Unit>() // real cross-thread signal, as above
+        val managed = makeManager(startToken = "stored-token") { path ->
+            when {
+                path.endsWith("/notifications/read") -> {
+                    staleMarkParked.complete(Unit)
+                    markReadGate.await()
+                    HttpStatusCode.OK to markReadJson
+                }
+                else -> routing()(path)
+            }
+        }
+        managed.manager.bootstrap()
+        assertEquals(3, managed.manager.state.value.unread)
+
+        val staleMark = launch(Dispatchers.Main) { managed.manager.markAllRead() }
+        staleMarkParked.await() // epoch captured, request parked
+
+        managed.manager.logout()
+        managed.manager.login(email = "aisyah@org.my", password = "right", deviceName = "Test")
+        assertEquals(3, managed.manager.state.value.unread) // fresh session's badge
+
+        markReadGate.complete(Unit) // the abandoned mark-read now resolves...
+        staleMark.join()
+        assertEquals(3, managed.manager.state.value.unread) // ...but must not zero the new badge
+    }
+
     @Test fun mark_all_read_zeroes_badge_even_when_server_fails() = runTest {
         val managed = makeManager(startToken = "stored-token") { path ->
             when {

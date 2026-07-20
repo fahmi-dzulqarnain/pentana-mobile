@@ -29,7 +29,8 @@ data class SessionState(
  * registration/unregistration and DI stay native, sequenced around the suspend methods
  * (SKIE surfaces them as Swift async).
  *
- * All methods hop to Dispatchers.Main internally — safe to call from Swift-async threads.
+ * All suspend methods hop to Dispatchers.Main internally — safe to call from Swift-async threads.
+ * The plain methods ([onLoggedIn], [dismissLoginError]) must be called from the main thread.
  */
 class SessionManager(
     private val auth: AuthRepository,
@@ -97,6 +98,7 @@ class SessionManager(
     /** For natively-completed ceremonies (passkey): adopt the signed-in user. */
     fun onLoggedIn(user: UserDto) {
         sessionEpoch += 1
+        _loginError.value = null // a stale credential error must not survive into the new session
         _state.update { it.copy(user = user, unread = 0) }
         scope.launch { refreshBadge() }
     }
@@ -104,6 +106,7 @@ class SessionManager(
     /** Best-effort server logout; local state resets regardless. */
     suspend fun logout() = withContext(Dispatchers.Main) {
         sessionEpoch += 1
+        _loginError.value = null // a stale credential error must not survive into the next session
         try {
             auth.logout()
         } catch (cancellation: CancellationException) {
@@ -129,13 +132,16 @@ class SessionManager(
     /** Marks every notification read (best-effort) and clears the badge; no-op when logged out. */
     suspend fun markAllRead() = withContext(Dispatchers.Main) {
         if (_state.value.user == null) return@withContext
+        val epoch = sessionEpoch
         try {
             notifications.markAllRead()
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {
         }
-        _state.update { it.copy(unread = 0) }
+        // Same epoch rule as refreshBadge: a mark-read parked across logout/login must not
+        // zero the NEW session's badge.
+        if (epoch == sessionEpoch) _state.update { it.copy(unread = 0) }
     }
 
     /** Clears the login error (e.g. when the user edits a field). */

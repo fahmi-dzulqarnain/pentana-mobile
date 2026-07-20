@@ -37,14 +37,14 @@ import my.silentmode.pentana.ui.theme.PentanaTheme
 fun PentanaApp() {
     PentanaTheme {
         val session = appViewModel { SessionViewModel(it.sessionManager) }
-        val s by session.state.collectAsStateWithLifecycle()
+        val sessionState by session.state.collectAsStateWithLifecycle()
 
         LaunchedEffect(Unit) { session.bootstrap() }
 
         when {
-            s.bootstrapping -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) { LoadingState() }
-            s.user == null -> LoginScreen()
-            else -> MainScaffold(session, s.user!!, s.unread)
+            sessionState.bootstrapping -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) { LoadingState() }
+            sessionState.user == null -> LoginScreen()
+            else -> MainScaffold(session, sessionState.user!!, sessionState.unread)
         }
     }
 }

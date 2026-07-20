@@ -4,32 +4,33 @@
 //
 
 import PhotosUI
-import Shared
+@preconcurrency import Shared
 import SwiftUI
 
 struct SubmitProofView: View {
-    @EnvironmentObject private var session: SessionStore
     @Environment(\.dismiss) private var dismiss
-
-    var onSubmitted: () -> Void
+    let store: BillsStore
 
     @State private var amount = ""
     @State private var note = ""
     @State private var photoItem: PhotosPickerItem?
     @State private var imageData: Data?
-    @State private var isSubmitting = false
-    @State private var error: String?
+    @State private var submitState: SubmitState = SubmitStateIdle.shared
 
-    private var ready: Bool { imageData != nil && Double(amount) != nil && !isSubmitting }
+    private var isSubmitting: Bool { submitState is SubmitStateSubmitting }
+    private var errorMessage: String? { (submitState as? SubmitStateError)?.message }
+    private var ready: Bool {
+        imageData != nil && canSubmitProof(amount: amount, hasPhoto: imageData != nil) && !isSubmitting
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
-                    if let error {
+                    if let errorMessage {
                         HStack(spacing: 9) {
                             Image(systemName: "exclamationmark.circle.fill")
-                            Text(error).font(.pentFoot).fontWeight(.semibold)
+                            Text(errorMessage).font(.pentFoot).fontWeight(.semibold)
                         }
                         .foregroundStyle(Pent.bad)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -74,25 +75,23 @@ struct SubmitProofView: View {
                 Task { imageData = try? await item?.loadTransferable(type: Data.self) }
             }
         }
+        .task {
+            for await value in store.submit {
+                await MainActor.run { submitState = value }
+                if value is SubmitStateSuccess {
+                    await MainActor.run {
+                        store.resetSubmit()
+                        dismiss()
+                    }
+                }
+            }
+        }
     }
 
     private func submit() {
         guard let data = imageData else { return }
-        Task {
-            isSubmitting = true
-            error = nil
-            do {
-                _ = try await session.bills.submitPaymentProof(
-                    imageBytes: data.toKotlinByteArray(), fileName: "proof.jpg",
-                    amountClaimed: amount, memberNote: note.isEmpty ? nil : note
-                )
-                onSubmitted()
-                dismiss()
-            } catch {
-                self.error = "Upload failed. Please try again."
-            }
-            isSubmitting = false
-        }
+        store.submitProof(imageBytes: data.toKotlinByteArray(), fileName: "proof.jpg",
+                           amount: amount, note: note)
     }
 }
 

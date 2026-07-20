@@ -6,72 +6,81 @@
 //  position, or cancel. Cards over the ambient field.
 //
 
-import Shared
+@preconcurrency import Shared
 import SwiftUI
 
 struct ActivitiesView: View {
     @EnvironmentObject private var session: SessionStore
-    @State private var activities: [ActivityDto] = []
-    @State private var isLoading = true
-    @State private var busyId: Int64?
+    @State private var store: ActivitiesStore?
+    @State private var state: ActivitiesUiState = ActivitiesUiStateLoading.shared
+    @State private var inFlight: Set<Int64> = []
+    @State private var actionError: String?
     @State private var registering: ActivityDto?
 
     var body: some View {
-        VStack {
-            if isLoading && activities.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            } else {
-                ScrollView {
-                    if activities.isEmpty && !isLoading {
-                        EmptyStateView(symbol: "calendar", tint: Pent.activ, bg: Pent.activBg,
-                                       title: "No upcoming activities", message: "Check back soon for events to join.")
-                            .containerRelativeFrame(.vertical, alignment: .center)
-                    } else {
-                        VStack(spacing: 13) {
-                            ForEach(activities, id: \.id) { activity in
-                                ActivityCard(activity: activity, busy: busyId == activity.id,
-                                             onRegister: {
-                                                 if activity.questions.isEmpty {
-                                                     Task { await register(activity, answers: [:]) }
-                                                 } else {
-                                                     registering = activity
-                                                 }
-                                             },
-                                             onCancel: { Task { await cancel(activity) } })
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 28)
-                    }
-                }
-                .refreshable { await load() }
-                .sheet(item: $registering) { activity in
-                    RegisterActivityView(activity: activity) { updated in replace(updated) }
-                    .environmentObject(session)
+        content
+            .task {
+                let activeStore = store ?? session.makeActivitiesStore()
+                store = activeStore
+                async let states: Void = { for await value in activeStore.state { await MainActor.run { state = value } } }()
+                async let flights: Void = { for await ids in activeStore.inFlight { await MainActor.run { inFlight = Set(ids.map { $0.int64Value }) } } }()
+                async let errors: Void = { for await message in activeStore.actionError { await MainActor.run { actionError = message } } }()
+                _ = await (states, flights, errors)
+            }
+            .alert(
+                "Something went wrong",
+                isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil; store?.dismissActionError() } })
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(actionError ?? "")
+            }
+            .sheet(item: $registering, onDismiss: { store?.resetReg() }) { activity in
+                if let store {
+                    RegisterActivityView(store: store, activity: activity)
                 }
             }
-        }
-        .task { await load() }
     }
 
-    private func register(_ activity: ActivityDto, answers: [String: String]) async {
-        busyId = activity.id
-        do { replace(try await session.activities.register(activityId: activity.id, answers: answers)) } catch {}
-        busyId = nil
-    }
-    private func cancel(_ activity: ActivityDto) async {
-        busyId = activity.id
-        do { replace(try await session.activities.cancel(activityId: activity.id)) } catch {}
-        busyId = nil
-    }
-    private func replace(_ updated: ActivityDto) {
-        if let index = activities.firstIndex(where: { $0.id == updated.id }) { activities[index] = updated }
-    }
-    private func load() async {
-        isLoading = true
-        do { activities = try await session.activities.activities() } catch {}
-        isLoading = false
+    @ViewBuilder private var content: some View {
+        switch onEnum(of: state) {
+        case .loading:
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        case .error(let error):
+            ScrollView {
+                EmptyStateView(symbol: "calendar", tint: Pent.activ, bg: Pent.activBg,
+                               title: "Couldn't load", message: error.message)
+                    .containerRelativeFrame(.vertical, alignment: .center)
+            }
+            .refreshable { try? await store?.refresh() }
+        case .content(let content):
+            ScrollView {
+                if content.activities.isEmpty {
+                    EmptyStateView(symbol: "calendar", tint: Pent.activ, bg: Pent.activBg,
+                                   title: "No upcoming activities", message: "Check back soon for events to join.")
+                        .containerRelativeFrame(.vertical, alignment: .center)
+                } else {
+                    VStack(spacing: 13) {
+                        ForEach(content.activities, id: \.id) { activity in
+                            ActivityCard(activity: activity, busy: inFlight.contains(activity.id),
+                                         onRegister: {
+                                             if activity.questions.isEmpty {
+                                                 store?.register(activityId: activity.id, answers: [:])
+                                             } else {
+                                                 store?.resetReg()
+                                                 registering = activity
+                                             }
+                                         },
+                                         onCancel: { store?.cancel(activityId: activity.id) })
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 28)
+                }
+            }
+            .refreshable { try? await store?.refresh() }
+        }
     }
 }
 
@@ -83,14 +92,7 @@ private struct ActivityCard: View {
     let onRegister: () -> Void
     let onCancel: () -> Void
 
-    private enum State { case registered, waitlisted, open, closed }
-    private var state: State {
-        switch activity.myStatus {
-        case "registered": return .registered
-        case "waitlisted": return .waitlisted
-        default: return activity.isOpen ? .open : .closed
-        }
-    }
+    private var cardState: ActivityCardState { activityCardState(activity: activity) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -111,7 +113,7 @@ private struct ActivityCard: View {
             .font(.pentFoot).foregroundStyle(Pent.label2)
             .padding(.top, 6)
 
-            if let blurb = plainText(activity.description_) {
+            if let blurb = plainTextBlurb(html: activity.description_) {
                 Text(blurb).font(.pentFoot).foregroundStyle(Pent.label2).lineLimit(3)
                     .padding(.top, 8)
             }
@@ -126,7 +128,7 @@ private struct ActivityCard: View {
     }
 
     @ViewBuilder private var action: some View {
-        switch state {
+        switch cardState {
         case .registered:
             HStack {
                 Label("You're registered", systemImage: "checkmark.circle.fill")
@@ -136,7 +138,7 @@ private struct ActivityCard: View {
             }
         case .waitlisted:
             HStack {
-                Label(waitlistText, systemImage: "clock.fill")
+                Label(waitlistLabel(activity: activity), systemImage: "clock.fill")
                     .font(.pentFoot).fontWeight(.semibold).foregroundStyle(Pent.warn).labelStyle(.titleAndIcon)
                 Spacer()
                 cancelButton
@@ -159,33 +161,14 @@ private struct ActivityCard: View {
 
     private var spotsPill: some View {
         let (label, color, bg): (String, Color, Color) = {
-            switch state {
+            switch cardState {
             case .registered: return ("Registered", Pent.ok, Pent.okBg)
             case .waitlisted: return ("Full", Pent.warn, Pent.warnBg)
             case .closed: return ("Closed", Pent.neutral, Pent.neutralBg)
-            case .open:
-                if let spotsLeft = activity.spotsLeft?.int32Value {
-                    return ("\(spotsLeft) spot\(spotsLeft == 1 ? "" : "s") left", Pent.activ, Pent.activBg)
-                }
-                return ("Open", Pent.activ, Pent.activBg)
+            case .open: return (spotsLabel(activity: activity), Pent.activ, Pent.activBg)
             }
         }()
         return StatusPill(label, color: color, bg: bg)
-    }
-
-    private var waitlistText: String {
-        if let pos = activity.waitlistPosition?.int32Value { return "Waitlisted — #\(pos) in line" }
-        return "Waitlisted"
-    }
-
-    private func plainText(_ html: String?) -> String? {
-        guard let html, !html.isEmpty else { return nil }
-        let cleaned = html
-            .replacingOccurrences(of: "<[^>]+>", with: " ", options: .regularExpression)
-            .replacingOccurrences(of: "&nbsp;", with: " ")
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return cleaned.isEmpty ? nil : cleaned
     }
 }
 

@@ -70,6 +70,10 @@ final class SessionStore: ObservableObject {
     /// held in @State, reused across reappear, not cleared.
     func makeBillsStore() -> BillsStore { BillsStore(repo: bills) }
 
+    /// Vend a shared Activities presentation store. Same lifecycle contract as the other factories:
+    /// held in @State, reused across reappear, not cleared.
+    func makeActivitiesStore() -> ActivitiesStore { ActivitiesStore(repo: activities) }
+
     /// On launch: if a token exists, fetch the profile; drop it if the token is stale.
     func bootstrap() async {
         if auth.isLoggedIn() {

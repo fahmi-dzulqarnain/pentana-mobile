@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.runtime.mutableStateMapOf
@@ -21,9 +22,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.silentmode.pentana.core.excerpt
 import my.silentmode.pentana.shared.model.ActivityDto
 import my.silentmode.pentana.shared.model.QuestionDto
+import my.silentmode.pentana.shared.presentation.ActivitiesStore
+import my.silentmode.pentana.shared.presentation.RegState
+import my.silentmode.pentana.shared.presentation.checkboxValue
+import my.silentmode.pentana.shared.presentation.requiredAnswered
 import my.silentmode.pentana.ui.components.BtnVariant
 import my.silentmode.pentana.ui.components.PentButton
 import my.silentmode.pentana.ui.components.PentCheckbox
@@ -32,11 +38,12 @@ import my.silentmode.pentana.ui.components.PentTextField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RegistrationSheet(activity: ActivityDto, vm: ActivitiesViewModel, onDismiss: () -> Unit) {
+fun RegistrationSheet(activity: ActivityDto, store: ActivitiesStore, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val answers = remember { mutableStateMapOf<String, String>() }
+    val reg by store.reg.collectAsStateWithLifecycle()
 
-    LaunchedEffect(vm.reg) { if (vm.reg is RegState.Success) onDismiss() }
+    LaunchedEffect(reg) { if (reg is RegState.Success) onDismiss() }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(
@@ -60,18 +67,18 @@ fun RegistrationSheet(activity: ActivityDto, vm: ActivitiesViewModel, onDismiss:
                 Spacer(Modifier.height(14.dp))
             }
 
-            (vm.reg as? RegState.Error)?.let {
-                Text(it.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            (reg as? RegState.Error)?.let { regError ->
+                Text(regError.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
                 Spacer(Modifier.height(12.dp))
             }
 
             PentButton(
                 text = "Register",
-                onClick = { vm.register(activity.id, answers.toMap()) },
+                onClick = { store.register(activity.id, answers.toMap()) },
                 modifier = Modifier.fillMaxWidth(),
                 variant = BtnVariant.Filled,
-                enabled = requiredAnswered(activity.questions, answers) && vm.reg !is RegState.Submitting,
-                loading = vm.reg is RegState.Submitting,
+                enabled = requiredAnswered(activity.questions, answers) && reg !is RegState.Submitting && reg !is RegState.Success,
+                loading = reg is RegState.Submitting,
             )
         }
     }

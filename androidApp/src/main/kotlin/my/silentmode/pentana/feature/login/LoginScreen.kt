@@ -25,6 +25,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,18 +37,19 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.silentmode.pentana.R
-import my.silentmode.pentana.shared.model.UserDto
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.BtnVariant
 import my.silentmode.pentana.ui.components.PentButton
 import my.silentmode.pentana.ui.components.PentTextField
 
 @Composable
-fun LoginScreen(onSignedIn: (UserDto) -> Unit) {
-    val vm = appViewModel { LoginViewModel(it.auth) }
+fun LoginScreen() {
+    val vm = appViewModel { LoginViewModel(it.sessionManager) }
+    val loginError by vm.loginError.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(vm.error) { vm.error?.let { snackbar.showSnackbar(it) } }
+    LaunchedEffect(loginError) { loginError?.let { message -> snackbar.showSnackbar(message) } }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -75,7 +77,7 @@ fun LoginScreen(onSignedIn: (UserDto) -> Unit) {
                 label = "Email",
                 leadingIcon = Icons.Filled.MailOutline,
                 placeholder = "you@org.my",
-                isError = vm.error != null,
+                isError = loginError != null,
                 keyboardType = KeyboardType.Email,
             )
             Spacer(Modifier.height(14.dp))
@@ -85,15 +87,15 @@ fun LoginScreen(onSignedIn: (UserDto) -> Unit) {
                 label = "Password",
                 leadingIcon = Icons.Filled.Lock,
                 placeholder = "Your password",
-                isError = vm.error != null,
-                supportingText = vm.error,
+                isError = loginError != null,
+                supportingText = loginError,
                 keyboardType = KeyboardType.Password,
                 visualTransformation = PasswordVisualTransformation(),
             )
             Spacer(Modifier.height(6.dp))
             PentButton(
                 text = "Sign in",
-                onClick = { vm.submit(onSignedIn) },
+                onClick = vm::submit,
                 modifier = Modifier.fillMaxWidth(),
                 variant = BtnVariant.Filled,
                 enabled = vm.canSubmit,

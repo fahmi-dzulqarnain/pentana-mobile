@@ -210,6 +210,8 @@ class BillsStoreTest {
         assertFalse(canSubmitProof("50.00", hasPhoto = false))
         assertFalse(canSubmitProof("", hasPhoto = true))
         assertFalse(canSubmitProof("abc", hasPhoto = true)) // unified on iOS's stricter numeric check
+        assertFalse(canSubmitProof("NaN", hasPhoto = true)) // parses as a Double, but not a currency amount
+        assertFalse(canSubmitProof("Infinity", hasPhoto = true))
     }
 
     private fun bill(status: String) = BillDto(

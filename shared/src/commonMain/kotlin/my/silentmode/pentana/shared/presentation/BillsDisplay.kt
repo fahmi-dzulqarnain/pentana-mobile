@@ -16,5 +16,8 @@ fun billStatus(bill: BillDto): BillStatus = when {
  * Submit is allowed once the amount parses as a number and a photo is attached.
  * Unified on iOS's stricter numeric check (Android previously allowed any non-blank string).
  */
-fun canSubmitProof(amount: String, hasPhoto: Boolean): Boolean =
-    amount.trim().toDoubleOrNull() != null && hasPhoto
+fun canSubmitProof(amount: String, hasPhoto: Boolean): Boolean {
+    val parsedAmount = amount.trim().toDoubleOrNull() ?: return false
+    // toDoubleOrNull accepts "NaN"/"Infinity" — numeric, but not valid currency amounts.
+    return parsedAmount.isFinite() && hasPhoto
+}

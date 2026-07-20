@@ -13,11 +13,13 @@ import platform.posix.memcpy
  */
 @OptIn(ExperimentalForeignApi::class)
 fun byteArrayFrom(data: NSData): ByteArray {
-    val size = data.length.toInt()
+    val length = data.length
+    require(length <= Int.MAX_VALUE.toULong()) { "NSData too large for a ByteArray: $length bytes" }
+    val size = length.toInt()
     if (size == 0) return ByteArray(0)
     val bytes = ByteArray(size)
     bytes.usePinned { pinned ->
-        memcpy(pinned.addressOf(0), data.bytes, data.length)
+        memcpy(pinned.addressOf(0), data.bytes, length)
     }
     return bytes
 }

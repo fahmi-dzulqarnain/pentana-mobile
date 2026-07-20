@@ -37,7 +37,7 @@
 - Modify: `iosApp/iosApp/ActivitiesView.swift`
 - Modify: `iosApp/iosApp/BillsView.swift`
 
-- [ ] **Step 1: Write the failing tests** — add to `ActivitiesStoreTest` (fixtures `listJson`/`registeredJson` and `makeStore`/`routing` already exist):
+- [x] **Step 1: Write the failing tests** — add to `ActivitiesStoreTest` (fixtures `listJson`/`registeredJson` and `makeStore`/`routing` already exist):
 
 ```kotlin
 @Test fun quick_register_success_replaces_activity() = runTest {
@@ -59,9 +59,9 @@
 }
 ```
 
-- [ ] **Step 2: Run — expect FAIL** (unresolved `quickRegister`): `./gradlew :shared:allTests`
+- [x] **Step 2: Run — expect FAIL** (unresolved `quickRegister`): `./gradlew :shared:allTests`
 
-- [ ] **Step 3: Implement `quickRegister`** in `ActivitiesStore.kt`, next to `cancel`:
+- [x] **Step 3: Implement `quickRegister`** in `ActivitiesStore.kt`, next to `cancel`:
 
 ```kotlin
     /**
@@ -74,24 +74,24 @@
         }
 ```
 
-- [ ] **Step 4: Run — expect PASS**: `./gradlew :shared:allTests` (ActivitiesStoreTest 12/12).
+- [x] **Step 4: Run — expect PASS**: `./gradlew :shared:allTests` (ActivitiesStoreTest 12/12).
 
-- [ ] **Step 5: Android touches.** In `ActivitiesScreen.kt`:
+- [x] **Step 5: Android touches.** In `ActivitiesScreen.kt`:
   - The no-questions branch of `onRegister` becomes `vm.store.quickRegister(activity.id)` (was `vm.store.register(activity.id, emptyMap())`).
   - In `SpotsChip`, the `Closed` case splits out of the Open branch: `ActivityCardState.Closed -> StatusChip(ChipKind.Closed)` (a closed activity never shows a spots count — adjudication #3). `Open` keeps `StatusChip(ChipKind.Open, label = spotsLabel(activity))`.
 
-- [ ] **Step 6: iOS touches.**
+- [x] **Step 6: iOS touches.**
   - `ActivitiesView.swift`: no-questions branch → `store?.quickRegister(activityId: activity.id)`; the error case's `EmptyStateView` gains `actionTitle: "Try again", action: { store?.load() }`.
   - `BillsView.swift`: the error case's `EmptyStateView` gains the same `actionTitle`/`action` pair.
 
-- [ ] **Step 7: Gates**
+- [x] **Step 7: Gates**
 
 ```bash
 ./gradlew :shared:allTests :androidApp:assembleDebug :androidApp:testDebugUnitTest
 xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/ActivitiesStore.kt shared/src/commonTest/kotlin/my/silentmode/pentana/shared/ActivitiesStoreTest.kt androidApp/src/main/kotlin/my/silentmode/pentana/feature/activities/ActivitiesScreen.kt iosApp/iosApp/ActivitiesView.swift iosApp/iosApp/BillsView.swift
@@ -106,7 +106,7 @@ git commit -m "feat: quickRegister via actionError, Closed pill unification, iOS
 - Create: `shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/SessionManager.kt`
 - Test: `shared/src/commonTest/kotlin/my/silentmode/pentana/shared/SessionManagerTest.kt`
 
-- [ ] **Step 1: Write the failing tests** — create `SessionManagerTest.kt`:
+- [x] **Step 1: Write the failing tests** — create `SessionManagerTest.kt`:
 
 ```kotlin
 package my.silentmode.pentana.shared
@@ -275,9 +275,9 @@ class SessionManagerTest {
 }
 ```
 
-- [ ] **Step 2: Run — expect FAIL** (unresolved `SessionManager`): `./gradlew :shared:allTests`
+- [x] **Step 2: Run — expect FAIL** (unresolved `SessionManager`): `./gradlew :shared:allTests`
 
-- [ ] **Step 3: Implement `SessionManager.kt`:**
+- [x] **Step 3: Implement `SessionManager.kt`:**
 
 ```kotlin
 package my.silentmode.pentana.shared.presentation
@@ -418,9 +418,9 @@ class SessionManager(
 
 Note the stale-token logout inside `bootstrap`: `AuthRepository.logout()` clears the token store even when the server call fails only if the request itself doesn't throw before `tokenStore.clear()` — it does `post` then `clear()`, and `ensureSuccess` is NOT called on logout, so a non-2xx response still clears. A thrown connection error skips the clear; the catch swallows it and the user is logged out in-memory either way (matches both platforms today).
 
-- [ ] **Step 4: Run — expect PASS**: `./gradlew :shared:allTests` (SessionManagerTest 10/10).
+- [x] **Step 4: Run — expect PASS**: `./gradlew :shared:allTests` (SessionManagerTest 10/10).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/SessionManager.kt shared/src/commonTest/kotlin/my/silentmode/pentana/shared/SessionManagerTest.kt
@@ -439,7 +439,7 @@ git commit -m "feat(shared): SessionManager — bootstrap/login/logout/badge sta
 - Modify: `androidApp/src/main/kotlin/my/silentmode/pentana/PentanaApp.kt`
 - Modify: `androidApp/src/main/kotlin/my/silentmode/pentana/feature/notifications/NotificationsSheet.kt`
 
-- [ ] **Step 1: Vend the manager from `AppContainer.kt`** — add after the repository declarations:
+- [x] **Step 1: Vend the manager from `AppContainer.kt`** — add after the repository declarations:
 
 ```kotlin
 import my.silentmode.pentana.shared.presentation.SessionManager
@@ -448,7 +448,7 @@ import my.silentmode.pentana.shared.presentation.SessionManager
     val sessionManager = SessionManager(auth, notifications)
 ```
 
-- [ ] **Step 2: Slim `SessionViewModel.kt`.** Replace the whole file with:
+- [x] **Step 2: Slim `SessionViewModel.kt`.** Replace the whole file with:
 
 ```kotlin
 package my.silentmode.pentana.ui.session
@@ -473,7 +473,7 @@ class SessionViewModel(private val sessionManager: SessionManager) : ViewModel()
 
 (The local `State` data class, `onLoggedIn`, and `refreshBadge` are deleted — state comes from shared `SessionState`; login lands in the manager directly, so no callback is needed.)
 
-- [ ] **Step 3: Rewire `LoginViewModel.kt`.** Replace the whole file with:
+- [x] **Step 3: Rewire `LoginViewModel.kt`.** Replace the whole file with:
 
 ```kotlin
 package my.silentmode.pentana.feature.login
@@ -515,7 +515,7 @@ class LoginViewModel(private val sessionManager: SessionManager) : ViewModel() {
 
 (No `onSuccess` callback: a successful login sets `state.user` in the manager, which flips `PentanaApp`'s `when` automatically. The manager trims the email itself.)
 
-- [ ] **Step 4: Update `LoginScreen.kt`.** Signature loses the callback; the error comes from the flow:
+- [x] **Step 4: Update `LoginScreen.kt`.** Signature loses the callback; the error comes from the flow:
 
 ```kotlin
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -530,7 +530,7 @@ fun LoginScreen() {
 
 and in the form: `isError = loginError != null` (both fields), `supportingText = loginError` (password field), button `onClick = vm::submit`. The `UserDto` import is removed.
 
-- [ ] **Step 5: Update `PentanaApp.kt`:**
+- [x] **Step 5: Update `PentanaApp.kt`:**
 
 ```kotlin
         val session = appViewModel { SessionViewModel(it.sessionManager) }
@@ -540,7 +540,7 @@ and in the form: `isError = loginError != null` (both fields), `supportingText =
 
 (Everything else — `MainScaffold`, `ProfileSheet` sign-out via `session.logout()`, bell via `session::markNotificationsRead` — is source-compatible: the shared `SessionState` has the same `user`/`unread`/`bootstrapping` property names as the deleted local `State`.)
 
-- [ ] **Step 6: Notifications fetch-on-open** — in `NotificationsSheet.kt`, next to the existing mark-read effect:
+- [x] **Step 6: Notifications fetch-on-open** — in `NotificationsSheet.kt`, next to the existing mark-read effect:
 
 ```kotlin
     // Refetch on every open so read-states are current (adjudication #2; the store's init-load
@@ -548,12 +548,12 @@ and in the form: `isError = loginError != null` (both fields), `supportingText =
     LaunchedEffect(Unit) { vm.store.load() }
 ```
 
-- [ ] **Step 7: Gates**
+- [x] **Step 7: Gates**
 
 Run: `./gradlew :androidApp:assembleDebug :androidApp:testDebugUnitTest`
 Expected: BUILD SUCCESSFUL.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add androidApp/src/main/kotlin/my/silentmode/pentana/core/AppContainer.kt androidApp/src/main/kotlin/my/silentmode/pentana/ui/session/SessionViewModel.kt androidApp/src/main/kotlin/my/silentmode/pentana/feature/login androidApp/src/main/kotlin/my/silentmode/pentana/PentanaApp.kt androidApp/src/main/kotlin/my/silentmode/pentana/feature/notifications/NotificationsSheet.kt
@@ -567,7 +567,7 @@ git commit -m "refactor(android): session layer consumes shared SessionManager"
 **Files:**
 - Modify: `iosApp/iosApp/SessionStore.swift`
 
-- [ ] **Step 1: Construct the manager + bridge its flows.** In `SessionStore.init`, after the repositories are built, add:
+- [x] **Step 1: Construct the manager + bridge its flows.** In `SessionStore.init`, after the repositories are built, add:
 
 ```swift
         manager = SessionManager(auth: auth, notifications: notifications)
@@ -599,7 +599,7 @@ At the END of `init` (after the PushRegistrar wiring), start the bridges (Sessio
         }
 ```
 
-- [ ] **Step 2: Replace the session methods** (`bootstrap`, `login`, `logout`, `refreshBadge`, `markNotificationsRead`) — native push/passkey sequencing stays, state writes are gone (the bridge owns them):
+- [x] **Step 2: Replace the session methods** (`bootstrap`, `login`, `logout`, `refreshBadge`, `markNotificationsRead`) — native push/passkey sequencing stays, state writes are gone (the bridge owns them):
 
 ```swift
     /// On launch: shared bootstrap (token → profile → badge), then native push enablement.
@@ -646,12 +646,12 @@ In `passkeySignIn()`, the success line `user = try await passkey.loginVerify(...
 
 The `@Published` properties keep their declarations (now written only by the bridges + passkey error path). `isLoggedIn` computed property unchanged. Login-screen behavior note: iOS now shows the unified copy `"The provided credentials are incorrect."` (adjudication #1).
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`
 Expected: BUILD SUCCEEDED. SKIE notes: `SessionState` arrives as a Swift class with `user: UserDto?`, `unread: Int32`, `bootstrapping: Bool`; `manager.state.value` gives the current value synchronously; suspend methods are `async throws`; `login` returns `UserDto?`. If `bootstrapping` arrives boxed (`KotlinBoolean`), adapt with `.boolValue` and note it.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add iosApp/iosApp/SessionStore.swift
@@ -662,7 +662,7 @@ git commit -m "refactor(ios): SessionStore bridges shared SessionManager; ceremo
 
 ## Task 5: Full milestone verification
 
-- [ ] **Step 1: Everything green**
+- [x] **Step 1: Everything green**
 
 ```bash
 ./gradlew :shared:allTests :androidApp:assembleDebug :androidApp:testDebugUnitTest --rerun-tasks
@@ -670,18 +670,18 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator 
 ```
 Expected: all suites green (SessionManagerTest adds 10, ActivitiesStoreTest grows to 12); both apps build.
 
-- [ ] **Step 2: No duplicated session logic remains**
+- [x] **Step 2: No duplicated session logic remains**
 
 ```bash
 grep -rn 'auth.me()\|auth.login\|auth.logout\|unreadCount = \|markAllRead' androidApp/src/main iosApp/iosApp | grep -v 'shared.presentation\|manager\.' || echo CLEAN
 ```
 Expected: `CLEAN` (or only manager-delegating call sites, to be judged).
 
-- [ ] **Step 3: AppConfig never staged**
+- [x] **Step 3: AppConfig never staged**
 
 Run: `git log main..HEAD --name-only --pretty= | sort -u | grep -c AppConfig || echo NEVER-STAGED`
 
-- [ ] **Step 4: STOP — hand to the maintainer** (no push/merge). Report: test totals, build results, behavior notes (unified login copy on iOS; notifications refetch-on-open; Closed pill on Android; questionless-register failures now visible; iOS Try-again buttons). This completes the rollout — the final report should note the original goal is met: every screen's presentation logic + the session layer now live in commonMain.
+- [x] **Step 4: STOP — hand to the maintainer** (no push/merge). Report: test totals, build results, behavior notes (unified login copy on iOS; notifications refetch-on-open; Closed pill on Android; questionless-register failures now visible; iOS Try-again buttons). This completes the rollout — the final report should note the original goal is met: every screen's presentation logic + the session layer now live in commonMain.
 
 ---
 

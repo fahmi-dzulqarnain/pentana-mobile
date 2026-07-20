@@ -118,11 +118,12 @@ class ActivitiesStoreTest {
         // Isolates the inFlight guard: resetReg() disarms the Submitting guard (reg is Idle again),
         // so a retap of the SAME id is stopped by the inFlight membership check alone.
         val gate = CompletableDeferred<Unit>()
+        val requestParked = CompletableDeferred<Unit>() // MockEngine runs on real threads — virtual time can't order it
         var registerRequests = 0
         val engine = MockEngine { request ->
             val path = request.url.fullPath
             val body = when {
-                path.endsWith("/register") -> { registerRequests += 1; gate.await(); registeredJson }
+                path.endsWith("/register") -> { registerRequests += 1; requestParked.complete(Unit); gate.await(); registeredJson }
                 path.endsWith("/activities") -> listJson
                 else -> "{}"
             }
@@ -131,7 +132,7 @@ class ActivitiesStoreTest {
         val store = ActivitiesStore(ActivitiesRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
         store.state.first { it is ActivitiesUiState.Content }
         store.register(activityId = 1, answers = mapOf("name" to "Aisyah"))
-        store.reg.first { it is RegState.Submitting }
+        requestParked.await() // the request has reached the handler and is parked on the gate
         store.resetReg() // abandons the sheet — Submitting guard disarmed, request still in flight
         assertIs<RegState.Idle>(store.reg.value)
         store.register(activityId = 1, answers = mapOf("name" to "Aisyah")) // must hit the inFlight guard
@@ -145,11 +146,12 @@ class ActivitiesStoreTest {
         // Isolates the Submitting guard: a DIFFERENT activity id is not in inFlight, so only the
         // reg-machine check can stop the second registration while the first is in flight.
         val gate = CompletableDeferred<Unit>()
+        val requestParked = CompletableDeferred<Unit>() // MockEngine runs on real threads — virtual time can't order it
         var registerRequests = 0
         val engine = MockEngine { request ->
             val path = request.url.fullPath
             val body = when {
-                path.endsWith("/register") -> { registerRequests += 1; gate.await(); registeredJson }
+                path.endsWith("/register") -> { registerRequests += 1; requestParked.complete(Unit); gate.await(); registeredJson }
                 path.endsWith("/activities") -> listJson
                 else -> "{}"
             }
@@ -158,7 +160,7 @@ class ActivitiesStoreTest {
         val store = ActivitiesStore(ActivitiesRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
         store.state.first { it is ActivitiesUiState.Content }
         store.register(activityId = 1, answers = mapOf("name" to "Aisyah"))
-        store.reg.first { it is RegState.Submitting }
+        requestParked.await() // the request has reached the handler and is parked on the gate
         store.register(activityId = 2, answers = mapOf("name" to "Aisyah")) // different id — only the Submitting guard applies
         assertEquals(1, registerRequests)
         gate.complete(Unit)

@@ -90,8 +90,9 @@ struct SubmitProofView: View {
 
     private func submit() {
         guard let data = imageData else { return }
-        store.submitProof(imageBytes: data.toKotlinByteArray(), fileName: "proof.jpg",
-                           amount: amount, note: note)
+        // byteArrayFrom is a shared iosMain helper: one memcpy instead of a bridged call per byte.
+        store.submitProof(imageBytes: byteArrayFrom(data: data), fileName: "proof.jpg",
+                          amount: amount, note: note)
     }
 }
 
@@ -133,15 +134,5 @@ struct PhotoTile: View {
                     .foregroundStyle(Pent.separatorOpaque)
             )
         }
-    }
-}
-
-private extension Data {
-    func toKotlinByteArray() -> KotlinByteArray {
-        let array = KotlinByteArray(size: Int32(count))
-        for (index, byte) in enumerated() {
-            array.set(index: Int32(index), value: Int8(bitPattern: byte))
-        }
-        return array
     }
 }

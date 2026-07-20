@@ -20,7 +20,7 @@ struct BillsView: View {
                 async let states: Void = { for await value in activeStore.state { await MainActor.run { state = value } } }()
                 _ = await states
             }
-            .sheet(isPresented: $showSubmit) {
+            .sheet(isPresented: $showSubmit, onDismiss: { store?.resetSubmit() }) {
                 if let store {
                     SubmitProofView(store: store)
                 }
@@ -117,6 +117,7 @@ private struct BillRow: View {
     let bill: BillDto
 
     var body: some View {
+        let sharedStatus = billStatus(bill: bill)
         HStack(alignment: .top, spacing: 12) {
             DomainIcon(symbol: "creditcard.fill", tint: Pent.dues, bg: Pent.duesBg, size: 36, corner: 10, iconSize: 18)
             VStack(alignment: .leading, spacing: 5) {
@@ -129,15 +130,15 @@ private struct BillRow: View {
             VStack(alignment: .trailing, spacing: 6) {
                 Text("MYR \(bill.outstanding)")
                     .font(.pentMoney(16, weight: .bold))
-                    .foregroundStyle(bill.status == "paid" ? Pent.label3 : Pent.label)
-                StatusPill(pillKind)
+                    .foregroundStyle(sharedStatus == .paid ? Pent.label3 : Pent.label)
+                StatusPill(pillKind(for: sharedStatus))
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 15)
     }
 
-    private var pillKind: PillKind {
-        switch billStatus(bill: bill) {
+    private func pillKind(for sharedStatus: BillStatus) -> PillKind {
+        switch sharedStatus {
         case .paid: return .paid
         case .partial: return .partial
         case .overdue: return .overdue

@@ -28,7 +28,7 @@
 - Modify: `shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/HomeStore.kt`
 - Test: `shared/src/commonTest/kotlin/my/silentmode/pentana/shared/HomeStoreTest.kt`
 
-- [ ] **Step 1: Write the failing test** — add to `HomeStoreTest` (imports to add if missing: `kotlinx.coroutines.CompletableDeferred`, `kotlinx.coroutines.launch`, `kotlinx.coroutines.test.advanceUntilIdle`, `io.ktor.client.engine.mock.MockEngine`, `kotlin.test.assertTrue`):
+- [x] **Step 1: Write the failing test** — add to `HomeStoreTest` (imports to add if missing: `kotlinx.coroutines.CompletableDeferred`, `kotlinx.coroutines.launch`, `kotlinx.coroutines.test.advanceUntilIdle`, `io.ktor.client.engine.mock.MockEngine`, `kotlin.test.assertTrue`):
 
 ```kotlin
 @Test fun overlapping_refreshes_keep_flag_until_last_completes() = runTest {
@@ -54,12 +54,12 @@
 }
 ```
 
-- [ ] **Step 2: Run — expect FAIL**
+- [x] **Step 2: Run — expect FAIL**
 
 Run: `./gradlew :shared:allTests`
 Expected: compile error — `store.refresh()` inside `launch { }` is fine today (non-suspend), but `assertTrue(store.refreshing.value)` fails at runtime: the completed second refresh clears the flag while the first is parked. (If instead it fails compiling after Step 3's suspend change, that's also the red step — the point is the test exists before the fix.)
 
-- [ ] **Step 3: Create `StoreSupport.kt`**
+- [x] **Step 3: Create `StoreSupport.kt`**
 
 ```kotlin
 package my.silentmode.pentana.shared.presentation
@@ -127,7 +127,7 @@ internal fun runGuardedAction(
 }
 ```
 
-- [ ] **Step 4: Refactor `LunchStore.kt`** — replace `refresh()`, `choose()`, `notAttending()`, add the tracker and the error-copy constant. The full new class body (state declarations, `load()`, `fetch()`, `replace()`, `clear()`, KDocs unchanged from current file — only the members shown here change):
+- [x] **Step 4: Refactor `LunchStore.kt`** — replace `refresh()`, `choose()`, `notAttending()`, add the tracker and the error-copy constant. The full new class body (state declarations, `load()`, `fetch()`, `replace()`, `clear()`, KDocs unchanged from current file — only the members shown here change):
 
 ```kotlin
     private val refreshTracker = RefreshTracker(_refreshing)
@@ -156,7 +156,7 @@ and at the bottom of the class:
 
 Delete the old `refresh()` (the `scope.launch { _refreshing.value = true; ... }` version) and the two hand-rolled guarded bodies.
 
-- [ ] **Step 5: Refactor `HomeStore.kt`** — same refresh change:
+- [x] **Step 5: Refactor `HomeStore.kt`** — same refresh change:
 
 ```kotlin
     private val refreshTracker = RefreshTracker(_refreshing)
@@ -167,12 +167,12 @@ Delete the old `refresh()` (the `scope.launch { _refreshing.value = true; ... }`
 
 (Old launch-based `refresh()` deleted. `NotificationsStore` has no refresh — untouched.)
 
-- [ ] **Step 6: Run — expect PASS**
+- [x] **Step 6: Run — expect PASS**
 
 Run: `./gradlew :shared:allTests`
 Expected: all suites green, including the new overlap test and every existing Lunch/Home test (they call `refresh()` from within `runTest`, so the suspend change compiles; the guarded-duplicate and actionError pin tests prove the helper preserved semantics).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/StoreSupport.kt shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/LunchStore.kt shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/HomeStore.kt shared/src/commonTest/kotlin/my/silentmode/pentana/shared/HomeStoreTest.kt
@@ -189,7 +189,7 @@ git commit -m "refactor(shared): store helpers (RefreshTracker, runGuardedAction
 - Modify: `androidApp/src/main/kotlin/my/silentmode/pentana/feature/lunch/LunchScreen.kt`
 - Modify: `androidApp/src/main/kotlin/my/silentmode/pentana/feature/home/HomeScreen.kt`
 
-- [ ] **Step 1: Add a refresh launcher to both ViewModels.** `LunchViewModel.kt` becomes:
+- [x] **Step 1: Add a refresh launcher to both ViewModels.** `LunchViewModel.kt` becomes:
 
 ```kotlin
 package my.silentmode.pentana.feature.lunch
@@ -209,14 +209,14 @@ class LunchViewModel(repo: LunchRepository) : ViewModel() {
 
 `HomeViewModel.kt` gets the identical `refresh()` addition (imports `viewModelScope` + `launch`).
 
-- [ ] **Step 2: Point the screens at the launcher.** In `LunchScreen.kt` and `HomeScreen.kt`, change the `PullToRefreshBox` argument `onRefresh = vm.store::refresh` → `onRefresh = vm::refresh`. Nothing else changes (the `refreshing` flow collection stays — it still drives the Compose indicator).
+- [x] **Step 2: Point the screens at the launcher.** In `LunchScreen.kt` and `HomeScreen.kt`, change the `PullToRefreshBox` argument `onRefresh = vm.store::refresh` → `onRefresh = vm::refresh`. Nothing else changes (the `refreshing` flow collection stays — it still drives the Compose indicator).
 
-- [ ] **Step 3: Build**
+- [x] **Step 3: Build**
 
 Run: `./gradlew :androidApp:assembleDebug`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add androidApp/src/main/kotlin/my/silentmode/pentana/feature/lunch androidApp/src/main/kotlin/my/silentmode/pentana/feature/home
@@ -231,7 +231,7 @@ git commit -m "refactor(android): launch suspend store refresh from ViewModels"
 - Modify: `iosApp/iosApp/LunchView.swift`
 - Modify: `iosApp/iosApp/HomeView.swift`
 
-- [ ] **Step 1: Await the now-async refresh.** In both files, every `.refreshable { store?.refresh() }` becomes:
+- [x] **Step 1: Await the now-async refresh.** In both files, every `.refreshable { store?.refresh() }` becomes:
 
 ```swift
 .refreshable { try? await store?.refresh() }
@@ -239,12 +239,12 @@ git commit -m "refactor(android): launch suspend store refresh from ViewModels"
 
 (`LunchView` has two — error and content cases; `HomeView` has two.) SKIE surfaces `suspend fun refresh()` as Swift `async throws`; `try?` is correct — a failed refresh already lands in the store's Error state, and cancellation (view dismissed mid-pull) needs no handling.
 
-- [ ] **Step 2: Build**
+- [x] **Step 2: Build**
 
 Run: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`
 Expected: `BUILD SUCCEEDED`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add iosApp/iosApp/LunchView.swift iosApp/iosApp/HomeView.swift
@@ -259,7 +259,7 @@ git commit -m "fix(ios): hold pull-to-refresh spinner by awaiting suspend refres
 - Modify: `shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/NotificationsDisplay.kt`
 - Test: `shared/src/commonTest/kotlin/my/silentmode/pentana/shared/NotificationsStoreTest.kt`
 
-- [ ] **Step 1: Write the failing test** — add to `NotificationsStoreTest`:
+- [x] **Step 1: Write the failing test** — add to `NotificationsStoreTest`:
 
 ```kotlin
 @Test fun kind_activity_joined_matches_typographic_apostrophe() {
@@ -268,22 +268,22 @@ git commit -m "fix(ios): hold pull-to-refresh spinner by awaiting suspend refres
 }
 ```
 
-- [ ] **Step 2: Run — expect FAIL**
+- [x] **Step 2: Run — expect FAIL**
 
 Run: `./gradlew :shared:allTests`
 Expected: the new test fails (`General` != `ActivityJoined`).
 
-- [ ] **Step 3: Implement** — in `NotificationsDisplay.kt`, extend the ActivityJoined branch with the typographic variant (no whole-title normalization; only this keyword contains an apostrophe):
+- [x] **Step 3: Implement** — in `NotificationsDisplay.kt`, extend the ActivityJoined branch with the typographic variant (no whole-title normalization; only this keyword contains an apostrophe):
 
 ```kotlin
         title.contains("you're in", ignoreCase = true) || title.contains("you’re in", ignoreCase = true) || title.contains("promoted", ignoreCase = true) || title.contains("waitlist", ignoreCase = true) -> NotificationKind.ActivityJoined
 ```
 
-- [ ] **Step 4: Run — expect PASS**
+- [x] **Step 4: Run — expect PASS**
 
 Run: `./gradlew :shared:allTests`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/NotificationsDisplay.kt shared/src/commonTest/kotlin/my/silentmode/pentana/shared/NotificationsStoreTest.kt
@@ -299,7 +299,7 @@ git commit -m "fix(shared): match typographic apostrophe in notificationKind"
 - Create: `shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/BillsDisplay.kt`
 - Test: `shared/src/commonTest/kotlin/my/silentmode/pentana/shared/BillsStoreTest.kt`
 
-- [ ] **Step 1: Write the failing tests** — create `BillsStoreTest.kt`:
+- [x] **Step 1: Write the failing tests** — create `BillsStoreTest.kt`:
 
 ```kotlin
 package my.silentmode.pentana.shared
@@ -485,11 +485,11 @@ class BillsStoreTest {
 }
 ```
 
-- [ ] **Step 2: Run — expect FAIL** (unresolved `BillsStore`/`BillsUiState`/`SubmitState`/`billStatus`/`canSubmitProof`)
+- [x] **Step 2: Run — expect FAIL** (unresolved `BillsStore`/`BillsUiState`/`SubmitState`/`billStatus`/`canSubmitProof`)
 
 Run: `./gradlew :shared:allTests`
 
-- [ ] **Step 3: Implement `BillsDisplay.kt`**
+- [x] **Step 3: Implement `BillsDisplay.kt`**
 
 ```kotlin
 package my.silentmode.pentana.shared.presentation
@@ -514,7 +514,7 @@ fun canSubmitProof(amount: String, hasPhoto: Boolean): Boolean =
     amount.trim().toDoubleOrNull() != null && hasPhoto
 ```
 
-- [ ] **Step 4: Implement `BillsStore.kt`**
+- [x] **Step 4: Implement `BillsStore.kt`**
 
 ```kotlin
 package my.silentmode.pentana.shared.presentation
@@ -614,11 +614,11 @@ class BillsStore(private val repo: BillsRepository) {
 }
 ```
 
-- [ ] **Step 5: Run — expect PASS**
+- [x] **Step 5: Run — expect PASS**
 
 Run: `./gradlew :shared:allTests`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/BillsStore.kt shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/BillsDisplay.kt shared/src/commonTest/kotlin/my/silentmode/pentana/shared/BillsStoreTest.kt
@@ -634,7 +634,7 @@ git commit -m "feat(shared): BillsStore with SubmitState machine + bill display 
 - Modify: `androidApp/src/main/kotlin/my/silentmode/pentana/feature/bills/BillsScreen.kt`
 - Modify: `androidApp/src/main/kotlin/my/silentmode/pentana/feature/bills/SubmitProofSheet.kt`
 
-- [ ] **Step 1: Slim `BillsViewModel.kt`.** Replace the whole file with:
+- [x] **Step 1: Slim `BillsViewModel.kt`.** Replace the whole file with:
 
 ```kotlin
 package my.silentmode.pentana.feature.bills
@@ -654,7 +654,7 @@ class BillsViewModel(repo: BillsRepository) : ViewModel() {
 
 (The local `BillsUiState`, `SubmitState`, `canSubmitProof`, `refreshing`/`submit` mutableStates, and all fetch/submit logic are deleted — shared now.)
 
-- [ ] **Step 2: Update `BillsScreen.kt`.** Import changes — replace the implicit local types with:
+- [x] **Step 2: Update `BillsScreen.kt`.** Import changes — replace the implicit local types with:
 
 ```kotlin
 import my.silentmode.pentana.shared.presentation.BillStatus
@@ -710,7 +710,7 @@ In `BillRow`, the `paid` check and chip call change to the shared decision:
     StatusChip(billChip(status))
 ```
 
-- [ ] **Step 3: Update `SubmitProofSheet.kt`.** Signature changes from `(vm: BillsViewModel, onDismiss)` to the store + collected submit state; imports add:
+- [x] **Step 3: Update `SubmitProofSheet.kt`.** Signature changes from `(vm: BillsViewModel, onDismiss)` to the store + collected submit state; imports add:
 
 ```kotlin
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -760,12 +760,12 @@ fun SubmitProofSheet(store: BillsStore, onDismiss: () -> Unit) {
 
 (`canSubmitProof` now comes from shared — note the behavior unification: the button requires a *numeric* amount, matching iOS.)
 
-- [ ] **Step 4: Build**
+- [x] **Step 4: Build**
 
 Run: `./gradlew :androidApp:assembleDebug`
 Expected: `BUILD SUCCESSFUL`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add androidApp/src/main/kotlin/my/silentmode/pentana/feature/bills
@@ -781,7 +781,7 @@ git commit -m "refactor(android): Bills consumes shared BillsStore + display dec
 - Modify: `iosApp/iosApp/BillsView.swift`
 - Modify: `iosApp/iosApp/SubmitProofView.swift`
 
-- [ ] **Step 1: Vend the store from `SessionStore`** — next to the other factories:
+- [x] **Step 1: Vend the store from `SessionStore`** — next to the other factories:
 
 ```swift
 /// Vend a shared Bills presentation store. Same lifecycle contract as the other factories:
@@ -789,7 +789,7 @@ git commit -m "refactor(android): Bills consumes shared BillsStore + display dec
 func makeBillsStore() -> BillsStore { BillsStore(repo: bills) }
 ```
 
-- [ ] **Step 2: Rewrite `BillsView`'s state handling.** Change import to `@preconcurrency import Shared`. Replace `@State summary/bills/isLoading` and `load()` with the store pattern (`HomeView.swift` is the template):
+- [x] **Step 2: Rewrite `BillsView`'s state handling.** Change import to `@preconcurrency import Shared`. Replace `@State summary/bills/isLoading` and `load()` with the store pattern (`HomeView.swift` is the template):
 
 ```swift
 struct BillsView: View {
@@ -876,7 +876,7 @@ In `BillRow`, replace `private func pill(_ status: String)` with the shared deci
 
 (call site: `StatusPill(pillKind)`; `monthLabel` date formatting stays native.)
 
-- [ ] **Step 3: Rewire `SubmitProofView` to the store.** It now takes the store instead of calling the repo; the `onSubmitted` callback is deleted (the store refetches internally on success). Change import to `@preconcurrency import Shared`. Replace the state plumbing and `submit()` (form layout, `PhotoTile`, and the `Data.toKotlinByteArray()` extension stay unchanged):
+- [x] **Step 3: Rewire `SubmitProofView` to the store.** It now takes the store instead of calling the repo; the `onSubmitted` callback is deleted (the store refetches internally on success). Change import to `@preconcurrency import Shared`. Replace the state plumbing and `submit()` (form layout, `PhotoTile`, and the `Data.toKotlinByteArray()` extension stay unchanged):
 
 ```swift
 struct SubmitProofView: View {
@@ -927,12 +927,12 @@ Update the error banner to use `errorMessage` (`if let errorMessage { ... Text(e
 
 > SKIE notes: `SubmitState` sealed interface → `SubmitStateIdle.shared`/`SubmitStateSubmitting`/`SubmitStateError`/`SubmitStateSuccess` classes with `is`/`as?` checks (or `onEnum(of:)` — use whichever compiles cleaner, `is` checks shown are fine for a non-exhaustive read). `canSubmitProof(amount:hasPhoto:)` is a global Swift function. `BillStatus` cases lower-camelCase.
 
-- [ ] **Step 4: Build**
+- [x] **Step 4: Build**
 
 Run: `xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build`
 Expected: `BUILD SUCCEEDED`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add iosApp/iosApp/SessionStore.swift iosApp/iosApp/BillsView.swift iosApp/iosApp/SubmitProofView.swift
@@ -943,7 +943,7 @@ git commit -m "refactor(ios): Bills + proof submission consume shared BillsStore
 
 ## Task 8: Full milestone verification
 
-- [ ] **Step 1: Everything green**
+- [x] **Step 1: Everything green**
 
 ```bash
 ./gradlew :shared:allTests :androidApp:assembleDebug :androidApp:testDebugUnitTest --rerun-tasks
@@ -954,19 +954,19 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator 
 test sources — a stale test import of a deleted symbol slipped through Task 6's gate exactly this way.)
 Expected: all suites green (Bills suite adds 10 tests; totals rise accordingly on all three targets); both apps build.
 
-- [ ] **Step 2: No duplicated logic remains**
+- [x] **Step 2: No duplicated logic remains**
 
 ```bash
 grep -rn 'status.lowercase()\|status == "paid"\|SubmitState\b' androidApp/src/main/kotlin/my/silentmode/pentana/feature/bills iosApp/iosApp/BillsView.swift iosApp/iosApp/SubmitProofView.swift | grep -v 'shared.presentation\|import' || echo CLEAN
 ```
 Expected: `CLEAN` (or only shared-type usages, to be judged).
 
-- [ ] **Step 3: AppConfig never staged**
+- [x] **Step 3: AppConfig never staged**
 
 Run: `git log main..HEAD --name-only --pretty= | sort -u | grep -c AppConfig || echo NEVER-STAGED`
 Expected: `NEVER-STAGED`.
 
-- [ ] **Step 4: STOP — hand to the maintainer** (no push/merge; report test totals, build results, behavior notes: Android submit button now requires numeric amount; iOS spinner restored; iOS sheet keeps upload error visible via shared SubmitState).
+- [x] **Step 4: STOP — hand to the maintainer** (no push/merge; report test totals, build results, behavior notes: Android submit button now requires numeric amount; iOS spinner restored; iOS sheet keeps upload error visible via shared SubmitState).
 
 ---
 

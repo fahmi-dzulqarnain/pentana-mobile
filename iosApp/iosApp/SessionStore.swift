@@ -104,6 +104,11 @@ final class SessionStore: ObservableObject {
     }
 
     func login(email: String, password: String) async {
+        // Clear a stale NATIVE error (e.g. from passkeySignIn) explicitly: the manager's
+        // loginError starts nil and it clears to nil at attempt start, so a null→null write
+        // never emits through the conflating StateFlow bridge, leaving a passkey error visible
+        // through this attempt.
+        errorMessage = nil
         // Flatten the double optional (`try?` over an async function returning UserDto? yields
         // UserDto?? — a failed login would otherwise read as .some(nil) != nil).
         let loggedIn = (try? await manager.login(email: email, password: password, deviceName: "iOS")) ?? nil
@@ -122,7 +127,9 @@ final class SessionStore: ObservableObject {
     /// Ask for notification permission, then register for remote notifications. Safe to call
     /// repeatedly — iOS only prompts once. Registers any token already captured by the AppDelegate.
     func enablePushNotifications() async {
-        guard isLoggedIn else { return }
+        // Read the manager's authoritative state, not the bridged @Published `user` — the
+        // bridge lags by queue hops, and a call racing ahead of it would silently no-op here.
+        guard manager.state.value.user != nil else { return }
         let granted = (try? await UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .badge, .sound])) ?? false
         guard granted else { return }
@@ -131,7 +138,7 @@ final class SessionStore: ObservableObject {
     }
 
     private func registerDeviceToken(_ token: String) async {
-        guard isLoggedIn else { return }
+        guard manager.state.value.user != nil else { return }
         lastDeviceToken = token
         do { try await deviceTokens.register(token: token, platform: "ios") } catch {}
     }

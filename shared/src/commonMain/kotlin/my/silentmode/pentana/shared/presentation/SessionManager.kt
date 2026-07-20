@@ -43,6 +43,12 @@ class SessionManager(
     private val _loginError = MutableStateFlow<String?>(null)
     val loginError: StateFlow<String?> = _loginError.asStateFlow()
 
+    /**
+     * Bumped on every session transition (login/logout/onLoggedIn). A badge fetch from a
+     * previous session (pre-logout/pre-login) must not write into the current one.
+     */
+    private var sessionEpoch = 0
+
     /** On launch: if a token exists, fetch the profile; drop the token if it is stale. */
     suspend fun bootstrap() = withContext(Dispatchers.Main) {
         if (!auth.isLoggedIn()) {
@@ -76,7 +82,8 @@ class SessionManager(
             _loginError.value = null
             try {
                 val user = auth.login(email.trim(), password, deviceName)
-                _state.update { it.copy(user = user) }
+                sessionEpoch += 1
+                _state.update { it.copy(user = user, unread = 0) }
                 refreshBadge()
                 user
             } catch (cancellation: CancellationException) {
@@ -89,12 +96,14 @@ class SessionManager(
 
     /** For natively-completed ceremonies (passkey): adopt the signed-in user. */
     fun onLoggedIn(user: UserDto) {
-        _state.update { it.copy(user = user) }
+        sessionEpoch += 1
+        _state.update { it.copy(user = user, unread = 0) }
         scope.launch { refreshBadge() }
     }
 
     /** Best-effort server logout; local state resets regardless. */
     suspend fun logout() = withContext(Dispatchers.Main) {
+        sessionEpoch += 1
         try {
             auth.logout()
         } catch (cancellation: CancellationException) {
@@ -107,9 +116,10 @@ class SessionManager(
     /** Best-effort bell-badge refresh; no-op when logged out. */
     suspend fun refreshBadge() = withContext(Dispatchers.Main) {
         if (_state.value.user == null) return@withContext
+        val epoch = sessionEpoch
         try {
             val unreadCount = notifications.notifications().unreadCount
-            _state.update { it.copy(unread = unreadCount) }
+            if (epoch == sessionEpoch) _state.update { it.copy(unread = unreadCount) }
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {
@@ -128,7 +138,9 @@ class SessionManager(
         _state.update { it.copy(unread = 0) }
     }
 
+    /** Clears the login error (e.g. when the user edits a field). */
     fun dismissLoginError() { _loginError.value = null }
 
+    /** Test teardown only — never call from ViewModels; the manager is app-scoped. */
     fun clear() { scope.cancel() }
 }

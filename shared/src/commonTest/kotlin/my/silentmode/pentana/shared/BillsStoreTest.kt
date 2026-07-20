@@ -47,7 +47,7 @@ class BillsStoreTest {
         {"data":{"id":9,"amount_claimed":"50.00","status":"pending","submitted_at":"2026-07-19T10:00:00+08:00"}}
     """.trimIndent()
 
-    private fun makeStore(handler: (String) -> Pair<HttpStatusCode, String>): BillsStore {
+    private fun makeStore(handler: suspend (String) -> Pair<HttpStatusCode, String>): BillsStore {
         val engine = MockEngine { request ->
             val (status, body) = handler(request.url.fullPath)
             respond(body, status, headersOf(HttpHeaders.ContentType, "application/json"))
@@ -55,7 +55,7 @@ class BillsStoreTest {
         return BillsStore(BillsRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
     }
 
-    private fun routing(proofResult: Pair<HttpStatusCode, String>? = null): (String) -> Pair<HttpStatusCode, String> = { path ->
+    private fun routing(proofResult: Pair<HttpStatusCode, String>? = null): suspend (String) -> Pair<HttpStatusCode, String> = { path ->
         when {
             path.endsWith("/bills/summary") -> HttpStatusCode.OK to summaryJson
             path.endsWith("/bills") -> HttpStatusCode.OK to billsJson
@@ -111,6 +111,34 @@ class BillsStoreTest {
         val submitState = store.submit.first { it is SubmitState.Error }
         assertIs<SubmitState.Error>(submitState)
         assertEquals("Upload failed. Please try again.", submitState.message)
+    }
+
+    @Test fun reset_discards_late_completion_of_abandoned_submission() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        var billsFetches = 0
+        val refetchedBillsJson = billsJson.replace("\"outstanding\":\"70.00\"", "\"outstanding\":\"20.00\"")
+        val store = makeStore { path ->
+            when {
+                path.endsWith("/bills/summary") -> HttpStatusCode.OK to summaryJson
+                path.endsWith("/bills") -> {
+                    billsFetches += 1
+                    HttpStatusCode.OK to (if (billsFetches == 1) billsJson else refetchedBillsJson)
+                }
+                path.endsWith("/payment-proofs") -> { gate.await(); HttpStatusCode.OK to proofJson }
+                else -> HttpStatusCode.NotFound to "{}"
+            }
+        }
+        store.state.first { it is BillsUiState.Content }
+        store.submitProof(imageBytes = ByteArray(4), fileName = "proof.jpg", amount = "50.00", note = null)
+        store.submit.first { it is SubmitState.Submitting }
+        store.resetSubmit() // user dismissed the sheet mid-upload
+        assertIs<SubmitState.Idle>(store.submit.value)
+        gate.complete(Unit) // the abandoned upload now completes
+        // Await the post-completion refetch landing via a distinguishable payload (the upload
+        // DID happen server-side — the list must still refresh)…
+        store.state.first { it is BillsUiState.Content && it.bills.first().outstanding == "20.00" }
+        // …but the stale Success must NOT replay into the submit flow.
+        assertIs<SubmitState.Idle>(store.submit.value)
     }
 
     @Test fun reset_returns_submit_to_idle() = runTest {

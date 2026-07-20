@@ -45,6 +45,9 @@ class BillsStore(private val repo: BillsRepository) {
     private val _submit = MutableStateFlow<SubmitState>(SubmitState.Idle)
     val submit: StateFlow<SubmitState> = _submit.asStateFlow()
 
+    /** Bumped by [resetSubmit]; a completion from an older generation must not write [submit]. */
+    private var submitGeneration = 0
+
     init { load() }
 
     fun load() {
@@ -75,25 +78,32 @@ class BillsStore(private val repo: BillsRepository) {
      *
      * Callers must invoke this from the main thread — the Submitting check-and-set is a plain
      * read-modify-write; Main confinement is what makes the double-submit guard sound.
+     *
+     * A [resetSubmit] while the upload is in flight abandons it — the eventual completion still
+     * refetches, but no longer writes [submit].
      */
     fun submitProof(imageBytes: ByteArray, fileName: String, amount: String, note: String?) {
         if (_submit.value is SubmitState.Submitting) return
         if (!canSubmitProof(amount, hasPhoto = true)) return
+        val generation = ++submitGeneration
         _submit.value = SubmitState.Submitting
         scope.launch {
             try {
                 repo.submitPaymentProof(imageBytes, fileName, amount.trim(), note?.takeUnless { it.isBlank() })
-                _submit.value = SubmitState.Success
+                if (generation == submitGeneration) _submit.value = SubmitState.Success
                 fetch()
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Exception) {
-                _submit.value = SubmitState.Error("Upload failed. Please try again.")
+                if (generation == submitGeneration) _submit.value = SubmitState.Error("Upload failed. Please try again.")
             }
         }
     }
 
-    fun resetSubmit() { _submit.value = SubmitState.Idle }
+    fun resetSubmit() {
+        submitGeneration += 1
+        _submit.value = SubmitState.Idle
+    }
 
     fun clear() { scope.cancel() }
 }

@@ -642,7 +642,7 @@ In `passkeySignIn()`, the success line `user = try await passkey.loginVerify(...
             manager.onLoggedIn(user: verifiedUser)
 ```
 
-(the `await refreshBadge()` line after it is deleted — `onLoggedIn` refreshes internally; `enablePushNotifications()` stays). `passkeySignIn`'s `errorMessage = nil` / passkey-failure `errorMessage = "Couldn't sign in..."` assignments stay — the passkey error surface remains native (`loginError` only carries credential-login failures; a later `loginError` emission of nil will clear it, which matches today's clear-on-next-attempt behavior).
+(the `await refreshBadge()` line after it is deleted — `onLoggedIn` refreshes internally; `enablePushNotifications()` stays). `passkeySignIn`'s `errorMessage = nil` / passkey-failure `errorMessage = "Couldn't sign in..."` assignments stay — the passkey error surface remains native. **`login()` must ALSO keep a native `errorMessage = nil` as its first line**: the manager's clear is a `null→null` StateFlow write when the visible error came from the passkey path, which conflation never emits — the bridge alone cannot clear a natively-written error.
 
 The `@Published` properties keep their declarations (now written only by the bridges + passkey error path). `isLoggedIn` computed property unchanged. Login-screen behavior note: iOS now shows the unified copy `"The provided credentials are incorrect."` (adjudication #1).
 

@@ -36,7 +36,7 @@
 - Modify: `shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/StoreSupport.kt`
 - Modify: `shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/LunchStore.kt`
 
-- [ ] **Step 1: Replace `runGuardedAction` with the runner class** in `StoreSupport.kt` (delete the top-level function; the file keeps `RefreshTracker` unchanged):
+- [x] **Step 1: Replace `runGuardedAction` with the runner class** in `StoreSupport.kt` (delete the top-level function; the file keeps `RefreshTracker` unchanged):
 
 ```kotlin
 /**
@@ -72,7 +72,7 @@ internal class GuardedActionRunner(
 }
 ```
 
-- [ ] **Step 2: Retrofit `LunchStore.kt`** — add after the `_actionError` declaration:
+- [x] **Step 2: Retrofit `LunchStore.kt`** — add after the `_actionError` declaration:
 
 ```kotlin
     private val actionRunner = GuardedActionRunner(scope, _inFlight, _actionError)
@@ -92,12 +92,12 @@ and replace the two actions:
         }
 ```
 
-- [ ] **Step 3: Run — expect PASS (refactor gate)**
+- [x] **Step 3: Run — expect PASS (refactor gate)**
 
 Run: `./gradlew :shared:allTests`
 Expected: all green. The LunchStore pin tests (`choose_marks_in_flight_and_guards_duplicate_submits`, `guarded_duplicate_does_not_clear_visible_action_error`, actionError set/dismiss/clear-on-retry) are the behavioral proof — if any fails, the runner deviates from the old function; fix the runner, not the tests.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/StoreSupport.kt shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/LunchStore.kt
@@ -112,7 +112,7 @@ git commit -m "refactor(shared): reshape runGuardedAction into per-store Guarded
 - Modify: `shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/BillsStore.kt`
 - Test: `shared/src/commonTest/kotlin/my/silentmode/pentana/shared/BillsStoreTest.kt`
 
-- [ ] **Step 1: Write the failing test** — add to `BillsStoreTest` (imports already present: `CompletableDeferred`):
+- [x] **Step 1: Write the failing test** — add to `BillsStoreTest` (imports already present: `CompletableDeferred`):
 
 ```kotlin
 @Test fun reset_discards_late_completion_of_abandoned_submission() = runTest {
@@ -140,9 +140,9 @@ git commit -m "refactor(shared): reshape runGuardedAction into per-store Guarded
 
 Note: with the gate released, the store's post-success `fetch()` runs; awaiting Content then asserting Idle needs the fetch to have settled. Make the assertion robust by first awaiting the refetch via a distinguishable payload (same technique as `submit_success_transitions_and_refetches`): serve `billsJson.replace("\"outstanding\":\"70.00\"", "\"outstanding\":\"20.00\"")` for the second-and-later `/bills` fetches, and await `store.state.first { it is BillsUiState.Content && it.bills.first().outstanding == "20.00" }` before the final `assertIs<SubmitState.Idle>`.
 
-- [ ] **Step 2: Run — expect FAIL**: `./gradlew :shared:allTests` — the final assertion sees `SubmitState.Success` (stale completion landed after reset).
+- [x] **Step 2: Run — expect FAIL**: `./gradlew :shared:allTests` — the final assertion sees `SubmitState.Success` (stale completion landed after reset).
 
-- [ ] **Step 3: Implement the generation gate** in `BillsStore.kt`:
+- [x] **Step 3: Implement the generation gate** in `BillsStore.kt`:
 
 Add a field after `_submit`:
 ```kotlin
@@ -178,9 +178,9 @@ Add a field after `_submit`:
 
 (Keep the existing `submitProof` KDoc; append: "A [resetSubmit] while the upload is in flight abandons it — the eventual completion still refetches, but no longer writes [submit].")
 
-- [ ] **Step 4: Run — expect PASS**: `./gradlew :shared:allTests` — new test green, all 13 Bills tests green (existing resubmit/refetch/guard pins unaffected).
+- [x] **Step 4: Run — expect PASS**: `./gradlew :shared:allTests` — new test green, all 13 Bills tests green (existing resubmit/refetch/guard pins unaffected).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/BillsStore.kt shared/src/commonTest/kotlin/my/silentmode/pentana/shared/BillsStoreTest.kt
@@ -195,7 +195,7 @@ git commit -m "fix(shared): generation counter discards late completions of aban
 - Create: `shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/ActivitiesDisplay.kt`
 - Test: `shared/src/commonTest/kotlin/my/silentmode/pentana/shared/ActivitiesDisplayTest.kt`
 
-- [ ] **Step 1: Write the failing tests** — create `ActivitiesDisplayTest.kt`:
+- [x] **Step 1: Write the failing tests** — create `ActivitiesDisplayTest.kt`:
 
 ```kotlin
 package my.silentmode.pentana.shared
@@ -311,9 +311,9 @@ class ActivitiesDisplayTest {
 }
 ```
 
-- [ ] **Step 2: Run — expect FAIL** (unresolved references): `./gradlew :shared:allTests`
+- [x] **Step 2: Run — expect FAIL** (unresolved references): `./gradlew :shared:allTests`
 
-- [ ] **Step 3: Implement `ActivitiesDisplay.kt`:**
+- [x] **Step 3: Implement `ActivitiesDisplay.kt`:**
 
 ```kotlin
 package my.silentmode.pentana.shared.presentation
@@ -373,9 +373,9 @@ fun plainTextBlurb(html: String?): String? {
 }
 ```
 
-- [ ] **Step 4: Run — expect PASS**: `./gradlew :shared:allTests`
+- [x] **Step 4: Run — expect PASS**: `./gradlew :shared:allTests`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/ActivitiesDisplay.kt shared/src/commonTest/kotlin/my/silentmode/pentana/shared/ActivitiesDisplayTest.kt
@@ -390,7 +390,7 @@ git commit -m "feat(shared): activity card decisions + registration-form helpers
 - Create: `shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/ActivitiesStore.kt`
 - Test: `shared/src/commonTest/kotlin/my/silentmode/pentana/shared/ActivitiesStoreTest.kt`
 
-- [ ] **Step 1: Write the failing tests** — create `ActivitiesStoreTest.kt`:
+- [x] **Step 1: Write the failing tests** — create `ActivitiesStoreTest.kt`:
 
 ```kotlin
 package my.silentmode.pentana.shared
@@ -568,9 +568,9 @@ class ActivitiesStoreTest {
 }
 ```
 
-- [ ] **Step 2: Run — expect FAIL** (unresolved `ActivitiesStore`/`ActivitiesUiState`/`RegState`): `./gradlew :shared:allTests`
+- [x] **Step 2: Run — expect FAIL** (unresolved `ActivitiesStore`/`ActivitiesUiState`/`RegState`): `./gradlew :shared:allTests`
 
-- [ ] **Step 3: Implement `ActivitiesStore.kt`:**
+- [x] **Step 3: Implement `ActivitiesStore.kt`:**
 
 ```kotlin
 package my.silentmode.pentana.shared.presentation
@@ -703,9 +703,9 @@ class ActivitiesStore(private val repo: ActivitiesRepository) {
 }
 ```
 
-- [ ] **Step 4: Run — expect PASS**: `./gradlew :shared:allTests`
+- [x] **Step 4: Run — expect PASS**: `./gradlew :shared:allTests`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add shared/src/commonMain/kotlin/my/silentmode/pentana/shared/presentation/ActivitiesStore.kt shared/src/commonTest/kotlin/my/silentmode/pentana/shared/ActivitiesStoreTest.kt
@@ -723,7 +723,7 @@ git commit -m "feat(shared): ActivitiesStore with reg machine, generation gate, 
 - Delete: `androidApp/src/main/kotlin/my/silentmode/pentana/feature/activities/RegForm.kt`
 - Delete: `androidApp/src/test/kotlin/my/silentmode/pentana/RegFormTest.kt` (superseded by `ActivitiesDisplayTest`'s stricter coverage — same rationale as SubmitProofValidationTest in M2)
 
-- [ ] **Step 1: Slim `ActivitiesViewModel.kt`.** Replace the whole file with:
+- [x] **Step 1: Slim `ActivitiesViewModel.kt`.** Replace the whole file with:
 
 ```kotlin
 package my.silentmode.pentana.feature.activities
@@ -741,7 +741,7 @@ class ActivitiesViewModel(repo: ActivitiesRepository) : ViewModel() {
 }
 ```
 
-- [ ] **Step 2: Update `ActivitiesScreen.kt`.** Imports to add:
+- [x] **Step 2: Update `ActivitiesScreen.kt`.** Imports to add:
 
 ```kotlin
 import androidx.compose.material3.SnackbarHost
@@ -817,7 +817,7 @@ Replace the decision sites with shared calls:
 - `ActionRow` switches on the same `activityCardState(activity)` value (compute once in `ActivityCard` and pass down): `Registered`/`Waitlisted`/`Closed`/`Open` branches keep their current rendering; the waitlisted text becomes `waitlistLabel(activity)`.
 - The description blurb becomes `plainTextBlurb(activity.description)?.let { blurb -> Text(excerptOf(blurb), …) }` — see Step 3 note on `excerpt`.
 
-- [ ] **Step 3: Keep Android's truncation native but delete the duplicated strip logic.** In `androidApp/src/main/kotlin/my/silentmode/pentana/core/Format.kt`, `excerpt` currently strips HTML AND truncates. Refactor it to delegate the strip to shared and keep only truncation:
+- [x] **Step 3: Keep Android's truncation native but delete the duplicated strip logic.** In `androidApp/src/main/kotlin/my/silentmode/pentana/core/Format.kt`, `excerpt` currently strips HTML AND truncates. Refactor it to delegate the strip to shared and keep only truncation:
 
 ```kotlin
 import my.silentmode.pentana.shared.presentation.plainTextBlurb
@@ -831,7 +831,7 @@ fun excerpt(text: String, max: Int = 140): String {
 
 (`ActivitiesScreen`/`RegistrationSheet` keep calling `excerpt(...)` — no call-site changes needed; the `plainTextBlurb(...)?.let` form in Step 2 is NOT required if `excerpt` delegates — keep the existing `activity.description?.let { Text(excerpt(it), …) }` call sites as they are.)
 
-- [ ] **Step 4: Update `RegistrationSheet.kt`.** Signature `(activity, store: ActivitiesStore, onDismiss)`; imports swap `vm` types for:
+- [x] **Step 4: Update `RegistrationSheet.kt`.** Signature `(activity, store: ActivitiesStore, onDismiss)`; imports swap `vm` types for:
 
 ```kotlin
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -868,18 +868,18 @@ fun RegistrationSheet(activity: ActivityDto, store: ActivitiesStore, onDismiss: 
 
 (Note the added `&& reg !is RegState.Success` — same duplicate-fire guard the Bills sheet gained in M2. Behavior note: `requiredAnswered` now requires a required checkbox to be CHECKED — adjudicated unification #2.)
 
-- [ ] **Step 5: Delete the superseded files:**
+- [x] **Step 5: Delete the superseded files:**
 
 ```bash
 git rm androidApp/src/main/kotlin/my/silentmode/pentana/feature/activities/RegForm.kt androidApp/src/test/kotlin/my/silentmode/pentana/RegFormTest.kt
 ```
 
-- [ ] **Step 6: Build + test gate:**
+- [x] **Step 6: Build + test gate:**
 
 Run: `./gradlew :androidApp:assembleDebug :androidApp:testDebugUnitTest`
 Expected: BUILD SUCCESSFUL, remaining unit tests (FormatTest) green.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add androidApp/src/main/kotlin/my/silentmode/pentana/feature/activities androidApp/src/main/kotlin/my/silentmode/pentana/core/Format.kt
@@ -895,7 +895,7 @@ git commit -m "refactor(android): Activities consumes shared store + display/reg
 - Modify: `iosApp/iosApp/ActivitiesView.swift`
 - Modify: `iosApp/iosApp/RegisterActivityView.swift`
 
-- [ ] **Step 1: Vend the store** — in `SessionStore.swift`, next to the other factories:
+- [x] **Step 1: Vend the store** — in `SessionStore.swift`, next to the other factories:
 
 ```swift
 /// Vend a shared Activities presentation store. Same lifecycle contract as the other factories:
@@ -903,7 +903,7 @@ git commit -m "refactor(android): Activities consumes shared store + display/reg
 func makeActivitiesStore() -> ActivitiesStore { ActivitiesStore(repo: activities) }
 ```
 
-- [ ] **Step 2: Rewrite `ActivitiesView`** on the established template (`HomeView`/`LunchView`). Change import to `@preconcurrency import Shared`. Replace `@State activities/isLoading/busyId` and `load/register/cancel/replace`:
+- [x] **Step 2: Rewrite `ActivitiesView`** on the established template (`HomeView`/`LunchView`). Change import to `@preconcurrency import Shared`. Replace `@State activities/isLoading/busyId` and `load/register/cancel/replace`:
 
 ```swift
 struct ActivitiesView: View {
@@ -994,7 +994,7 @@ In `ActivityCard`, delete the local `State` enum and its `state` computed proper
 - `plainText(activity.description_)` becomes `plainTextBlurb(html: activity.description_)` and the private `plainText` func is deleted. **SKIE note: the DTO property is `description_` in Swift** (NSObject.description collision) — keep that spelling at call sites.
 - Keep the existing `extension ActivityDto: @retroactive Identifiable {}` — both `ForEach(…, id: \.id)` and `.sheet(item:)` rely on it.
 
-- [ ] **Step 3: Rewrite `RegisterActivityView`** to be store-driven (template: M2's `SubmitProofView`). Change import to `@preconcurrency import Shared`. Replace `session`/`onRegistered`/`isSubmitting`/`error` and `submit()`:
+- [x] **Step 3: Rewrite `RegisterActivityView`** to be store-driven (template: M2's `SubmitProofView`). Change import to `@preconcurrency import Shared`. Replace `session`/`onRegistered`/`isSubmitting`/`error` and `submit()`:
 
 ```swift
 struct RegisterActivityView: View {
@@ -1050,14 +1050,14 @@ struct RegisterActivityView: View {
 
 Delete the local `requiredAnswered` computed property (the shared function replaces it — note the semantics: required checkbox must be `"true"`), the `answers.filter { !$0.value.isEmpty }` payload filtering (the store's `registrationPayload` does it), and the old async `submit()`. The banner/questionField/selectField layouts stay unchanged apart from the checkbox value strings.
 
-- [ ] **Step 4: Build:**
+- [x] **Step 4: Build:**
 
 ```
 xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
 Expected: BUILD SUCCEEDED. (SKIE surfaces: `activityCardState(activity:)`, `spotsLabel(activity:)`, `waitlistLabel(activity:)`, `requiredAnswered(questions:answers:)`, `checkboxValue(checked:)`, `plainTextBlurb(html:)` as global Swift functions; `RegState` sealed → `RegStateIdle.shared` etc.; `ActivityCardState` enum cases lower-camelCased. If a signature differs, adapt minimally and note it.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add iosApp/iosApp/SessionStore.swift iosApp/iosApp/ActivitiesView.swift iosApp/iosApp/RegisterActivityView.swift
@@ -1068,7 +1068,7 @@ git commit -m "refactor(ios): Activities + registration consume shared Activitie
 
 ## Task 7: Full milestone verification
 
-- [ ] **Step 1: Everything green**
+- [x] **Step 1: Everything green**
 
 ```bash
 ./gradlew :shared:allTests :androidApp:assembleDebug :androidApp:testDebugUnitTest --rerun-tasks
@@ -1076,19 +1076,19 @@ xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator 
 ```
 Expected: all suites green (Activities adds ~21 tests across the two new suites); both apps build; androidApp unit tests compile and pass.
 
-- [ ] **Step 2: No duplicated logic remains**
+- [x] **Step 2: No duplicated logic remains**
 
 ```bash
 grep -rn 'myStatus ==\|spots left\|Waitlisted —\|"1"\|requiredAnswered\|checkboxValue' androidApp/src/main/kotlin/my/silentmode/pentana/feature/activities iosApp/iosApp/ActivitiesView.swift iosApp/iosApp/RegisterActivityView.swift | grep -v 'shared.presentation\|import\|activityCardState\|spotsLabel\|waitlistLabel' || echo CLEAN
 ```
 Expected: `CLEAN` (or only shared-function call sites, to be judged).
 
-- [ ] **Step 3: AppConfig never staged**
+- [x] **Step 3: AppConfig never staged**
 
 Run: `git log main..HEAD --name-only --pretty= | sort -u | grep -c AppConfig || echo NEVER-STAGED`
 Expected: `NEVER-STAGED`.
 
-- [ ] **Step 4: STOP — hand to the maintainer** (no push/merge; report test totals, build results, and the seven adjudicated unifications for sign-off).
+- [x] **Step 4: STOP — hand to the maintainer** (no push/merge; report test totals, build results, and the seven adjudicated unifications for sign-off).
 
 ---
 

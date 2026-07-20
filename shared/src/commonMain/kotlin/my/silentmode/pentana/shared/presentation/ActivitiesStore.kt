@@ -81,7 +81,7 @@ class ActivitiesStore(private val repo: ActivitiesRepository) {
     /**
      * Registers for [activityId] with the sheet's [answers] (pass them raw; empty answers are
      * dropped here via [registrationPayload]). Drives BOTH the [reg] machine (sheet feedback)
-     * and [inFlight] (card dimming for no-questions registrations — replaces iOS's busyId).
+     * and [inFlight] (card dimming — for no-questions registrations it replaces iOS's busyId).
      * A [resetReg] while in flight abandons the submission: the optimistic replace still lands,
      * but the stale terminal state no longer writes [reg].
      *

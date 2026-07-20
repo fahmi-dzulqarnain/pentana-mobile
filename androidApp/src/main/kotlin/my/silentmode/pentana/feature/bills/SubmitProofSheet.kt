@@ -101,7 +101,9 @@ fun SubmitProofSheet(store: BillsStore, onDismiss: () -> Unit) {
                 text = if (submit is SubmitState.Success) "Submitted" else "Submit proof",
                 onClick = { photo?.let { picked -> store.submitProof(picked.bytes, picked.name, amount, note.ifBlank { null }) } },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = canSubmitProof(amount, photo != null),
+                // Also disabled during the "Submitted" dwell — the store only guards Submitting,
+                // so a live button here could fire a duplicate proof upload.
+                enabled = canSubmitProof(amount, photo != null) && submit !is SubmitState.Success,
                 loading = submit is SubmitState.Submitting,
             )
         }

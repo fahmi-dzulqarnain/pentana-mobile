@@ -16,7 +16,7 @@ interface TokenStore {
     fun clear()
 }
 
-/** Non-persistent default — handy for tests and previews. */
+/** Non-persistent default - handy for tests and previews. */
 class InMemoryTokenStore(private var token: String? = null) : TokenStore {
     override fun get(): String? = token
 

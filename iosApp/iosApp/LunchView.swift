@@ -20,7 +20,7 @@ struct LunchView: View {
                 store = activeStore
                 // Collect the store's flows as structured children so they're cancelled when the
                 // view disappears and restart on reappear. The store is kept alive across
-                // reappear — its scope only runs one-shot load/choose coroutines, so it needs
+                // reappear - its scope only runs one-shot load/choose coroutines, so it needs
                 // no explicit clear() (it's released when the view is destroyed).
                 async let states: Void = { for await value in activeStore.state { await MainActor.run { state = value } } }()
                 async let flights: Void = { for await ids in activeStore.inFlight { await MainActor.run { inFlight = Set(ids.map { $0.int64Value }) } } }()

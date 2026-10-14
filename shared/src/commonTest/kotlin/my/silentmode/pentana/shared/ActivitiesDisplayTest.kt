@@ -49,7 +49,7 @@ class ActivitiesDisplayTest {
     // Waitlist label (unified: no " in line" suffix)
 
     @Test fun waitlist_label_with_and_without_position() {
-        assertEquals("Waitlisted — #3", waitlistLabel(activity(waitlistPosition = 3)))
+        assertEquals("Waitlisted #3", waitlistLabel(activity(waitlistPosition = 3)))
         assertEquals("Waitlisted", waitlistLabel(activity(waitlistPosition = null)))
     }
 

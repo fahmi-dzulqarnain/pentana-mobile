@@ -128,7 +128,7 @@ extension View {
 // MARK: - Ambient field background
 
 /// Soft ambient field that gives the Liquid Glass something to refract over.
-/// A purely vertical gradient (warm indigo → plum → base) — no horizontal
+/// A purely vertical gradient (warm indigo → plum → base) - no horizontal
 /// variation, so it can never show a seam or band at any exposure
 /// (loading / empty states included).
 struct AmbientBackground: View {

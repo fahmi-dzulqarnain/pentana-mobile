@@ -3,7 +3,7 @@ package my.silentmode.pentana.shared.model
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** Aggregate for GET /api/v1/dashboard — one round-trip summary across the member's domains. */
+/** Aggregate for GET /api/v1/dashboard - one round-trip summary across the member's domains. */
 @Serializable
 data class DashboardDto(
     val bills: DashboardBillsDto,

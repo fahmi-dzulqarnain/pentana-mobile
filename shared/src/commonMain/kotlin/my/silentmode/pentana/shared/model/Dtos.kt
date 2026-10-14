@@ -30,7 +30,7 @@ data class UserDto(
 )
 
 /**
- * Money fields are fixed-2dp strings from the API (e.g. "70.00") to avoid float drift —
+ * Money fields are fixed-2dp strings from the API (e.g. "70.00") to avoid float drift -
  * parse to a Decimal/BigDecimal type on the UI side if you need arithmetic.
  */
 @Serializable

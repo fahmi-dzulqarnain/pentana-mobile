@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import my.silentmode.pentana.ui.theme.Tri
 
-/** Tonal leading icon (M3 list/card leading) — vivid [tint] over a [container] chip. */
+/** Tonal leading icon (M3 list/card leading) - vivid [tint] over a [container] chip. */
 @Composable
 fun LeadingIcon(
     icon: ImageVector,

@@ -87,7 +87,7 @@ class NotificationsStoreTest {
     }
 
     @Test fun kind_activity_joined_matches_typographic_apostrophe() {
-        // Backends often emit U+2019 ("you’re in") — must not fall through to General.
+        // Backends often emit U+2019 ("you’re in") - must not fall through to General.
         assertEquals(NotificationKind.ActivityJoined, notificationKind("You’re in! See you Saturday"))
     }
 
@@ -96,12 +96,12 @@ class NotificationsStoreTest {
     }
 
     @Test fun kind_cancel_beats_activity_keywords() {
-        // "cancel" is checked before "activity"/"hik" — a cancelled activity reads as a cancellation.
+        // "cancel" is checked before "activity"/"hik" - a cancelled activity reads as a cancellation.
         assertEquals(NotificationKind.Cancelled, notificationKind("Activity cancelled: hiking trip"))
     }
 
     @Test fun kind_lunch_beats_cancel() {
-        // "lunch" is checked before "cancel" — faithful to both platforms' original order.
+        // "lunch" is checked before "cancel" - faithful to both platforms' original order.
         assertEquals(NotificationKind.Lunch, notificationKind("Lunch cancelled for Monday"))
     }
 }

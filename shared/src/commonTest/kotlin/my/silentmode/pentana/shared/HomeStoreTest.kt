@@ -103,9 +103,9 @@ class HomeStoreTest {
         val store = HomeStore(DashboardRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
         store.state.first { it is HomeUiState.Content }
 
-        val heldRefresh = launch { store.refresh() }   // request 2 — parked on the gate
+        val heldRefresh = launch { store.refresh() }   // request 2 - parked on the gate
         store.refreshing.first { it }                   // flag is up
-        store.refresh()                                 // request 3 — completes immediately
+        store.refresh()                                 // request 3 - completes immediately
         advanceUntilIdle()                              // drain everything not blocked on the gate
         // The overlapping completed refresh must NOT drop the flag while the first is still in flight.
         assertTrue(store.refreshing.value)

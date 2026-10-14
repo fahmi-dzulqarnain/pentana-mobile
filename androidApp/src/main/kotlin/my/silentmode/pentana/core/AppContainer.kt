@@ -10,7 +10,7 @@ import my.silentmode.pentana.shared.LunchRepository
 import my.silentmode.pentana.shared.NotificationsRepository
 import my.silentmode.pentana.shared.presentation.SessionManager
 
-/** Manual DI graph — built once in [my.silentmode.pentana.App]. Holds the six repos the UI uses. */
+/** Manual DI graph - built once in [my.silentmode.pentana.App]. Holds the six repos the UI uses. */
 class AppContainer(context: Context) {
     private val client = ApiClient(AppConfig.BASE_URL, PrefsTokenStore(context.applicationContext), engine = null)
 
@@ -21,6 +21,6 @@ class AppContainer(context: Context) {
     val activities = ActivitiesRepository(client)
     val notifications = NotificationsRepository(client)
 
-    /** App-scoped session state machine — shared by SessionViewModel and LoginViewModel. */
+    /** App-scoped session state machine - shared by SessionViewModel and LoginViewModel. */
     val sessionManager = SessionManager(auth, notifications)
 }

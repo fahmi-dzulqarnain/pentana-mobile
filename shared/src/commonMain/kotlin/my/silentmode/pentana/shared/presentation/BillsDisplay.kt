@@ -2,7 +2,7 @@ package my.silentmode.pentana.shared.presentation
 
 import my.silentmode.pentana.shared.model.BillDto
 
-/** Shared decision — each platform maps this to its own chip/pill styling. */
+/** Shared decision - each platform maps this to its own chip/pill styling. */
 enum class BillStatus { Paid, Partial, Overdue, Unpaid }
 
 fun billStatus(bill: BillDto): BillStatus = when {
@@ -18,6 +18,6 @@ fun billStatus(bill: BillDto): BillStatus = when {
  */
 fun canSubmitProof(amount: String, hasPhoto: Boolean): Boolean {
     val parsedAmount = amount.trim().toDoubleOrNull() ?: return false
-    // toDoubleOrNull accepts "NaN"/"Infinity" — numeric, but not valid currency amounts.
+    // toDoubleOrNull accepts "NaN"/"Infinity" - numeric, but not valid currency amounts.
     return parsedAmount.isFinite() && hasPhoto
 }

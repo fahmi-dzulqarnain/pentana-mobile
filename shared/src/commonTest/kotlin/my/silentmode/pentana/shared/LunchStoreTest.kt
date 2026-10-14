@@ -159,7 +159,7 @@ class LunchStoreTest {
         store.choose(lunchId = 1, mealOptionId = 10) // fails -> error becomes visible
         store.inFlight.first { 1L !in it }
         assertNotNull(store.actionError.value)
-        store.choose(lunchId = 2, mealOptionId = 21) // guarded duplicate — must NOT clear the visible error
+        store.choose(lunchId = 2, mealOptionId = 21) // guarded duplicate - must NOT clear the visible error
         assertNotNull(store.actionError.value)
         gate.complete(Unit)
         store.inFlight.first { it.isEmpty() }
@@ -226,15 +226,15 @@ class LunchStoreTest {
     }
 
     @Test fun closed_summary_names_the_ordered_option() {
-        assertEquals("Ordering closed — you ordered Beef.", lunchClosedSummary(lunch(isOpen = false, responded = true, myMealOptionId = 11)))
+        assertEquals("Ordering closed: you ordered Beef.", lunchClosedSummary(lunch(isOpen = false, responded = true, myMealOptionId = 11)))
     }
 
     @Test fun closed_summary_reports_no_order_when_not_responded() {
-        assertEquals("Ordering closed — no order placed.", lunchClosedSummary(lunch(isOpen = false, responded = false)))
+        assertEquals("Ordering closed: no order placed.", lunchClosedSummary(lunch(isOpen = false, responded = false)))
     }
 
     @Test fun closed_summary_reports_not_attending_when_no_option() {
-        assertEquals("Ordering closed — you marked not attending.", lunchClosedSummary(lunch(isOpen = false, responded = true, myMealOptionId = null)))
+        assertEquals("Ordering closed: you marked not attending.", lunchClosedSummary(lunch(isOpen = false, responded = true, myMealOptionId = null)))
     }
 
     private fun lunch(isOpen: Boolean, responded: Boolean, myMealOptionId: Long? = null) = LunchDto(

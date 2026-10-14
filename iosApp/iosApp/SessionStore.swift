@@ -110,7 +110,7 @@ final class SessionStore: ObservableObject {
         // through this attempt.
         errorMessage = nil
         // Flatten the double optional (`try?` over an async function returning UserDto? yields
-        // UserDto?? — a failed login would otherwise read as .some(nil) != nil).
+        // UserDto?? - a failed login would otherwise read as .some(nil) != nil).
         let loggedIn = (try? await manager.login(email: email, password: password, deviceName: "iOS")) ?? nil
         if loggedIn != nil {
             await enablePushNotifications()
@@ -125,9 +125,9 @@ final class SessionStore: ObservableObject {
     // MARK: - Push notifications
 
     /// Ask for notification permission, then register for remote notifications. Safe to call
-    /// repeatedly — iOS only prompts once. Registers any token already captured by the AppDelegate.
+    /// repeatedly - iOS only prompts once. Registers any token already captured by the AppDelegate.
     func enablePushNotifications() async {
-        // Read the manager's authoritative state, not the bridged @Published `user` — the
+        // Read the manager's authoritative state, not the bridged @Published `user` - the
         // bridge lags by queue hops, and a call racing ahead of it would silently no-op here.
         guard manager.state.value.user != nil else { return }
         let granted = (try? await UNUserNotificationCenter.current()
@@ -165,7 +165,7 @@ final class SessionStore: ObservableObject {
             manager.onLoggedIn(user: verifiedUser)
             await enablePushNotifications()
         } catch PasskeyManager.PasskeyError.canceled {
-            // User dismissed the sheet — no error.
+            // User dismissed the sheet - no error.
         } catch {
             errorMessage = "Couldn't sign in with a passkey. Please try again or use your password."
         }

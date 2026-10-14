@@ -59,7 +59,7 @@ fun NotificationsSheet(onMarkAllRead: () -> Unit, onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { onMarkAllRead() }
 
     // Refetch on every open so read-states are current (adjudication #2; the store's init-load
-    // makes the very first open double-fetch — accepted, cheap).
+    // makes the very first open double-fetch - accepted, cheap).
     LaunchedEffect(Unit) { vm.store.load() }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {

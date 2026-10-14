@@ -23,13 +23,13 @@ data class SessionState(
 
 /**
  * Shared session state machine: auth bootstrap, credential login, logout, and the bell badge.
- * ONE instance per app process — Android vends it from AppContainer (SessionViewModel and
+ * ONE instance per app process - Android vends it from AppContainer (SessionViewModel and
  * LoginViewModel share it and must NOT clear() it on ViewModel teardown); iOS constructs it once
  * inside SessionStore. Natively-completed ceremonies (passkey) feed in via [onLoggedIn]; APNs
  * registration/unregistration and DI stay native, sequenced around the suspend methods
  * (SKIE surfaces them as Swift async).
  *
- * All suspend methods hop to Dispatchers.Main internally — safe to call from Swift-async threads.
+ * All suspend methods hop to Dispatchers.Main internally - safe to call from Swift-async threads.
  * The plain methods ([onLoggedIn], [dismissLoginError]) must be called from the main thread.
  */
 class SessionManager(
@@ -147,6 +147,6 @@ class SessionManager(
     /** Clears the login error (e.g. when the user edits a field). */
     fun dismissLoginError() { _loginError.value = null }
 
-    /** Test teardown only — never call from ViewModels; the manager is app-scoped. */
+    /** Test teardown only - never call from ViewModels; the manager is app-scoped. */
     fun clear() { scope.cancel() }
 }

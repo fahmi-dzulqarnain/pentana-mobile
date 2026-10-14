@@ -83,7 +83,7 @@ class BillsStoreTest {
     @Test fun submit_success_transitions_and_refetches() = runTest {
         var billsFetches = 0
         // Second fetch returns updated data so the test can await the refetch landing in state
-        // (the refetch runs AFTER Success — Success alone doesn't prove the list was refetched).
+        // (the refetch runs AFTER Success - Success alone doesn't prove the list was refetched).
         val refetchedBillsJson = billsJson.replace("\"outstanding\":\"70.00\"", "\"outstanding\":\"20.00\"")
         val store = makeStore { path ->
             when {
@@ -135,7 +135,7 @@ class BillsStoreTest {
         assertIs<SubmitState.Idle>(store.submit.value)
         gate.complete(Unit) // the abandoned upload now completes
         // Await the post-completion refetch landing via a distinguishable payload (the upload
-        // DID happen server-side — the list must still refresh)…
+        // DID happen server-side - the list must still refresh)…
         store.state.first { it is BillsUiState.Content && it.bills.first().outstanding == "20.00" }
         // …but the stale Success must NOT replay into the submit flow.
         assertIs<SubmitState.Idle>(store.submit.value)
@@ -174,7 +174,7 @@ class BillsStoreTest {
 
     @Test fun resubmit_after_error_is_allowed() = runTest {
         // Pins the retry path: the guard must check Submitting specifically, not "anything
-        // other than Idle" — an Error state must not block a second attempt.
+        // other than Idle" - an Error state must not block a second attempt.
         var proofRequests = 0
         val store = makeStore { path ->
             when {

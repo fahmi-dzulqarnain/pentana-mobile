@@ -1,12 +1,12 @@
 package my.silentmode.pentana.shared.presentation
 
-/** Shared decision — each platform maps this to its own icon + colours. */
+/** Shared decision - each platform maps this to its own icon + colours. */
 enum class NotificationKind { Lunch, Cancelled, Payment, ActivityJoined, Activity, General }
 
 /**
- * NotificationDto has no type field — infer the kind from the title text.
+ * NotificationDto has no type field - infer the kind from the title text.
  * Keyword lists are the union of what Android and iOS matched before sharing; check order matters
- * (e.g. "Activity cancelled" must read as Cancelled, while "Lunch cancelled" stays Lunch — lunch is
+ * (e.g. "Activity cancelled" must read as Cancelled, while "Lunch cancelled" stays Lunch - lunch is
  * checked first, matching both platforms' original order).
  */
 fun notificationKind(title: String): NotificationKind = when {

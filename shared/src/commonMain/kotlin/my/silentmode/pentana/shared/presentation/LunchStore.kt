@@ -34,7 +34,7 @@ class LunchStore(private val repo: LunchRepository) {
 
     private val refreshTracker = RefreshTracker(_refreshing)
 
-    /** Lunch ids with a vote/not-attending request in flight — drives per-card pending UI + the tap-guard. */
+    /** Lunch ids with a vote/not-attending request in flight - drives per-card pending UI + the tap-guard. */
     private val _inFlight = MutableStateFlow<Set<Long>>(emptySet())
     val inFlight: StateFlow<Set<Long>> = _inFlight.asStateFlow()
 

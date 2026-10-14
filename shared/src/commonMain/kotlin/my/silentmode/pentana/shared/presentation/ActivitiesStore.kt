@@ -41,7 +41,7 @@ class ActivitiesStore(private val repo: ActivitiesRepository) {
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
     private val refreshTracker = RefreshTracker(_refreshing)
 
-    /** Activity ids with a register/cancel request in flight — drives per-card pending UI + the tap-guard. */
+    /** Activity ids with a register/cancel request in flight - drives per-card pending UI + the tap-guard. */
     private val _inFlight = MutableStateFlow<Set<Long>>(emptySet())
     val inFlight: StateFlow<Set<Long>> = _inFlight.asStateFlow()
 
@@ -81,11 +81,11 @@ class ActivitiesStore(private val repo: ActivitiesRepository) {
     /**
      * Registers for [activityId] with the sheet's [answers] (pass them raw; empty answers are
      * dropped here via [registrationPayload]). Drives BOTH the [reg] machine (sheet feedback)
-     * and [inFlight] (card dimming — for no-questions registrations it replaces iOS's busyId).
+     * and [inFlight] (card dimming - for no-questions registrations it replaces iOS's busyId).
      * A [resetReg] while in flight abandons the submission: the optimistic replace still lands,
      * but the stale terminal state no longer writes [reg].
      *
-     * Callers must invoke this from the main thread — the guards are plain read-modify-writes.
+     * Callers must invoke this from the main thread - the guards are plain read-modify-writes.
      */
     fun register(activityId: Long, answers: Map<String, String>) {
         if (_reg.value is RegState.Submitting) return
@@ -113,7 +113,7 @@ class ActivitiesStore(private val repo: ActivitiesRepository) {
         }
 
     /**
-     * Registration for activities WITHOUT questions — no sheet is open, so failures surface via
+     * Registration for activities WITHOUT questions - no sheet is open, so failures surface via
      * [actionError] (Snackbar/alert) instead of the sheet-bound [reg] machine.
      */
     fun quickRegister(activityId: Long) =

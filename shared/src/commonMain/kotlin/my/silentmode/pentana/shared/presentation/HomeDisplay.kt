@@ -4,7 +4,7 @@ import my.silentmode.pentana.shared.model.DashboardActivityDto
 import my.silentmode.pentana.shared.model.DashboardDto
 import my.silentmode.pentana.shared.model.DashboardLunchDto
 
-/** Shared decision — each platform maps this to its own chip/pill styling. */
+/** Shared decision - each platform maps this to its own chip/pill styling. */
 enum class DashboardActivityStatus { Registered, Waitlisted, None }
 
 /** "All clear" celebration card instead of the dues card. */

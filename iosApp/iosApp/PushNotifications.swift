@@ -16,9 +16,9 @@ final class PushRegistrar {
 
     /// Most recent APNs device token (hex), if one has already arrived.
     private(set) var deviceToken: String?
-    /// Set by SessionStore — invoked when a device token is received.
+    /// Set by SessionStore - invoked when a device token is received.
     var onToken: ((String) -> Void)?
-    /// Set by SessionStore — invoked when a push is presented/tapped.
+    /// Set by SessionStore - invoked when a push is presented/tapped.
     var onReceive: (() -> Void)?
 
     func handle(token: String) {
@@ -44,7 +44,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        // Non-fatal — the member can enable notifications later from Settings.
+        // Non-fatal - the member can enable notifications later from Settings.
     }
 
     // Show the banner while the app is in the foreground.

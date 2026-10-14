@@ -3,7 +3,7 @@ package my.silentmode.pentana.shared.presentation
 import my.silentmode.pentana.shared.model.ActivityDto
 import my.silentmode.pentana.shared.model.QuestionDto
 
-/** Shared decision — each platform maps this to its own card styling. */
+/** Shared decision - each platform maps this to its own card styling. */
 enum class ActivityCardState { Registered, Waitlisted, Open, Closed }
 
 fun activityCardState(activity: ActivityDto): ActivityCardState = when {
@@ -24,11 +24,11 @@ fun spotsLabel(activity: ActivityDto): String {
 }
 
 fun waitlistLabel(activity: ActivityDto): String =
-    activity.waitlistPosition?.let { position -> "Waitlisted — #$position" } ?: "Waitlisted"
+    activity.waitlistPosition?.let { position -> "Waitlisted #$position" } ?: "Waitlisted"
 
 /**
  * True when every required question is answered: non-blank for text/textarea/select, and
- * CHECKED for checkboxes (a required checkbox toggled off is not an answer — consent semantics).
+ * CHECKED for checkboxes (a required checkbox toggled off is not an answer - consent semantics).
  */
 fun requiredAnswered(questions: List<QuestionDto>, answers: Map<String, String>): Boolean =
     questions.filter { it.required }.all { question ->
@@ -39,7 +39,7 @@ fun requiredAnswered(questions: List<QuestionDto>, answers: Map<String, String>)
 /** Checkbox answers are submitted as "true"/"false" strings (the documented API contract). */
 fun checkboxValue(checked: Boolean): String = if (checked) "true" else "false"
 
-/** The request payload: answered questions only — empty strings are unanswered, not answers. */
+/** The request payload: answered questions only - empty strings are unanswered, not answers. */
 fun registrationPayload(answers: Map<String, String>): Map<String, String> =
     answers.filterValues { it.isNotEmpty() }
 

@@ -36,7 +36,7 @@ private data class ChipSpec(
     val outline: Boolean = false,
 )
 
-/** Status pill — colour AND label (never colour alone). Optional [label] overrides the default text. */
+/** Status pill - colour AND label (never colour alone). Optional [label] overrides the default text. */
 @Composable
 fun StatusChip(kind: ChipKind, modifier: Modifier = Modifier, label: String? = null) {
     val colors = LocalPentanaColors.current

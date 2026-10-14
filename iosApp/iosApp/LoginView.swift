@@ -2,7 +2,7 @@
 //  LoginView.swift
 //  iosApp
 //
-//  Bespoke, glass-forward sign-in — the only unauthenticated screen.
+//  Bespoke, glass-forward sign-in - the only unauthenticated screen.
 //
 
 import SwiftUI

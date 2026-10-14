@@ -57,12 +57,12 @@ fun ProfileSheet(user: UserDto, onSignOut: () -> Unit, onDismiss: () -> Unit) {
             PentFilledCard {
                 PentListItem(
                     headline = "Category",
-                    trailing = { Text(user.memberCategory ?: "—", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    trailing = { Text(user.memberCategory ?: "-", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     showDivider = true,
                 )
                 PentListItem(
                     headline = "Birthday",
-                    trailing = { Text(user.birthday ?: "—", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    trailing = { Text(user.birthday ?: "-", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     showDivider = true,
                 )
                 PentListItem(

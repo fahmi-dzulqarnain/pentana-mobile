@@ -8,7 +8,7 @@ import platform.posix.memcpy
 
 /**
  * Bulk-copies [data] into a Kotlin ByteArray with a single memcpy. Swift callers should prefer
- * this over building a KotlinByteArray element-by-element — per-index `set` calls cross the
+ * this over building a KotlinByteArray element-by-element - per-index `set` calls cross the
  * ObjC bridge once per byte, which is millions of calls for a camera photo.
  */
 @OptIn(ExperimentalForeignApi::class)

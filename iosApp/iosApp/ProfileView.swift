@@ -32,7 +32,7 @@ struct ProfileView: View {
 
                     SectionLabel(text: "Membership")
                     InsetGroup {
-                        infoRow("Category", session.user?.memberCategory ?? "—")
+                        infoRow("Category", session.user?.memberCategory ?? "-")
                         PentHairline()
                         infoRow("Birthday", birthday)
                         PentHairline()
@@ -129,7 +129,7 @@ struct ProfileView: View {
     }
 
     private var birthday: String {
-        guard let rawBirthday = session.user?.birthday, !rawBirthday.isEmpty else { return "—" }
+        guard let rawBirthday = session.user?.birthday, !rawBirthday.isEmpty else { return "-" }
         let parser = DateFormatter(); parser.dateFormat = "yyyy-MM-dd"; parser.locale = Locale(identifier: "en_US_POSIX")
         guard let date = parser.date(from: rawBirthday) else { return rawBirthday }
         let formatter = DateFormatter(); formatter.dateFormat = "d MMMM"

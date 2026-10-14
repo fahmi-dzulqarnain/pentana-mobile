@@ -20,7 +20,7 @@ struct SubmitProofView: View {
     private var isSubmitting: Bool { submitState is SubmitStateSubmitting }
     private var errorMessage: String? { (submitState as? SubmitStateError)?.message }
     private var ready: Bool {
-        // Also disabled once Success lands — in the hop before resetSubmit()+dismiss() the store's
+        // Also disabled once Success lands - in the hop before resetSubmit()+dismiss() the store's
         // Submitting guard is already disarmed, so a live button could fire a duplicate upload.
         imageData != nil && canSubmitProof(amount: amount, hasPhoto: imageData != nil) && !isSubmitting && !(submitState is SubmitStateSuccess)
     }

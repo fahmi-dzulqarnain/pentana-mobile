@@ -191,7 +191,7 @@ class SessionManagerTest {
         // (now-stale) unread count into the session that begins fresh right after logout.
         val notificationsGate = CompletableDeferred<Unit>()
         // MockEngine may service the stale request on a different dispatcher than this test
-        // coroutine, so we cannot infer "the fetch is now parked" from scheduler ordering alone —
+        // coroutine, so we cannot infer "the fetch is now parked" from scheduler ordering alone -
         // this deferred is a real cross-thread signal fired right as the stale call parks, so the
         // test can deterministically wait for "epoch captured, now blocked on notificationsGate"
         // before calling logout(), instead of guessing at interleaving.

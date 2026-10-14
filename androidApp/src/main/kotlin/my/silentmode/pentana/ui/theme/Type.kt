@@ -29,6 +29,6 @@ val PentTypography = Typography(
     labelSmall = TextStyle(fontFamily = Ro, fontSize = 11.sp, lineHeight = 16.sp, fontWeight = FontWeight.W600, letterSpacing = 0.4.sp),
 )
 
-// Money / numeric styles — tabular figures so columns of money align.
+// Money / numeric styles - tabular figures so columns of money align.
 val MoneyLarge = TextStyle(fontFamily = Ro, fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.W600, letterSpacing = (-0.5).sp, fontFeatureSettings = "tnum")
 val MoneyMedium = TextStyle(fontFamily = Ro, fontSize = 18.sp, lineHeight = 22.sp, fontWeight = FontWeight.W600, fontFeatureSettings = "tnum")

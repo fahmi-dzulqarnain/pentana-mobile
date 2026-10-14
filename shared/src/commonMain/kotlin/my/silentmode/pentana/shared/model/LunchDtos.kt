@@ -22,7 +22,7 @@ data class LunchDto(
     @SerialName("my_meal_option_id") val myMealOptionId: Long? = null,
 )
 
-/** POST /api/v1/lunches/{id}/respond body — null mealOptionId = "not attending". */
+/** POST /api/v1/lunches/{id}/respond body - null mealOptionId = "not attending". */
 @Serializable
 data class RespondRequest(
     @SerialName("meal_option_id") val mealOptionId: Long?,

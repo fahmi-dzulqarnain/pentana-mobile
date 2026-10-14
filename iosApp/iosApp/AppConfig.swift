@@ -6,7 +6,7 @@
 import Foundation
 
 enum AppConfig {
-    /// Base URL of the PENTANA member API — the live production domain.
+    /// Base URL of the PENTANA member API - the live production domain.
     ///
     /// Passkeys/WebAuthn require this HTTPS host: the OS derives the assertion origin
     /// from it and validates it against the `webcredentials:` Associated Domain +
@@ -20,6 +20,6 @@ enum AppConfig {
 
     /// Passkey relying-party ID. Must match the `webcredentials:` Associated Domain
     /// and the server's APP_URL host. Passkeys only work against the live HTTPS
-    /// domain (the OS derives the assertion origin from this) — not the LAN IP.
+    /// domain (the OS derives the assertion origin from this) - not the LAN IP.
     static let passkeyRelyingParty = "pentana.silentmode.net"
 }

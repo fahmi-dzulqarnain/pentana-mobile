@@ -63,7 +63,7 @@ struct LunchView: View {
                                 lunch: lunch,
                                 busy: inFlight.contains(lunch.id),
                                 choose: { opt in
-                                    if let id = LunchDisplayKt.lunchOptionIdFor(lunch: lunch, mealOptionId: opt) {
+                                    if let id = lunchOptionIdFor(lunch: lunch, mealOptionId: opt) {
                                         store?.choose(lunchId: lunch.id, lunchOptionId: id.int64Value)
                                     }
                                 },

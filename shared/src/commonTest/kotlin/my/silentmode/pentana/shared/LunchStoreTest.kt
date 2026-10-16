@@ -14,11 +14,14 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import my.silentmode.pentana.shared.model.LunchDto
+import my.silentmode.pentana.shared.model.LunchMenuDto
+import my.silentmode.pentana.shared.model.LunchMenuOptionDto
 import my.silentmode.pentana.shared.model.LunchOptionDto
 import my.silentmode.pentana.shared.presentation.LunchStatus
 import my.silentmode.pentana.shared.presentation.LunchStore
 import my.silentmode.pentana.shared.presentation.LunchUiState
 import my.silentmode.pentana.shared.presentation.lunchClosedSummary
+import my.silentmode.pentana.shared.presentation.lunchOptionIdFor
 import my.silentmode.pentana.shared.presentation.lunchStatus
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -278,13 +281,13 @@ class LunchStoreTest {
         val l = lunch(isOpen = false, responded = true).copy(
             options = emptyList(),
             menus = listOf(
-                my.silentmode.pentana.shared.model.LunchMenuDto(2, "A", "X", listOf(my.silentmode.pentana.shared.model.LunchMenuOptionDto(10, 6, "Rice"))),
-                my.silentmode.pentana.shared.model.LunchMenuDto(3, "B", "Y", listOf(my.silentmode.pentana.shared.model.LunchMenuOptionDto(12, 7, "Noodle"))),
+                LunchMenuDto(2, "A", "X", listOf(LunchMenuOptionDto(10, 6, "Rice"))),
+                LunchMenuDto(3, "B", "Y", listOf(LunchMenuOptionDto(12, 7, "Noodle"))),
             ),
             myLunchOptionId = 12,
         )
         assertEquals("Ordering closed: you ordered Noodle.", lunchClosedSummary(l))
-        assertEquals(12L, my.silentmode.pentana.shared.presentation.lunchOptionIdFor(l, 7))
+        assertEquals(12L, lunchOptionIdFor(l, 7))
     }
 
     private fun lunch(isOpen: Boolean, responded: Boolean, myMealOptionId: Long? = null) = LunchDto(

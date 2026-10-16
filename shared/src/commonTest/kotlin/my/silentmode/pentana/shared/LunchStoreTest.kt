@@ -14,6 +14,8 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import my.silentmode.pentana.shared.model.LunchDto
+import my.silentmode.pentana.shared.model.LunchMenuDto
+import my.silentmode.pentana.shared.model.LunchMenuOptionDto
 import my.silentmode.pentana.shared.model.LunchOptionDto
 import my.silentmode.pentana.shared.presentation.LunchStatus
 import my.silentmode.pentana.shared.presentation.LunchStore
@@ -89,7 +91,7 @@ class LunchStoreTest {
     @Test fun choose_updates_only_the_target_lunch() = runTest {
         val store = makeStore { path -> if (path.endsWith("/respond")) HttpStatusCode.OK to chosenLunchJson else HttpStatusCode.OK to twoLunchesJson }
         store.state.first { it is LunchUiState.Content && it.lunches.size == 2 } // let the initial load settle before choosing
-        store.choose(lunchId = 1, mealOptionId = 10)
+        store.choose(lunchId = 1, lunchOptionId = 10)
         val state = store.state.first { it is LunchUiState.Content && it.lunches.first { lunch -> lunch.id == 1L }.responded }
         assertIs<LunchUiState.Content>(state)
         val chosen = state.lunches.first { it.id == 1L }
@@ -100,6 +102,43 @@ class LunchStoreTest {
         assertFalse(other.responded)
         assertNull(other.myMealOptionId)
     }
+
+    @Test fun choose_passes_the_lunch_option_id_and_replaces_the_card_with_menus() = runTest {
+        var postedBody = ""
+        val engine = MockEngine { request ->
+            val body = if (request.url.fullPath.endsWith("/respond")) {
+                postedBody = (request.body as io.ktor.http.content.TextContent).text
+                twoMenuChosenJson
+            } else {
+                twoMenuLunchesJson
+            }
+            respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val store = LunchStore(LunchRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
+        store.state.first { it is LunchUiState.Content }
+        store.choose(lunchId = 2, lunchOptionId = 12)
+        val state = store.state.first { it is LunchUiState.Content && it.lunches.first().responded }
+        assertIs<LunchUiState.Content>(state)
+        assertEquals("""{"lunch_option_id":12}""", postedBody)
+        assertEquals(12L, state.lunches.first().myLunchOptionId)
+        assertEquals(2, state.lunches.first().menus.size)
+    }
+
+    private val twoMenuLunchesJson = """
+        {"data":[{"id":2,"date":"2026-10-17","caterer":"Kedai A · Kedai B","menu":"Several menus today","deadline":null,
+        "is_open":true,"options":[],
+        "menus":[{"id":2,"caterer":"Kedai A","menu":"Nasi Ayam","options":[{"lunch_option_id":10,"meal_option_id":6,"name":"Rice"}]},
+        {"id":3,"caterer":"Kedai B","menu":"Mee","options":[{"lunch_option_id":11,"meal_option_id":6,"name":"Rice"},{"lunch_option_id":12,"meal_option_id":7,"name":"Noodle"}]}],
+        "responded":false,"my_meal_option_id":null,"my_lunch_option_id":null}]}
+    """.trimIndent()
+
+    private val twoMenuChosenJson = """
+        {"data":{"id":2,"date":"2026-10-17","caterer":"Kedai A · Kedai B","menu":"Several menus today","deadline":null,
+        "is_open":true,"options":[],
+        "menus":[{"id":2,"caterer":"Kedai A","menu":"Nasi Ayam","options":[{"lunch_option_id":10,"meal_option_id":6,"name":"Rice"}]},
+        {"id":3,"caterer":"Kedai B","menu":"Mee","options":[{"lunch_option_id":11,"meal_option_id":6,"name":"Rice"},{"lunch_option_id":12,"meal_option_id":7,"name":"Noodle"}]}],
+        "responded":true,"my_meal_option_id":null,"my_lunch_option_id":12}}
+    """.trimIndent()
 
     @Test fun not_attending_updates_the_lunch() = runTest {
         val store = makeStore { path -> if (path.endsWith("/respond")) HttpStatusCode.OK to notAttendingLunchJson else HttpStatusCode.OK to openLunchJson }
@@ -127,9 +166,9 @@ class LunchStoreTest {
         val store = LunchStore(LunchRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
         store.state.first { it is LunchUiState.Content } // let the initial load settle
         assertTrue(store.inFlight.value.isEmpty())
-        store.choose(lunchId = 1, mealOptionId = 10)
+        store.choose(lunchId = 1, lunchOptionId = 10)
         store.inFlight.first { it.contains(1L) } // the request is pending
-        store.choose(lunchId = 1, mealOptionId = 11) // guarded: must not start a second submit
+        store.choose(lunchId = 1, lunchOptionId = 11) // guarded: must not start a second submit
         gate.complete(Unit)
         store.inFlight.first { it.isEmpty() } // cleared after completion
         assertEquals(1, respondCount) // the guard dropped the duplicate submit
@@ -154,12 +193,12 @@ class LunchStoreTest {
         }
         val store = LunchStore(LunchRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
         store.state.first { it is LunchUiState.Content && it.lunches.size == 2 }
-        store.choose(lunchId = 2, mealOptionId = 20) // in flight, held by the gate (no error yet to clear)
+        store.choose(lunchId = 2, lunchOptionId = 20) // in flight, held by the gate (no error yet to clear)
         store.inFlight.first { 2L in it }
-        store.choose(lunchId = 1, mealOptionId = 10) // fails -> error becomes visible
+        store.choose(lunchId = 1, lunchOptionId = 10) // fails -> error becomes visible
         store.inFlight.first { 1L !in it }
         assertNotNull(store.actionError.value)
-        store.choose(lunchId = 2, mealOptionId = 21) // guarded duplicate - must NOT clear the visible error
+        store.choose(lunchId = 2, lunchOptionId = 21) // guarded duplicate - must NOT clear the visible error
         assertNotNull(store.actionError.value)
         gate.complete(Unit)
         store.inFlight.first { it.isEmpty() }
@@ -169,7 +208,7 @@ class LunchStoreTest {
         val store = makeStore { path -> if (path.endsWith("/respond")) HttpStatusCode.InternalServerError to "{}" else HttpStatusCode.OK to openLunchJson }
         store.state.first { it is LunchUiState.Content }
         assertNull(store.actionError.value)
-        store.choose(lunchId = 1, mealOptionId = 10)
+        store.choose(lunchId = 1, lunchOptionId = 10)
         store.inFlight.first { it.isEmpty() } // action settled
         assertEquals("Couldn't save your choice. Please try again.", store.actionError.value)
     }
@@ -192,10 +231,10 @@ class LunchStoreTest {
             } else HttpStatusCode.OK to openLunchJson
         }
         store.state.first { it is LunchUiState.Content }
-        store.choose(lunchId = 1, mealOptionId = 10)
+        store.choose(lunchId = 1, lunchOptionId = 10)
         store.inFlight.first { it.isEmpty() }
         assertNotNull(store.actionError.value)
-        store.choose(lunchId = 1, mealOptionId = 10) // retry clears the stale error as it starts
+        store.choose(lunchId = 1, lunchOptionId = 10) // retry clears the stale error as it starts
         store.inFlight.first { it.isEmpty() }
         assertNull(store.actionError.value)
     }
@@ -203,7 +242,7 @@ class LunchStoreTest {
     @Test fun successful_action_never_sets_error() = runTest {
         val store = makeStore { path -> if (path.endsWith("/respond")) HttpStatusCode.OK to chosenLunchJson else HttpStatusCode.OK to openLunchJson }
         store.state.first { it is LunchUiState.Content }
-        store.choose(lunchId = 1, mealOptionId = 10)
+        store.choose(lunchId = 1, lunchOptionId = 10)
         store.inFlight.first { it.isEmpty() }
         assertNull(store.actionError.value)
     }
@@ -235,6 +274,18 @@ class LunchStoreTest {
 
     @Test fun closed_summary_reports_not_attending_when_no_option() {
         assertEquals("Ordering closed: you marked not attending.", lunchClosedSummary(lunch(isOpen = false, responded = true, myMealOptionId = null)))
+    }
+
+    @Test fun closed_summary_names_the_option_picked_across_menus() {
+        val l = lunch(isOpen = false, responded = true).copy(
+            options = emptyList(),
+            menus = listOf(
+                LunchMenuDto(2, "A", "X", listOf(LunchMenuOptionDto(10, 6, "Rice"))),
+                LunchMenuDto(3, "B", "Y", listOf(LunchMenuOptionDto(12, 7, "Noodle"))),
+            ),
+            myLunchOptionId = 12,
+        )
+        assertEquals("Ordering closed: you ordered Noodle.", lunchClosedSummary(l))
     }
 
     private fun lunch(isOpen: Boolean, responded: Boolean, myMealOptionId: Long? = null) = LunchDto(

@@ -94,7 +94,7 @@ private fun LunchList(lunches: List<LunchDto>, inFlight: Set<Long>, store: Lunch
             LunchCard(
                 lunch = lunch,
                 busy = lunch.id in inFlight,
-                onChoose = { optionId -> store.choose(lunch.id, optionId) },
+                onChoose = { lunchOptionId -> store.choose(lunch.id, lunchOptionId) },
                 onNotAttending = { store.notAttending(lunch.id) },
             )
         }
@@ -110,9 +110,11 @@ private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, 
             verticalAlignment = Alignment.Top,
         ) {
             Column(Modifier.weight(1f)) {
-                Text(lunch.menu ?: "Lunch", style = MaterialTheme.typography.titleMedium)
+                val title = lunch.menus.mapNotNull { it.menu }.joinToString(" · ").ifEmpty { lunch.menu ?: "Lunch" }
+                Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    listOfNotNull(lunch.date, lunch.caterer).joinToString(" · "),
+                    // With menus, each caterer appears in its own section heading below.
+                    (if (lunch.menus.isEmpty()) listOfNotNull(lunch.date, lunch.caterer) else listOf(lunch.date)).joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -131,18 +133,38 @@ private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, 
             }
         } else {
             Column(Modifier.alpha(if (busy) 0.6f else 1f)) {
-                lunch.options.forEach { opt ->
-                    SingleSelectRow(
-                        title = opt.name ?: "Option",
-                        selected = lunch.myMealOptionId == opt.mealOptionId,
-                        onClick = { onChoose(opt.mealOptionId) },
-                        showDivider = true,
-                        enabled = !busy,
+                lunch.menus.forEach { menu ->
+                    Text(
+                        listOfNotNull(menu.caterer, menu.menu).joinToString(" · "),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 2.dp),
                     )
+                    menu.options.forEach { opt ->
+                        SingleSelectRow(
+                            title = opt.name ?: "Option",
+                            selected = lunch.responded && lunch.myLunchOptionId == opt.lunchOptionId,
+                            onClick = { onChoose(opt.lunchOptionId) },
+                            showDivider = true,
+                            enabled = !busy,
+                        )
+                    }
+                }
+                // Older server (no menus): legacy options carry no lunchOptionId, so they are shown read-only rather than guessing an id.
+                if (lunch.menus.isEmpty()) {
+                    lunch.options.forEach { opt ->
+                        SingleSelectRow(
+                            title = opt.name ?: "Option",
+                            selected = lunch.myMealOptionId == opt.mealOptionId,
+                            onClick = {},
+                            showDivider = true,
+                            enabled = false,
+                        )
+                    }
                 }
                 SingleSelectRow(
                     title = "Not attending",
-                    selected = lunch.responded && lunch.myMealOptionId == null,
+                    selected = lunch.responded && lunch.myLunchOptionId == null && lunch.myMealOptionId == null,
                     onClick = onNotAttending,
                     showDivider = false,
                     enabled = !busy,

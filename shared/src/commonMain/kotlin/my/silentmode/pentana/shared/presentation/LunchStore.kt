@@ -67,9 +67,9 @@ class LunchStore(private val repo: LunchRepository) {
         }
     }
 
-    fun choose(lunchId: Long, mealOptionId: Long) =
+    fun choose(lunchId: Long, lunchOptionId: Long) =
         actionRunner.run(lunchId, SAVE_CHOICE_ERROR) {
-            replace(repo.chooseOption(lunchId, mealOptionId))
+            replace(repo.chooseOption(lunchId, lunchOptionId))
         }
 
     fun notAttending(lunchId: Long) =

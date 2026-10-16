@@ -21,6 +21,12 @@ data class DashboardBillsDto(
 )
 
 @Serializable
+data class NextLunchMenuDto(
+    val caterer: String? = null,
+    val menu: String? = null,
+)
+
+@Serializable
 data class DashboardLunchDto(
     val id: Long,
     val date: String,
@@ -28,6 +34,7 @@ data class DashboardLunchDto(
     val menu: String? = null,
     @SerialName("is_open") val isOpen: Boolean,
     val responded: Boolean,
+    val menus: List<NextLunchMenuDto> = emptyList(),
 )
 
 @Serializable

@@ -22,7 +22,3 @@ fun lunchClosedSummary(lunch: LunchDto): String {
     }
     return if (name != null) "Ordering closed: you ordered $name." else "Ordering closed: order placed."
 }
-
-/** Bridge for the legacy single-menu screens: the lunch option id of the first menu offering [mealOptionId]. */
-fun lunchOptionIdFor(lunch: LunchDto, mealOptionId: Long): Long? =
-    lunch.menus.flatMap { it.options }.firstOrNull { it.mealOptionId == mealOptionId }?.lunchOptionId

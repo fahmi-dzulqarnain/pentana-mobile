@@ -21,7 +21,6 @@ import my.silentmode.pentana.shared.presentation.LunchStatus
 import my.silentmode.pentana.shared.presentation.LunchStore
 import my.silentmode.pentana.shared.presentation.LunchUiState
 import my.silentmode.pentana.shared.presentation.lunchClosedSummary
-import my.silentmode.pentana.shared.presentation.lunchOptionIdFor
 import my.silentmode.pentana.shared.presentation.lunchStatus
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -287,7 +286,6 @@ class LunchStoreTest {
             myLunchOptionId = 12,
         )
         assertEquals("Ordering closed: you ordered Noodle.", lunchClosedSummary(l))
-        assertEquals(12L, lunchOptionIdFor(l, 7))
     }
 
     private fun lunch(isOpen: Boolean, responded: Boolean, myMealOptionId: Long? = null) = LunchDto(

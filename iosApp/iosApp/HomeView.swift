@@ -144,8 +144,9 @@ struct HomeView: View {
 
     private func lunchLine(_ lunch: DashboardLunchDto) -> String {
         let date = PentDates.shortDate(lunch.date)
-        if let menu = lunch.menu, !menu.isEmpty { return "\(date) · \(menu)" }
-        return date
+        var names = lunch.menus.compactMap { $0.menu }.filter { !$0.isEmpty }
+        if names.isEmpty, let menu = lunch.menu, !menu.isEmpty { names = [menu] }
+        return ([date] + names).joined(separator: " · ")
     }
 }
 

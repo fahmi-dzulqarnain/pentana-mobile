@@ -143,7 +143,7 @@ private fun LunchSummary(lunch: DashboardLunchDto?) {
         return
     }
     Text(
-        listOfNotNull(lunch.date, lunch.menu).joinToString(" · "),
+        (listOf(lunch.date) + lunch.menus.mapNotNull { it.menu }.ifEmpty { listOfNotNull(lunch.menu) }).joinToString(" · "),
         style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
     )
     Spacer(Modifier.height(6.dp))

@@ -62,11 +62,7 @@ struct LunchView: View {
                             LunchCard(
                                 lunch: lunch,
                                 busy: inFlight.contains(lunch.id),
-                                choose: { opt in
-                                    if let id = lunchOptionIdFor(lunch: lunch, mealOptionId: opt) {
-                                        store?.choose(lunchId: lunch.id, lunchOptionId: id.int64Value)
-                                    }
-                                },
+                                choose: { lunchOptionId in store?.choose(lunchId: lunch.id, lunchOptionId: lunchOptionId) },
                                 notAttending: { store?.notAttending(lunchId: lunch.id) })
                         }
                     }
@@ -89,7 +85,7 @@ private struct LunchCard: View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(lunch.menu ?? "Lunch").font(.pentHeadline).foregroundStyle(Pent.label)
+                    Text(title).font(.pentHeadline).foregroundStyle(Pent.label)
                     Text(subtitle).font(.pentFoot).foregroundStyle(Pent.label2)
                 }
                 Spacer(minLength: 8)
@@ -99,16 +95,32 @@ private struct LunchCard: View {
 
             if lunch.isOpen {
                 VStack(spacing: 0) {
-                    ForEach(Array(lunch.options.enumerated()), id: \.element.mealOptionId) { _, option in
-                        PentHairline()
-                        optionRow(title: option.name ?? "Option",
-                                  chosen: lunch.responded && lunch.myMealOptionId?.int64Value == option.mealOptionId) {
-                            choose(option.mealOptionId)
+                    ForEach(lunch.menus, id: \.id) { menu in
+                        Text([menu.caterer, menu.menu].compactMap { $0 }.joined(separator: " · "))
+                            .font(.pentFoot).fontWeight(.semibold).foregroundStyle(Pent.label2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 6)
+                            .overlay(alignment: .top) { PentHairline(leadingInset: 0) }
+                        ForEach(menu.options, id: \.lunchOptionId) { option in
+                            PentHairline()
+                            optionRow(title: option.name ?? "Option",
+                                      chosen: lunch.responded && lunch.myLunchOptionId?.int64Value == option.lunchOptionId) {
+                                choose(option.lunchOptionId)
+                            }
+                        }
+                    }
+                    // Older server (no menus): legacy options carry no lunchOptionId, so they are shown read-only rather than guessing an id.
+                    if lunch.menus.isEmpty {
+                        ForEach(lunch.options, id: \.mealOptionId) { option in
+                            PentHairline()
+                            optionRow(title: option.name ?? "Option",
+                                      chosen: lunch.myMealOptionId?.int64Value == option.mealOptionId) {}
+                                .disabled(true)
                         }
                     }
                     PentHairline()
                     optionRow(title: "Not attending",
-                              chosen: lunch.responded && lunch.myMealOptionId == nil) {
+                              chosen: lunch.responded && lunch.myLunchOptionId == nil && lunch.myMealOptionId == nil) {
                         notAttending()
                     }
                 }
@@ -158,8 +170,14 @@ private struct LunchCard: View {
         .buttonStyle(.plain)
     }
 
+    private var title: String {
+        let names = lunch.menus.compactMap { $0.menu }.filter { !$0.isEmpty }
+        return names.isEmpty ? (lunch.menu ?? "Lunch") : names.joined(separator: " · ")
+    }
     private var subtitle: String {
         let date = PentDates.shortDate(lunch.date)
+        // With menus, each caterer appears in its own section heading.
+        if !lunch.menus.isEmpty { return date }
         if let caterer = lunch.caterer, !caterer.isEmpty { return "\(date) · \(caterer)" }
         return date
     }

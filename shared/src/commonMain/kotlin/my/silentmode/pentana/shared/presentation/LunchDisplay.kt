@@ -13,7 +13,16 @@ fun lunchStatus(lunch: LunchDto): LunchStatus = when {
 
 fun lunchClosedSummary(lunch: LunchDto): String {
     if (!lunch.responded) return "Ordering closed: no order placed."
-    if (lunch.myMealOptionId == null) return "Ordering closed: you marked not attending."
-    val name = lunch.options.firstOrNull { it.mealOptionId == lunch.myMealOptionId }?.name
+    val name = if (lunch.myLunchOptionId != null) {
+        lunch.menus.flatMap { it.options }.firstOrNull { it.lunchOptionId == lunch.myLunchOptionId }?.name
+    } else if (lunch.myMealOptionId != null) {
+        lunch.options.firstOrNull { it.mealOptionId == lunch.myMealOptionId }?.name
+    } else {
+        return "Ordering closed: you marked not attending."
+    }
     return if (name != null) "Ordering closed: you ordered $name." else "Ordering closed: order placed."
 }
+
+/** Bridge for the legacy single-menu screens: the lunch option id of the first menu offering [mealOptionId]. */
+fun lunchOptionIdFor(lunch: LunchDto, mealOptionId: Long): Long? =
+    lunch.menus.flatMap { it.options }.firstOrNull { it.mealOptionId == mealOptionId }?.lunchOptionId

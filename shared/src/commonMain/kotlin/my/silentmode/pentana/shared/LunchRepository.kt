@@ -27,15 +27,15 @@ class LunchRepository(private val client: ApiClient) {
         response.body<DataEnvelope<List<LunchDto>>>().data
     }
 
-    /** Vote for an option, or pass null to mark "not attending". Returns the refreshed lunch. */
+    /** Vote for a lunch option (across any of the day's menus), or pass null to mark "not attending". Returns the refreshed lunch. */
     @Throws(Exception::class)
-    suspend fun respond(lunchId: Long, mealOptionId: Long?): LunchDto = withContext(Dispatchers.Main) {
+    suspend fun respond(lunchId: Long, lunchOptionId: Long?): LunchDto = withContext(Dispatchers.Main) {
         val token = client.tokenStore.get()
         val response = client.http.post(client.urlFor("/lunches/$lunchId/respond")) {
             contentType(ContentType.Application.Json)
             header(HttpHeaders.Accept, "application/json")
             token?.let { header(HttpHeaders.Authorization, "Bearer $it") }
-            setBody(RespondRequest(mealOptionId))
+            setBody(RespondRequest(lunchOptionId))
         }
         client.ensureSuccess(response)
         response.body<DataEnvelope<LunchDto>>().data
@@ -43,7 +43,7 @@ class LunchRepository(private val client: ApiClient) {
 
     /** Swift-friendly wrappers that avoid constructing a nullable Long (KotlinLong?) on the Swift side. */
     @Throws(Exception::class)
-    suspend fun chooseOption(lunchId: Long, mealOptionId: Long): LunchDto = respond(lunchId, mealOptionId)
+    suspend fun chooseOption(lunchId: Long, lunchOptionId: Long): LunchDto = respond(lunchId, lunchOptionId)
 
     @Throws(Exception::class)
     suspend fun markNotAttending(lunchId: Long): LunchDto = respond(lunchId, null)

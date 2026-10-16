@@ -120,6 +120,73 @@ class PentanaApiTest {
     }
 
     @Test
+    fun twoMenuLunchIsParsedWithMenusAndLunchOptionId() = runTest {
+        val engine = jsonEngine(
+            """{"data":[{"id":2,"date":"2026-10-17","caterer":"Kedai A · Kedai B","menu":"Several menus today","options":[],"menus":[{"id":2,"caterer":"Kedai A","menu":"Nasi Ayam","options":[{"lunch_option_id":10,"meal_option_id":6,"name":"Rice"}]},{"id":3,"caterer":"Kedai B","menu":"Mee","options":[{"lunch_option_id":11,"meal_option_id":6,"name":"Rice"},{"lunch_option_id":12,"meal_option_id":7,"name":"Noodle"}]}],"is_open":true,"responded":true,"my_meal_option_id":null,"my_lunch_option_id":12}]}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val lunch = LunchRepository(client).lunches().single()
+
+        assertEquals(2, lunch.menus.size)
+        assertEquals("Kedai B", lunch.menus[1].caterer)
+        assertEquals(12L, lunch.menus[1].options[1].lunchOptionId)
+        assertEquals(7L, lunch.menus[1].options[1].mealOptionId)
+        assertEquals("Noodle", lunch.menus[1].options[1].name)
+        assertEquals(12L, lunch.myLunchOptionId)
+    }
+
+    @Test
+    fun legacyLunchWithoutMenusStillParses() = runTest {
+        val engine = jsonEngine(
+            """{"data":[{"id":1,"date":"2026-06-28","is_open":true,"responded":false}]}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val lunch = LunchRepository(client).lunches().single()
+
+        assertEquals(emptyList(), lunch.menus)
+        assertEquals(null, lunch.myLunchOptionId)
+    }
+
+    @Test
+    fun respondPostsTheLunchOptionIdAndExplicitNullForNotAttending() = runTest {
+        val bodies = mutableListOf<String>()
+        val engine = MockEngine { request ->
+            bodies += (request.body as io.ktor.http.content.TextContent).text
+            respond(
+                """{"data":{"id":1,"date":"2026-06-28","is_open":true,"responded":true}}""",
+                HttpStatusCode.OK,
+                headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val repo = LunchRepository(ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine))
+
+        repo.respond(1, 81)
+        repo.chooseOption(1, 82)
+        repo.markNotAttending(1)
+
+        assertEquals(
+            listOf("""{"lunch_option_id":81}""", """{"lunch_option_id":82}""", """{"lunch_option_id":null}"""),
+            bodies,
+        )
+    }
+
+    @Test
+    fun dashboardNextLunchParsesMenus() = runTest {
+        val engine = jsonEngine(
+            """{"data":{"bills":{"total_outstanding":"0.00","available_credit":"0.00","unpaid_count":0},"next_lunch":{"id":2,"date":"2026-06-29","caterer":"A · B","menu":"Several","is_open":true,"responded":false,"menus":[{"caterer":"A","menu":"Nasi"},{"caterer":"B","menu":null}]},"next_activity":null,"open_activities_count":0,"pending_proofs_count":0}}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val dash = DashboardRepository(client).dashboard()
+
+        assertEquals(2, dash.nextLunch?.menus?.size)
+        assertEquals("A", dash.nextLunch?.menus?.get(0)?.caterer)
+        assertEquals(null, dash.nextLunch?.menus?.get(1)?.menu)
+    }
+
+    @Test
     fun activitiesAreParsedWithQuestions() = runTest {
         val engine = jsonEngine(
             """{"data":[{"id":7,"title":"Beach Cleanup","description":"<p>Bring gloves</p>","starts_at":"2026-07-01T09:00:00+08:00","location":"Beach","spots_left":5,"is_open":true,"my_status":"none","waitlist_position":null,"questions":[{"key":"diet","label":"Dietary needs","type":"text","required":true,"options":[]}]}]}""",

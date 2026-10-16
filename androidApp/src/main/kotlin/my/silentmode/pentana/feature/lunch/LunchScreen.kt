@@ -38,6 +38,7 @@ import my.silentmode.pentana.shared.model.LunchDto
 import my.silentmode.pentana.shared.presentation.LunchStatus
 import my.silentmode.pentana.shared.presentation.LunchStore
 import my.silentmode.pentana.shared.presentation.LunchUiState
+import my.silentmode.pentana.shared.presentation.lunchOptionIdFor
 import my.silentmode.pentana.shared.presentation.lunchClosedSummary
 import my.silentmode.pentana.shared.presentation.lunchStatus
 import my.silentmode.pentana.ui.appViewModel
@@ -94,7 +95,7 @@ private fun LunchList(lunches: List<LunchDto>, inFlight: Set<Long>, store: Lunch
             LunchCard(
                 lunch = lunch,
                 busy = lunch.id in inFlight,
-                onChoose = { optionId -> store.choose(lunch.id, optionId) },
+                onChoose = { optionId -> lunchOptionIdFor(lunch, optionId)?.let { store.choose(lunch.id, it) } },
                 onNotAttending = { store.notAttending(lunch.id) },
             )
         }

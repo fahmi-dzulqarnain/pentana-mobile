@@ -127,6 +127,10 @@ fun ProfileSheet(user: UserDto, onSaveNickname: suspend (String?) -> String?, on
 
 private const val NICKNAME_MAX = 30
 
+/** Cuts [value] to at most [max] Unicode code points (what the server counts), never splitting a surrogate pair. */
+internal fun truncateToCodePoints(value: String, max: Int): String =
+    if (value.codePointCount(0, value.length) <= max) value else value.substring(0, value.offsetByCodePoints(0, max))
+
 @Composable
 private fun NicknameDialog(current: String?, onSave: suspend (String?) -> String?, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf(current.orEmpty()) }
@@ -153,7 +157,7 @@ private fun NicknameDialog(current: String?, onSave: suspend (String?) -> String
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = text,
-                    onValueChange = { if (it.length <= NICKNAME_MAX) text = it },
+                    onValueChange = { text = truncateToCodePoints(it, NICKNAME_MAX) },
                     label = { Text("Nickname") },
                     singleLine = true,
                     enabled = !saving,

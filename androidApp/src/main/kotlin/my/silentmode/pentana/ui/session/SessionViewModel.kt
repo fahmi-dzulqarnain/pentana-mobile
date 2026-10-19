@@ -14,5 +14,7 @@ class SessionViewModel(private val sessionManager: SessionManager) : ViewModel()
 
     fun bootstrap() { viewModelScope.launch { sessionManager.bootstrap() } }
     fun logout() { viewModelScope.launch { sessionManager.logout() } }
+    /** Null on success, else a user-facing error message. */
+    suspend fun updateNickname(nickname: String?): String? = sessionManager.updateNickname(nickname)
     fun markNotificationsRead() { viewModelScope.launch { sessionManager.markAllRead() } }
 }

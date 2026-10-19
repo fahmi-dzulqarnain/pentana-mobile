@@ -16,6 +16,11 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import io.ktor.http.HttpMethod
+import my.silentmode.pentana.shared.model.UserDto
+import my.silentmode.pentana.shared.model.avatarName
+import my.silentmode.pentana.shared.model.greetingName
+import kotlinx.serialization.json.Json
 import my.silentmode.pentana.shared.presentation.SessionManager
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -267,5 +272,83 @@ class SessionManagerTest {
         assertEquals(3, managed.manager.state.value.unread)
         managed.manager.markAllRead()
         assertEquals(0, managed.manager.state.value.unread)
+    }
+
+    @Test fun user_dto_decodes_without_nickname_fields() {
+        val user = Json { ignoreUnknownKeys = true }.decodeFromString<UserDto>(
+            """{"id":1,"name":"Muhammad Fahmi bin Dzulqarnain","email":"f@x.my"}""",
+        )
+        assertNull(user.nickname)
+        assertNull(user.displayName)
+        assertEquals("Muhammad", user.greetingName)
+        assertEquals("Muhammad Fahmi bin Dzulqarnain", user.avatarName)
+    }
+
+    @Test fun greeting_and_avatar_use_nickname_when_set() {
+        val user = UserDto(id = 1, name = "Muhammad Fahmi bin Dzulqarnain", email = "f@x.my", nickname = "Fahmi")
+        assertEquals("Fahmi", user.greetingName)
+        assertEquals("Fahmi", user.avatarName)
+    }
+
+    private class Captured(var method: HttpMethod? = null, var body: String? = null)
+
+    private fun nicknameManager(captured: Captured, patchResult: Pair<HttpStatusCode, String>): SessionManager {
+        val engine = MockEngine { request ->
+            val path = request.url.fullPath
+            val (status, body) = if (path.endsWith("/me") && request.method == HttpMethod.Patch) {
+                captured.method = request.method
+                captured.body = when (val requestBody = request.body) {
+                    is TextContent -> requestBody.text
+                    is OutgoingContent.ByteArrayContent -> requestBody.bytes().decodeToString()
+                    else -> ""
+                }
+                patchResult
+            } else {
+                routing()(path)
+            }
+            respond(body, status, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val client = ApiClient("https://x/api/v1", InMemoryTokenStore("stored-token"), engine)
+        return SessionManager(AuthRepository(client), NotificationsRepository(client))
+    }
+
+    @Test fun update_nickname_success_updates_user() = runTest {
+        val captured = Captured()
+        val manager = nicknameManager(
+            captured,
+            HttpStatusCode.OK to """{"data":{"id":7,"name":"Aisyah Rahman","email":"aisyah@org.my","nickname":"Fahmi","display_name":"Fahmi","credit":12.5}}""",
+        )
+        manager.bootstrap()
+        val error = manager.updateNickname("Fahmi")
+        assertNull(error)
+        assertEquals("Fahmi", manager.state.value.user?.nickname)
+        assertEquals(HttpMethod.Patch, captured.method)
+        assertEquals("""{"nickname":"Fahmi"}""", captured.body)
+    }
+
+    @Test fun update_nickname_null_sends_explicit_null() = runTest {
+        val captured = Captured()
+        val manager = nicknameManager(captured, HttpStatusCode.OK to userJson)
+        manager.bootstrap()
+        assertNull(manager.updateNickname(null))
+        assertEquals("""{"nickname":null}""", captured.body)
+    }
+
+    @Test fun update_nickname_422_returns_server_message() = runTest {
+        val captured = Captured()
+        val manager = nicknameManager(
+            captured,
+            HttpStatusCode.UnprocessableEntity to """{"message":"That nickname is already taken.","errors":{"nickname":["That nickname is already taken."]}}""",
+        )
+        manager.bootstrap()
+        val error = manager.updateNickname("Fahmi")
+        assertEquals("That nickname is already taken.", error)
+        assertNull(manager.state.value.user?.nickname)
+    }
+
+    @Test fun update_nickname_other_failure_returns_generic_message() = runTest {
+        val manager = nicknameManager(Captured(), HttpStatusCode.InternalServerError to "{}")
+        manager.bootstrap()
+        assertEquals("Couldn't save your nickname. Try again.", manager.updateNickname("Fahmi"))
     }
 }

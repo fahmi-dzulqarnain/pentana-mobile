@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import my.silentmode.pentana.shared.ApiException
 import my.silentmode.pentana.shared.AuthRepository
 import my.silentmode.pentana.shared.NotificationsRepository
 import my.silentmode.pentana.shared.model.UserDto
@@ -103,6 +104,26 @@ class SessionManager(
         scope.launch { refreshBadge() }
     }
 
+    /**
+     * Saves (or clears, with null) the nickname. Returns null on success, with the stored user
+     * updated; otherwise a user-facing error (the server's message for a 422).
+     */
+    suspend fun updateNickname(nickname: String?): String? = withContext(Dispatchers.Main) {
+        val epoch = sessionEpoch
+        try {
+            val user = auth.updateNickname(nickname)
+            // A save parked across logout/login must not write into the new session.
+            if (epoch == sessionEpoch) _state.update { it.copy(user = user) }
+            null
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (e: ApiException) {
+            if (e.status == 422) e.serverMessage ?: NICKNAME_SAVE_ERROR else NICKNAME_SAVE_ERROR
+        } catch (_: Exception) {
+            NICKNAME_SAVE_ERROR
+        }
+    }
+
     /** Best-effort server logout; local state resets regardless. */
     suspend fun logout() = withContext(Dispatchers.Main) {
         sessionEpoch += 1
@@ -149,4 +170,8 @@ class SessionManager(
 
     /** Test teardown only - never call from ViewModels; the manager is app-scoped. */
     fun clear() { scope.cancel() }
+
+    private companion object {
+        const val NICKNAME_SAVE_ERROR = "Couldn't save your nickname. Try again."
+    }
 }

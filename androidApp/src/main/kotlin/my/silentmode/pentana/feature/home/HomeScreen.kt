@@ -30,7 +30,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import my.silentmode.pentana.core.firstName
 import my.silentmode.pentana.core.myr
 import my.silentmode.pentana.core.todayLong
 import my.silentmode.pentana.shared.model.DashboardActivityDto
@@ -83,7 +82,7 @@ private fun HomeContent(userName: String, dashboard: DashboardDto, onSwitchTab: 
                 .padding(horizontal = 20.dp, vertical = 18.dp),
         ) {
             Text(todayLong(), style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f))
-            Text("Hi, ${firstName(userName)}", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text("Hi, ${userName.ifBlank { "there" }}", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
         Spacer(Modifier.height(14.dp))
 

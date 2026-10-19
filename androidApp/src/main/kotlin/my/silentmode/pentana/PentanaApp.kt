@@ -25,6 +25,8 @@ import my.silentmode.pentana.feature.lunch.LunchScreen
 import my.silentmode.pentana.feature.notifications.NotificationsSheet
 import my.silentmode.pentana.feature.profile.ProfileSheet
 import my.silentmode.pentana.shared.model.UserDto
+import my.silentmode.pentana.shared.model.avatarName
+import my.silentmode.pentana.shared.model.greetingName
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.LoadingState
 import my.silentmode.pentana.ui.components.NavDest
@@ -70,7 +72,7 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
             PentTopBar(
                 title = active.barTitle(),
                 unread = unread,
-                avatarInitials = initials(user.name),
+                avatarInitials = initials(user.avatarName),
                 onAvatar = { showProfile = true },
                 onBell = { showNotifications = true },
             )
@@ -80,7 +82,7 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
     ) { pad ->
         Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
             when (active) {
-                NavDest.Home -> HomeScreen(userName = user.name, onSwitchTab = { active = it })
+                NavDest.Home -> HomeScreen(userName = user.greetingName, onSwitchTab = { active = it })
                 NavDest.Bills -> BillsScreen()
                 NavDest.Lunch -> LunchScreen()
                 NavDest.Activities -> ActivitiesScreen()
@@ -91,6 +93,7 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
     if (showProfile) {
         ProfileSheet(
             user = user,
+            onSaveNickname = session::updateNickname,
             onSignOut = { showProfile = false; session.logout() },
             onDismiss = { showProfile = false },
         )

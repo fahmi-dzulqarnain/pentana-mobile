@@ -38,7 +38,7 @@ struct MainView: View {
                 HomeView(selection: $selection)
                     .background(AmbientBackground())
                     .navigationTitle("Hi, \(firstName)")
-                    .modifier(TopChrome(initials: pentInitials(session.user?.name), unread: session.unreadCount,
+                    .modifier(TopChrome(initials: pentInitials(session.avatarName), unread: session.unreadCount,
                                         onProfile: { showingProfile = true }, onBell: { showingNotifications = true }))
             }
             .tabItem { Label("Home", systemImage: "house.fill") }
@@ -48,7 +48,7 @@ struct MainView: View {
                 BillsView()
                     .background(AmbientBackground())
                     .navigationTitle("Bills")
-                    .modifier(TopChrome(initials: pentInitials(session.user?.name), unread: session.unreadCount,
+                    .modifier(TopChrome(initials: pentInitials(session.avatarName), unread: session.unreadCount,
                                         onProfile: { showingProfile = true }, onBell: { showingNotifications = true }))
             }
             .tabItem { Label("Bills", systemImage: "creditcard.fill") }
@@ -58,7 +58,7 @@ struct MainView: View {
                 LunchView()
                     .background(AmbientBackground())
                     .navigationTitle("Lunch")
-                    .modifier(TopChrome(initials: pentInitials(session.user?.name), unread: session.unreadCount,
+                    .modifier(TopChrome(initials: pentInitials(session.avatarName), unread: session.unreadCount,
                                         onProfile: { showingProfile = true }, onBell: { showingNotifications = true }))
             }
             .tabItem { Label("Lunch", systemImage: "fork.knife") }
@@ -68,7 +68,7 @@ struct MainView: View {
                 ActivitiesView()
                     .background(AmbientBackground())
                     .navigationTitle("Activities")
-                    .modifier(TopChrome(initials: pentInitials(session.user?.name), unread: session.unreadCount,
+                    .modifier(TopChrome(initials: pentInitials(session.avatarName), unread: session.unreadCount,
                                         onProfile: { showingProfile = true }, onBell: { showingNotifications = true }))
             }
             .tabItem { Label("Activities", systemImage: "calendar") }
@@ -80,7 +80,7 @@ struct MainView: View {
     }
 
     private var firstName: String {
-        session.user?.name.split(separator: " ").first.map(String.init) ?? "there"
+        session.greetingName
     }
 }
 

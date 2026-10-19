@@ -21,6 +21,16 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
+import my.silentmode.pentana.shared.model.avatarName
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,21 +48,36 @@ import my.silentmode.pentana.ui.theme.LocalPentanaColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileSheet(user: UserDto, onSignOut: () -> Unit, onDismiss: () -> Unit) {
+fun ProfileSheet(user: UserDto, onSaveNickname: suspend (String?) -> String?, onSignOut: () -> Unit, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val colors = LocalPentanaColors.current
+    var editingNickname by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
             Column(Modifier.fillMaxWidth().padding(bottom = 18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.size(84.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
-                    Text(initials(user.name), color = MaterialTheme.colorScheme.onSecondaryContainer, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                    Text(initials(user.avatarName), color = MaterialTheme.colorScheme.onSecondaryContainer, fontSize = 32.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(user.name, style = MaterialTheme.typography.headlineSmall)
                 Text(user.email, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
+            SectionHeader("Profile")
+            PentFilledCard {
+                Row(Modifier.fillMaxWidth().clickable { editingNickname = true }) {
+                    PentListItem(
+                        headline = "Nickname",
+                        modifier = Modifier.weight(1f),
+                        trailing = {
+                            Text(user.nickname ?: "Not set", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        },
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
             SectionHeader("Membership")
             PentFilledCard {
                 PentListItem(
@@ -90,4 +115,66 @@ fun ProfileSheet(user: UserDto, onSignOut: () -> Unit, onDismiss: () -> Unit) {
             }
         }
     }
+
+    if (editingNickname) {
+        NicknameDialog(
+            current = user.nickname,
+            onSave = onSaveNickname,
+            onDismiss = { editingNickname = false },
+        )
+    }
+}
+
+private const val NICKNAME_MAX = 30
+
+/** Cuts [value] to at most [max] Unicode code points (what the server counts), never splitting a surrogate pair. */
+internal fun truncateToCodePoints(value: String, max: Int): String =
+    if (value.codePointCount(0, value.length) <= max) value else value.substring(0, value.offsetByCodePoints(0, max))
+
+@Composable
+private fun NicknameDialog(current: String?, onSave: suspend (String?) -> String?, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(current.orEmpty()) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var saving by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    fun submit(value: String?) {
+        saving = true
+        error = null
+        scope.launch {
+            val message = onSave(value)
+            saving = false
+            if (message == null) onDismiss() else error = message
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!saving) onDismiss() },
+        title = { Text("Nickname") },
+        text = {
+            Column {
+                Text("Shown in your greeting and avatar. Your full name stays on your profile.", style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = truncateToCodePoints(it, NICKNAME_MAX) },
+                    label = { Text("Nickname") },
+                    singleLine = true,
+                    enabled = !saving,
+                    isError = error != null,
+                    supportingText = { Text(error ?: "${text.length}/$NICKNAME_MAX") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            Row {
+                if (current != null) {
+                    TextButton(onClick = { submit(null) }, enabled = !saving) { Text("Clear") }
+                }
+                TextButton(onClick = { submit(text.trim().ifEmpty { null }) }, enabled = !saving) { Text("Save") }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !saving) { Text("Cancel") } },
+    )
 }

@@ -16,9 +16,25 @@ android {
         versionName = "1.0"
     }
 
+    // Sideloaded APKs only update in place when every release carries the same signature,
+    // so the keystore lives outside the repo and its location and passwords come from
+    // ~/.gradle/gradle.properties. Without them the release build is left unsigned.
+    val releaseStoreFile = providers.gradleProperty("pentanaReleaseStoreFile").orNull
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = providers.gradleProperty("pentanaReleaseStorePassword").get()
+                keyAlias = providers.gradleProperty("pentanaReleaseKeyAlias").get()
+                keyPassword = providers.gradleProperty("pentanaReleaseKeyPassword").get()
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 
@@ -28,7 +44,10 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true // VERSION_CODE for the sideloaded update check
+    }
 
     sourceSets["main"].kotlin.srcDir("src/main/kotlin")
 }

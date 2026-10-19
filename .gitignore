@@ -5,6 +5,10 @@ build/
 .kotlin/
 local.properties
 
+# Release signing keys never belong in the repo
+*.jks
+*.keystore
+
 # IDE
 .idea/
 *.iml

@@ -31,10 +31,22 @@ android {
         }
     }
 
+    // Release builds always talk to production. Debug builds talk to a dev server, by default
+    // this Mac on the office network; override with pentanaDevApiUrl in ~/.gradle/gradle.properties
+    // (e.g. http://10.0.2.2:8000/api/v1 for the emulator).
+    val devApiUrl = providers.gradleProperty("pentanaDevApiUrl")
+        .getOrElse("http://192.168.0.177:8000/api/v1")
+
     buildTypes {
+        debug {
+            buildConfigField("String", "API_BASE_URL", "\"$devApiUrl\"")
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.findByName("release")
+            buildConfigField("String", "API_BASE_URL", "\"https://pentana.silentmode.net/api/v1\"")
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
         }
     }
 
@@ -46,7 +58,7 @@ android {
 
     buildFeatures {
         compose = true
-        buildConfig = true // VERSION_CODE for the sideloaded update check
+        buildConfig = true // VERSION_CODE for the sideloaded update check, API_BASE_URL
     }
 
     sourceSets["main"].kotlin.srcDir("src/main/kotlin")

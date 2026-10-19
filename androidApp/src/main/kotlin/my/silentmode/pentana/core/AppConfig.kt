@@ -1,7 +1,9 @@
 package my.silentmode.pentana.core
 
+import my.silentmode.pentana.BuildConfig
+
 object AppConfig {
-    // Mirror iosApp AppConfig.baseURL. Update IP per network (`ipconfig getifaddr en0`);
-    // swap to https://pentana.silentmode.net/api/v1 for a release build.
-    const val BASE_URL = "http://192.168.0.177:8000/api/v1"
+    // Set per build type in androidApp/build.gradle.kts: release is always production,
+    // debug is the dev server (pentanaDevApiUrl). Mirrors iosApp AppConfig.baseURL.
+    const val BASE_URL = BuildConfig.API_BASE_URL
 }

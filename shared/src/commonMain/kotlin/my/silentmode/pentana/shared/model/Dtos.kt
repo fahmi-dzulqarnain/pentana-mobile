@@ -27,7 +27,18 @@ data class UserDto(
     val birthday: String? = null,
     // UserResource returns credit as a JSON number.
     val credit: Double = 0.0,
+    // Defaults keep older servers (no nickname support) decoding fine.
+    val nickname: String? = null,
+    @SerialName("display_name") val displayName: String? = null,
 )
+
+/** Greeting name: the nickname if set, otherwise the first word of the full name. */
+val UserDto.greetingName: String
+    get() = nickname ?: name.trim().substringBefore(' ')
+
+/** Input for avatar initials: the nickname if set, otherwise the full name. */
+val UserDto.avatarName: String
+    get() = nickname ?: name
 
 /**
  * Money fields are fixed-2dp strings from the API (e.g. "70.00") to avoid float drift -

@@ -32,6 +32,8 @@ import my.silentmode.pentana.ui.components.PentNavBar
 import my.silentmode.pentana.ui.components.PentTopBar
 import my.silentmode.pentana.ui.session.SessionViewModel
 import my.silentmode.pentana.ui.theme.PentanaTheme
+import my.silentmode.pentana.ui.update.UpdateDialog
+import my.silentmode.pentana.ui.update.UpdateViewModel
 
 @Composable
 fun PentanaApp() {
@@ -46,6 +48,12 @@ fun PentanaApp() {
             sessionState.user == null -> LoginScreen()
             else -> MainScaffold(session, sessionState.user!!, sessionState.unread)
         }
+
+        // Also shown on the login screen: a build that cannot sign in still needs to reach the fix.
+        val updates = appViewModel { UpdateViewModel(it.appUpdates, it.updateCheckSchedule, BuildConfig.VERSION_CODE) }
+        val availableUpdate by updates.availableUpdate.collectAsStateWithLifecycle()
+        LaunchedEffect(Unit) { updates.checkIfDue() }
+        availableUpdate?.let { release -> UpdateDialog(release, onDismiss = updates::dismiss) }
     }
 }
 

@@ -75,6 +75,28 @@ final class SessionStore: ObservableObject {
 
     var isLoggedIn: Bool { user != nil }
 
+    /// Name shown in the "Hi, ..." greeting: nickname, else first word of the full name.
+    var greetingName: String {
+        guard let user else { return "there" }
+        let name = user.greetingName
+        return name.isEmpty ? "there" : name
+    }
+
+    /// Name the avatar initials derive from: nickname, else full name.
+    var avatarName: String? {
+        user.map { $0.avatarName }
+    }
+
+    /// Save (or clear, with nil) the member's nickname. Returns nil on success, else a
+    /// user-facing error message. The shared manager updates state.user, which the bridge republishes.
+    func updateNickname(_ nickname: String?) async -> String? {
+        do {
+            return try await manager.updateNickname(nickname: nickname)
+        } catch {
+            return "Couldn't save your nickname. Please try again."
+        }
+    }
+
     /// Vend a shared Lunch presentation store, backed by the shared `LunchRepository`.
     /// The view holds it for its lifetime and reuses it across reappearance (it is not
     /// cleared on disappear); it releases with the view.

@@ -14,6 +14,7 @@ struct ProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var passkeys: [PasskeyDto] = []
     @State private var addingPasskey = false
+    @State private var editingNickname = false
 
     var body: some View {
         NavigationStack {
@@ -21,7 +22,7 @@ struct ProfileView: View {
                 VStack(spacing: 0) {
                     // Header
                     VStack(spacing: 0) {
-                        AvatarInitials(initials: pentInitials(session.user?.name), size: 84)
+                        AvatarInitials(initials: pentInitials(session.avatarName), size: 84)
                             .shadow(color: Pent.orange.opacity(0.32), radius: 13, y: 10)
                         Text(session.user?.name ?? "Member")
                             .font(.pentTitle2).foregroundStyle(Pent.label).padding(.top, 12)
@@ -32,6 +33,19 @@ struct ProfileView: View {
 
                     SectionLabel(text: "Membership")
                     InsetGroup {
+                        Button { editingNickname = true } label: {
+                            HStack {
+                                Text("Nickname").font(.pentBody).foregroundStyle(Pent.label)
+                                Spacer()
+                                Text(nicknameValue).font(.pentBody)
+                                    .foregroundStyle(nicknameValue == "Not set" ? Pent.label3 : Pent.label2)
+                                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Pent.label3)
+                            }
+                            .padding(.horizontal, 16).padding(.vertical, 13)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        PentHairline()
                         infoRow("Category", session.user?.memberCategory ?? "-")
                         PentHairline()
                         infoRow("Birthday", birthday)
@@ -102,6 +116,9 @@ struct ProfileView: View {
                 }
             }
             .task { await loadPasskeys() }
+            .sheet(isPresented: $editingNickname) {
+                NicknameEditView(current: session.user?.nickname).environmentObject(session)
+            }
         }
     }
 
@@ -128,6 +145,11 @@ struct ProfileView: View {
         .padding(.horizontal, 16).padding(.vertical, 13)
     }
 
+    private var nicknameValue: String {
+        let nickname = session.user?.nickname ?? ""
+        return nickname.isEmpty ? "Not set" : nickname
+    }
+
     private var birthday: String {
         guard let rawBirthday = session.user?.birthday, !rawBirthday.isEmpty else { return "-" }
         let parser = DateFormatter(); parser.dateFormat = "yyyy-MM-dd"; parser.locale = Locale(identifier: "en_US_POSIX")
@@ -137,5 +159,76 @@ struct ProfileView: View {
     }
     private var creditString: String {
         String(format: "%.2f", session.user?.credit ?? 0)
+    }
+}
+
+// MARK: - Nickname editor
+
+private struct NicknameEditView: View {
+    @EnvironmentObject private var session: SessionStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var text: String
+    @State private var saving = false
+    @State private var error: String?
+    private let hadNickname: Bool
+    private let maxLength = 30
+
+    init(current: String?) {
+        _text = State(initialValue: current ?? "")
+        hadNickname = !(current ?? "").isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Nickname", text: $text)
+                        .textInputAutocapitalization(.words)
+                        .autocorrectionDisabled()
+                        .onChange(of: text) { _, newValue in
+                            if newValue.count > maxLength { text = String(newValue.prefix(maxLength)) }
+                            error = nil
+                        }
+                } footer: {
+                    if let error {
+                        Text(error).foregroundStyle(Pent.bad)
+                    } else {
+                        Text("Shown in your greeting and avatar instead of your full name.")
+                    }
+                }
+                if hadNickname {
+                    Section {
+                        Button("Clear nickname", role: .destructive) { Task { await save(nil) } }
+                            .disabled(saving)
+                    }
+                }
+            }
+            .navigationTitle("Nickname")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }.tint(Pent.accent)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        Task { await save(trimmed.isEmpty ? nil : trimmed) }
+                    }
+                    .tint(Pent.accent)
+                    .disabled(saving)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+
+    private func save(_ nickname: String?) async {
+        saving = true
+        if let message = await session.updateNickname(nickname) {
+            error = message
+        } else {
+            dismiss()
+        }
+        saving = false
     }
 }

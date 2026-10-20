@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -27,7 +28,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import my.silentmode.pentana.core.PickedPhoto
 import my.silentmode.pentana.core.readPhoto
 import my.silentmode.pentana.shared.presentation.BillsStore
@@ -46,9 +50,16 @@ fun SubmitProofSheet(store: BillsStore, onDismiss: () -> Unit) {
     var amount by rememberSaveable { mutableStateOf("") }
     var note by rememberSaveable { mutableStateOf("") }
     var photo by remember { mutableStateOf<PickedPhoto?>(null) }
+    var photoError by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) photo = readPhoto(context, uri)
+        if (uri != null) scope.launch {
+            // Decoding and re-encoding a full-size camera photo takes a moment; keep it off the main thread.
+            val picked = withContext(Dispatchers.Default) { readPhoto(context, uri) }
+            photo = picked
+            photoError = picked == null
+        }
     }
 
     LaunchedEffect(submit) {
@@ -90,6 +101,14 @@ fun SubmitProofSheet(store: BillsStore, onDismiss: () -> Unit) {
                 onPick = { launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 onClear = { photo = null },
             )
+            if (photoError) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "That photo couldn't be read. Please choose another.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
 
             (submit as? SubmitState.Error)?.let { submitError ->
                 Spacer(Modifier.height(12.dp))

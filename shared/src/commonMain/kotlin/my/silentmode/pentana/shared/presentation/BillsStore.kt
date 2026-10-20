@@ -12,11 +12,17 @@ import kotlinx.coroutines.launch
 import my.silentmode.pentana.shared.BillsRepository
 import my.silentmode.pentana.shared.model.BillDto
 import my.silentmode.pentana.shared.model.BillsSummaryDto
+import my.silentmode.pentana.shared.model.PaymentProofDto
 
 sealed interface BillsUiState {
     data object Loading : BillsUiState
     data class Error(val message: String) : BillsUiState
-    data class Content(val summary: BillsSummaryDto, val bills: List<BillDto>) : BillsUiState
+    /** [proofs] are the member's submitted payment proofs, newest first, so a rejection's reason stays readable. */
+    data class Content(
+        val summary: BillsSummaryDto,
+        val bills: List<BillDto>,
+        val proofs: List<PaymentProofDto> = emptyList(),
+    ) : BillsUiState
 }
 
 /** Proof-upload state machine driving the submit sheet on both platforms. */
@@ -62,7 +68,7 @@ class BillsStore(private val repo: BillsRepository) {
 
     private suspend fun fetch() {
         _state.value = try {
-            BillsUiState.Content(repo.summary(), repo.bills())
+            BillsUiState.Content(repo.summary(), repo.bills(), repo.paymentProofs())
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {

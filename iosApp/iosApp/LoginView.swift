@@ -79,11 +79,26 @@ struct LoginView: View {
                     .padding(.top, 12)
 
                     // Claim hint
-                    VStack(spacing: 2) {
-                        Text("Need access?").font(.pentFoot).foregroundStyle(Pent.label2)
-                        Text("Claim your account on the web")
-                            .font(.system(size: 12.5, weight: .semibold))
-                            .foregroundStyle(Pent.accent)
+                    VStack(spacing: 14) {
+                        VStack(spacing: 2) {
+                            Text("Need access?").font(.pentFoot).foregroundStyle(Pent.label2)
+                            // Opens the website's claim page: accounts are activated there, not in the app.
+                            Link(destination: AppConfig.claimURL) {
+                                Label("Claim your account on the web", systemImage: "arrow.up.right.square")
+                                    .labelStyle(.titleAndIcon)
+                                    .font(.system(size: 12.5, weight: .semibold))
+                                    .foregroundStyle(Pent.accent)
+                                    .padding(.vertical, 6) // a comfortable tap target for a one-line link
+                            }
+                            .accessibilityHint("Opens the PENTANA website")
+                        }
+                        Link(destination: AppConfig.passwordHelpURL) {
+                            Text("Forgot password?")
+                                .font(.system(size: 12.5, weight: .semibold))
+                                .foregroundStyle(Pent.accent)
+                                .padding(.vertical, 6)
+                        }
+                        .accessibilityHint("Emails the committee for help with your password")
                     }
                     .padding(.top, 22)
                 }

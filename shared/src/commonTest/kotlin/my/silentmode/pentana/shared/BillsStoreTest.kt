@@ -2,7 +2,9 @@ package my.silentmode.pentana.shared
 
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.fullPath
 import io.ktor.http.headersOf
@@ -14,9 +16,12 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import my.silentmode.pentana.shared.model.BillDto
+import my.silentmode.pentana.shared.model.PaymentProofDto
 import my.silentmode.pentana.shared.presentation.BillStatus
 import my.silentmode.pentana.shared.presentation.BillsStore
 import my.silentmode.pentana.shared.presentation.BillsUiState
+import my.silentmode.pentana.shared.presentation.ProofStatus
+import my.silentmode.pentana.shared.presentation.proofStatus
 import my.silentmode.pentana.shared.presentation.SubmitState
 import my.silentmode.pentana.shared.presentation.billStatus
 import my.silentmode.pentana.shared.presentation.canSubmitProof
@@ -47,8 +52,19 @@ class BillsStoreTest {
         {"data":{"id":9,"amount_claimed":"50.00","status":"pending","submitted_at":"2026-07-19T10:00:00+08:00"}}
     """.trimIndent()
 
-    private fun makeStore(handler: suspend (String) -> Pair<HttpStatusCode, String>): BillsStore {
+    private val proofsJson = """
+        {"data":[
+        {"id":12,"amount_claimed":"70.00","status":"rejected","admin_note":"Receipt is unreadable","submitted_at":"2026-07-20T09:00:00+08:00"},
+        {"id":11,"amount_claimed":"50.00","amount_verified":"50.00","status":"verified","submitted_at":"2026-07-10T09:00:00+08:00"}
+        ]}
+    """.trimIndent()
+
+    private val noProofsJson = """{"data":[]}"""
+
+    /** Loading also lists the member's proofs (GET /payment-proofs); [proofList] answers that, so handlers only see the upload. */
+    private fun makeStore(proofList: String = noProofsJson, handler: suspend (String) -> Pair<HttpStatusCode, String>): BillsStore {
         val engine = MockEngine { request ->
+            if (isProofList(request)) return@MockEngine respond(proofList, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
             val (status, body) = handler(request.url.fullPath)
             respond(body, status, headersOf(HttpHeaders.ContentType, "application/json"))
         }
@@ -65,12 +81,28 @@ class BillsStoreTest {
     }
 
     @Test fun load_emits_content_with_summary_and_bills() = runTest {
-        val store = makeStore(routing())
+        val store = makeStore(handler = routing())
         val uiState = store.state.first { it !is BillsUiState.Loading }
         assertIs<BillsUiState.Content>(uiState)
         assertEquals("120.00", uiState.summary.totalOutstanding)
         assertEquals(2, uiState.bills.size)
         assertEquals("2026-06", uiState.bills.first().month)
+    }
+
+    @Test fun load_includes_the_members_payment_proofs() = runTest {
+        val store = makeStore(proofList = proofsJson, handler = routing())
+        val uiState = store.state.first { it !is BillsUiState.Loading }
+        assertIs<BillsUiState.Content>(uiState)
+        assertEquals(listOf(12L, 11L), uiState.proofs.map { it.id })
+        assertEquals("Receipt is unreadable", uiState.proofs.first().adminNote)
+    }
+
+    @Test fun proof_status_maps_the_api_values() {
+        fun proof(status: String) = PaymentProofDto(id = 1, amountClaimed = "1.00", status = status)
+        assertEquals(ProofStatus.Pending, proofStatus(proof("pending")))
+        assertEquals(ProofStatus.Verified, proofStatus(proof("verified")))
+        assertEquals(ProofStatus.Rejected, proofStatus(proof("REJECTED")))
+        assertEquals(ProofStatus.Pending, proofStatus(proof("something-new")))
     }
 
     @Test fun error_emits_error() = runTest {
@@ -105,7 +137,7 @@ class BillsStoreTest {
     }
 
     @Test fun submit_failure_sets_error_state() = runTest {
-        val store = makeStore(routing(proofResult = HttpStatusCode.InternalServerError to "{}"))
+        val store = makeStore(handler = routing(proofResult = HttpStatusCode.InternalServerError to "{}"))
         store.state.first { it is BillsUiState.Content }
         store.submitProof(imageBytes = ByteArray(4), fileName = "proof.jpg", amount = "50.00", note = null)
         val submitState = store.submit.first { it is SubmitState.Error }
@@ -142,7 +174,7 @@ class BillsStoreTest {
     }
 
     @Test fun reset_returns_submit_to_idle() = runTest {
-        val store = makeStore(routing(proofResult = HttpStatusCode.InternalServerError to "{}"))
+        val store = makeStore(handler = routing(proofResult = HttpStatusCode.InternalServerError to "{}"))
         store.state.first { it is BillsUiState.Content }
         store.submitProof(imageBytes = ByteArray(4), fileName = "proof.jpg", amount = "50.00", note = null)
         store.submit.first { it is SubmitState.Error }
@@ -154,6 +186,7 @@ class BillsStoreTest {
         val gate = CompletableDeferred<Unit>()
         var proofRequests = 0
         val engine = MockEngine { request ->
+            if (isProofList(request)) return@MockEngine respond(noProofsJson, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
             val path = request.url.fullPath
             val body = when {
                 path.endsWith("/bills/summary") -> summaryJson
@@ -245,4 +278,7 @@ class BillsStoreTest {
     private fun bill(status: String) = BillDto(
         id = 1, month = "2026-06", amountDue = "70.00", amountPaid = "0.00", outstanding = "70.00", status = status,
     )
+
+    private fun isProofList(request: HttpRequestData) =
+        request.method == HttpMethod.Get && request.url.encodedPath.endsWith("/payment-proofs")
 }

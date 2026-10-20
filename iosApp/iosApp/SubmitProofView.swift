@@ -14,7 +14,10 @@ struct SubmitProofView: View {
     @State private var amount = ""
     @State private var note = ""
     @State private var photoItem: PhotosPickerItem?
+    /// The picked photo, already converted to an uploadable JPEG (see ProofImage).
     @State private var imageData: Data?
+    @State private var preview: UIImage?
+    @State private var photoError: String?
     @State private var submitState: SubmitState = SubmitStateIdle.shared
 
     private var isSubmitting: Bool { submitState is SubmitStateSubmitting }
@@ -50,9 +53,12 @@ struct SubmitProofView: View {
                             .font(.system(size: 12.5, weight: .semibold)).tracking(0.4)
                             .foregroundStyle(Pent.label2).padding(.horizontal, 4)
                         PhotosPicker(selection: $photoItem, matching: .images) {
-                            PhotoTile(hasPhoto: imageData != nil)
+                            PhotoTile(preview: preview)
                         }
                         .buttonStyle(.plain)
+                        if let photoError {
+                            Text(photoError).font(.pentFoot).fontWeight(.semibold).foregroundStyle(Pent.bad).padding(.horizontal, 4)
+                        }
                     }
                 }
                 .padding(18)
@@ -74,7 +80,15 @@ struct SubmitProofView: View {
                 .background(.bar)
             }
             .onChange(of: photoItem) { _, item in
-                Task { imageData = try? await item?.loadTransferable(type: Data.self) }
+                Task {
+                    let raw = try? await item?.loadTransferable(type: Data.self)
+                    let prepared = raw.flatMap(ProofImage.prepare)
+                    await MainActor.run {
+                        imageData = prepared?.jpeg
+                        preview = prepared?.preview
+                        photoError = (raw != nil && prepared == nil) ? "That photo couldn't be read. Please choose another." : nil
+                    }
+                }
             }
         }
         .task {
@@ -99,19 +113,21 @@ struct SubmitProofView: View {
 }
 
 struct PhotoTile: View {
-    let hasPhoto: Bool
+    let preview: UIImage?
     var body: some View {
-        if hasPhoto {
+        if let preview {
             HStack(spacing: 13) {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(LinearGradient(colors: [Pent.proofBg, Pent.lunchBg], startPoint: .topLeading, endPoint: .bottomTrailing))
+                // The member's actual photo, so they can check it's the right receipt.
+                Image(uiImage: preview)
+                    .resizable().scaledToFill()
                     .frame(width: 56, height: 56)
-                    .overlay(Image(systemName: "doc.text.fill").font(.system(size: 22)).foregroundStyle(Pent.proof))
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .accessibilityLabel("Selected receipt photo")
                 VStack(alignment: .leading, spacing: 1) {
                     Label("Photo selected", systemImage: "checkmark.circle.fill")
                         .font(.pentBody).fontWeight(.semibold).foregroundStyle(Pent.label)
                         .labelStyle(.titleAndIcon).tint(Pent.ok)
-                    Text("receipt.jpg").font(.pentFoot).foregroundStyle(Pent.label2)
+                    Text("Tap to choose a different photo").font(.pentFoot).foregroundStyle(Pent.label2)
                 }
                 Spacer()
             }
@@ -136,5 +152,35 @@ struct PhotoTile: View {
                     .foregroundStyle(Pent.separatorOpaque)
             )
         }
+    }
+}
+
+/// Turns whatever the photo picker returns into something the server accepts. iPhone camera
+/// photos are HEIC, but proofs must be JPEG, PNG or WebP under 5 MB, so every pick is decoded,
+/// scaled down to a readable size and re-encoded as JPEG.
+enum ProofImage {
+    static let maxDimension: CGFloat = 2000
+    static let maxBytes = 4_500_000 // under the server's 5 MB limit
+
+    static func prepare(_ data: Data) -> (jpeg: Data, preview: UIImage)? {
+        guard let image = UIImage(data: data) else { return nil }
+        let scaled = downscaled(image)
+        for quality in [0.8, 0.65, 0.5] as [CGFloat] {
+            if let jpeg = scaled.jpegData(compressionQuality: quality), jpeg.count <= maxBytes {
+                return (jpeg, scaled)
+            }
+        }
+        return nil
+    }
+
+    /// Always redrawn, even when small enough: that bakes in the photo's rotation and drops its
+    /// metadata, including the GPS location, which has no business on a receipt upload.
+    private static func downscaled(_ image: UIImage) -> UIImage {
+        let longest = max(image.size.width, image.size.height)
+        let factor = min(1, maxDimension / longest)
+        let size = CGSize(width: (image.size.width * factor).rounded(), height: (image.size.height * factor).rounded())
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
     }
 }

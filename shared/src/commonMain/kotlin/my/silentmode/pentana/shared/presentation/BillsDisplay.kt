@@ -1,9 +1,19 @@
 package my.silentmode.pentana.shared.presentation
 
 import my.silentmode.pentana.shared.model.BillDto
+import my.silentmode.pentana.shared.model.PaymentProofDto
 
 /** Shared decision - each platform maps this to its own chip/pill styling. */
 enum class BillStatus { Paid, Partial, Overdue, Unpaid }
+
+/** A payment proof's review state. Anything unrecognised reads as still being reviewed. */
+enum class ProofStatus { Pending, Verified, Rejected }
+
+fun proofStatus(proof: PaymentProofDto): ProofStatus = when {
+    proof.status.equals("verified", ignoreCase = true) -> ProofStatus.Verified
+    proof.status.equals("rejected", ignoreCase = true) -> ProofStatus.Rejected
+    else -> ProofStatus.Pending
+}
 
 fun billStatus(bill: BillDto): BillStatus = when {
     bill.status.equals("paid", ignoreCase = true) -> BillStatus.Paid

@@ -52,6 +52,17 @@ struct BillsView: View {
                     .buttonStyle(PentProminentButtonStyle())
                     .padding(.top, 14)
 
+                    // The member's own submissions, so a pending one is visible and a rejection's reason
+                    // stays readable after the push is gone. The Home "Payment proofs" card opens here.
+                    if !content.proofs.isEmpty {
+                        SectionLabel(text: "Payment proofs")
+                        InsetGroup {
+                            ForEach(Array(content.proofs.enumerated()), id: \.element.id) { index, proof in
+                                ProofRow(proof: proof, onResubmit: { showSubmit = true })
+                                if index < content.proofs.count - 1 { PentHairline(leadingInset: 64) }
+                            }
+                        }
+                    }
                     if content.bills.isEmpty {
                         EmptyStateView(symbol: "creditcard.fill", tint: Pent.dues, bg: Pent.duesBg,
                                        title: "No bills yet", message: "When dues are issued they'll appear here.")
@@ -153,5 +164,47 @@ private struct BillRow: View {
         guard let date = parser.date(from: month) else { return month }
         let formatter = DateFormatter(); formatter.dateFormat = "MMMM yyyy"
         return formatter.string(from: date)
+    }
+}
+
+private struct ProofRow: View {
+    let proof: PaymentProofDto
+    let onResubmit: () -> Void
+
+    var body: some View {
+        let status = proofStatus(proof: proof)
+        HStack(alignment: .top, spacing: 12) {
+            DomainIcon(symbol: "doc.text.fill", tint: Pent.proof, bg: Pent.proofBg, size: 36, corner: 10, iconSize: 18)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("MYR \(proof.amountClaimed)").font(.pentMoney(16, weight: .bold)).foregroundStyle(Pent.label)
+                if let submitted = proof.submittedAt.flatMap(PentDates.dateTime) {
+                    Text("Submitted \(submitted)").font(.pentFoot).foregroundStyle(Pent.label2)
+                }
+                if status == .verified, let verified = proof.amountVerified, verified != proof.amountClaimed {
+                    Text("Verified as MYR \(verified)").font(.pentFoot).foregroundStyle(Pent.label2)
+                }
+                if status == .rejected {
+                    if let reason = proof.adminNote, !reason.isEmpty {
+                        Text("Reason: \(reason)").font(.pentFoot).fontWeight(.medium).foregroundStyle(Pent.bad)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Button("Submit a new proof", action: onResubmit)
+                        .font(.pentFoot).fontWeight(.semibold).tint(Pent.accent)
+                        .padding(.top, 2)
+                }
+            }
+            Spacer(minLength: 8)
+            StatusPill(pillKind(for: status))
+        }
+        .padding(.horizontal, 16).padding(.vertical, 15)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func pillKind(for status: ProofStatus) -> PillKind {
+        switch status {
+        case .verified: return .proofVerified
+        case .rejected: return .proofRejected
+        case .pending: return .proofPending
+        }
     }
 }

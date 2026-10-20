@@ -22,4 +22,13 @@ enum AppConfig {
     /// and the server's APP_URL host. Passkeys only work against the live HTTPS
     /// domain (the OS derives the assertion origin from this) - not the LAN IP.
     static let passkeyRelyingParty = "pentana.silentmode.net"
+
+    /// Where a member activates the account the committee created for them. Accounts can't be
+    /// claimed in the app, so the sign-in screen links here.
+    static let claimURL = URL(string: "https://pentana.silentmode.net/claim")!
+
+    /// The committee's contact address (also on the website). There's no self-service password
+    /// reset yet, so "Forgot password?" writes to them.
+    static let supportEmail = "hipentana@pentana.silentmode.net"
+    static let passwordHelpURL = URL(string: "mailto:\(supportEmail)?subject=PENTANA%20password%20help")!
 }

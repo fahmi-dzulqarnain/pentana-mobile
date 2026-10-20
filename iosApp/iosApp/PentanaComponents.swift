@@ -35,6 +35,7 @@ struct DomainIcon: View {
 enum PillKind {
     case paid, partial, unpaid, overdue
     case registered, waitlisted, open, closed, voteNow, responded
+    case proofPending, proofVerified, proofRejected
 
     var label: String {
         switch self {
@@ -48,23 +49,26 @@ enum PillKind {
         case .closed: return "Closed"
         case .voteNow: return "Vote now"
         case .responded: return "Responded"
+        case .proofPending: return "In review"
+        case .proofVerified: return "Verified"
+        case .proofRejected: return "Rejected"
         }
     }
     var color: Color {
         switch self {
-        case .paid, .registered, .responded: return Pent.ok
-        case .partial, .waitlisted, .voteNow: return Pent.warn
+        case .paid, .registered, .responded, .proofVerified: return Pent.ok
+        case .partial, .waitlisted, .voteNow, .proofPending: return Pent.warn
         case .unpaid, .closed: return Pent.neutral
-        case .overdue: return Pent.bad
+        case .overdue, .proofRejected: return Pent.bad
         case .open: return Pent.activ
         }
     }
     var bg: Color {
         switch self {
-        case .paid, .registered, .responded: return Pent.okBg
-        case .partial, .waitlisted, .voteNow: return Pent.warnBg
+        case .paid, .registered, .responded, .proofVerified: return Pent.okBg
+        case .partial, .waitlisted, .voteNow, .proofPending: return Pent.warnBg
         case .unpaid, .closed: return Pent.neutralBg
-        case .overdue: return Pent.badBg
+        case .overdue, .proofRejected: return Pent.badBg
         case .open: return Pent.activBg
         }
     }
@@ -76,8 +80,9 @@ enum PillKind {
     }
     var icon: String? {
         switch self {
-        case .registered, .responded: return "checkmark"
-        case .waitlisted: return "clock.fill"
+        case .registered, .responded, .proofVerified: return "checkmark"
+        case .waitlisted, .proofPending: return "clock.fill"
+        case .proofRejected: return "xmark"
         default: return nil
         }
     }

@@ -1,5 +1,6 @@
 package my.silentmode.pentana.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,7 +43,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -189,11 +192,15 @@ private fun Modifier.dashedBorder(color: Color, radius: Dp, strokeWidth: Dp = 1.
     )
 }
 
-/** Photo picker tile: dashed empty surface vs a "Photo selected" confirm row. */
+/**
+ * Photo picker tile: dashed empty surface vs a confirm row showing the chosen photo's [preview], so
+ * the member can check it's the right receipt. Tapping the row picks a different photo.
+ */
 @Composable
 fun PhotoPickerTile(
     selectedName: String?,
     selectedSize: String?,
+    preview: ImageBitmap?,
     onPick: () -> Unit,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
@@ -217,12 +224,23 @@ fun PhotoPickerTile(
         Row(
             modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)
-                .background(MaterialTheme.colorScheme.surfaceContainerLow).padding(12.dp),
+                .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                .clickable(onClickLabel = "Choose a different photo") { onPick() }.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)).background(colors.proof.container), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Receipt, null, tint = colors.proof.color, modifier = Modifier.size(24.dp))
+            if (preview != null) {
+                Image(
+                    bitmap = preview,
+                    contentDescription = "Selected receipt photo",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(72.dp).clip(RoundedCornerShape(10.dp))
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp)),
+                )
+            } else {
+                Box(Modifier.size(72.dp).clip(RoundedCornerShape(10.dp)).background(colors.proof.container), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.Receipt, null, tint = colors.proof.color, modifier = Modifier.size(28.dp))
+                }
             }
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -230,6 +248,7 @@ fun PhotoPickerTile(
                     Text("Photo selected", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
                 }
                 Text(listOfNotNull(selectedName, selectedSize).joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Tap to choose a different photo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = onClear) { Icon(Icons.Filled.Close, contentDescription = "Remove photo", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }

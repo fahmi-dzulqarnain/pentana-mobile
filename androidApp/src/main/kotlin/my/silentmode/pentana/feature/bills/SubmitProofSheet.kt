@@ -24,6 +24,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -51,6 +52,7 @@ fun SubmitProofSheet(store: BillsStore, onDismiss: () -> Unit) {
     var note by rememberSaveable { mutableStateOf("") }
     var photo by remember { mutableStateOf<PickedPhoto?>(null) }
     var photoError by remember { mutableStateOf(false) }
+    val preview = remember(photo) { photo?.preview?.asImageBitmap() }
     val scope = rememberCoroutineScope()
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -98,6 +100,7 @@ fun SubmitProofSheet(store: BillsStore, onDismiss: () -> Unit) {
             PhotoPickerTile(
                 selectedName = photo?.name,
                 selectedSize = photo?.sizeLabel,
+                preview = preview,
                 onPick = { launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 onClear = { photo = null },
             )

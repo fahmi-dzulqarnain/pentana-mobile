@@ -13,11 +13,17 @@ import java.io.ByteArrayOutputStream
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/** A picked receipt image, already converted to an upload-ready JPEG, plus name/size for the confirm tile. */
-class PickedPhoto(val bytes: ByteArray, val name: String, val sizeLabel: String)
+/**
+ * A picked receipt image, already converted to an upload-ready JPEG, plus a small [preview] and
+ * name/size for the confirm tile.
+ */
+class PickedPhoto(val bytes: ByteArray, val name: String, val sizeLabel: String, val preview: Bitmap)
 
 /** Longest side of the uploaded image; plenty to read a receipt. */
 internal const val PROOF_MAX_DIMENSION = 2000
+
+/** Longest side of the confirm-tile thumbnail: sharp at its on-screen size without holding the full image. */
+internal const val PREVIEW_MAX_DIMENSION = 360
 
 /** Stays under the server's 5 MB limit with room for the multipart overhead. */
 internal const val PROOF_MAX_BYTES = 4_500_000
@@ -33,19 +39,19 @@ private val PROOF_QUALITIES = listOf(80, 65, 50)
 fun readPhoto(context: Context, uri: Uri): PickedPhoto? {
     val resolver = context.contentResolver
     val bitmap = runCatching { decodeScaled(context, uri) }.getOrNull() ?: return null
-    val bytes = try {
-        compressWithin(PROOF_MAX_BYTES, PROOF_QUALITIES) { quality ->
-            ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
-        }
-    } finally {
-        bitmap.recycle()
+    val bytes = compressWithin(PROOF_MAX_BYTES, PROOF_QUALITIES) { quality ->
+        ByteArrayOutputStream().also { bitmap.compress(Bitmap.CompressFormat.JPEG, quality, it) }.toByteArray()
     }
+    val (w, h) = fitWithin(bitmap.width, bitmap.height, PREVIEW_MAX_DIMENSION)
+    val preview = Bitmap.createScaledBitmap(bitmap, w, h, true)
+    // createScaledBitmap hands back the same bitmap when the photo is already that small.
+    if (preview !== bitmap) bitmap.recycle()
     var name = "receipt.jpg"
     resolver.query(uri, null, null, null, null)?.use { cursor ->
         val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
         if (idx >= 0 && cursor.moveToFirst()) cursor.getString(idx)?.let { name = jpegName(it) }
     }
-    return PickedPhoto(bytes, name, formatBytes(bytes.size))
+    return PickedPhoto(bytes, name, formatBytes(bytes.size), preview)
 }
 
 private fun decodeScaled(context: Context, uri: Uri): Bitmap? {

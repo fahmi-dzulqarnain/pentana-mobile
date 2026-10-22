@@ -280,15 +280,18 @@ private fun ProofRow(
 
 @Composable
 private fun ReceiptAction(receiptNumber: String?, downloading: Boolean, enabled: Boolean, onReceipt: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // The number sits on its own line so a narrow row can't wrap it mid-number.
+    Column {
         if (downloading) {
-            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-            Text("Opening receipt…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                Text("Opening receipt…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         } else {
             TextButton(onClick = onReceipt, enabled = enabled) { Text("View receipt") }
         }
         receiptNumber?.let { number ->
-            Text(number, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(number, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
     }
 }

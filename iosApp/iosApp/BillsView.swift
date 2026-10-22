@@ -255,18 +255,21 @@ private struct ProofRow: View {
         .accessibilityElement(children: .contain)
     }
 
+    /// The number sits on its own line: beside the button it wrapped mid-number on a narrow row.
     private var receiptButton: some View {
-        HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 2) {
             if downloadingReceiptId == proof.id {
-                ProgressView().controlSize(.small)
-                Text("Opening receipt…").font(.pentFoot).foregroundStyle(Pent.label2)
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Opening receipt…").font(.pentFoot).foregroundStyle(Pent.label2)
+                }
             } else {
                 Button("View receipt", action: onReceipt)
                     .font(.pentFoot).fontWeight(.semibold).tint(Pent.accent)
                     .disabled(downloadingReceiptId != nil)
             }
             if let receiptNumber = proof.receiptNumber {
-                Text(receiptNumber).font(.pentFoot).foregroundStyle(Pent.label2).monospacedDigit()
+                Text(receiptNumber).font(.pentFoot).foregroundStyle(Pent.label2).monospacedDigit().lineLimit(1)
             }
         }
         .padding(.top, 2)

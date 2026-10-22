@@ -33,12 +33,13 @@ class BillsRepositoryTest {
     private fun repositoryRespondingWith(
         status: HttpStatusCode,
         contentDisposition: String? = null,
+        contentType: String = "application/pdf",
         onRequest: (HttpRequestData) -> Unit = {},
     ): BillsRepository {
         val engine = MockEngine { request ->
             onRequest(request)
             val headerPairs = buildList {
-                add(HttpHeaders.ContentType to listOf("application/pdf"))
+                add(HttpHeaders.ContentType to listOf(contentType))
                 contentDisposition?.let { add(HttpHeaders.ContentDisposition to listOf(it)) }
             }
             respond(pdfBytes, status, headersOf(*headerPairs.toTypedArray()))
@@ -92,5 +93,19 @@ class BillsRepositoryTest {
         val longName = "A".repeat(300)
         val fileName = receiptFileName("attachment; filename=\"$longName.pdf\"", proofId = 11)
         assertEquals("A".repeat(100) + ".pdf", fileName)
+    }
+
+    /** Laravel only answers JSON (401/404) instead of redirecting to the web login when JSON comes first. */
+    @Test fun receipt_request_asks_for_json_errors_first() = runTest {
+        var seenRequest: HttpRequestData? = null
+        val repository = repositoryRespondingWith(HttpStatusCode.OK, onRequest = { seenRequest = it })
+        repository.receipt(11)
+        assertEquals("application/json, application/pdf", seenRequest?.headers?.get(HttpHeaders.Accept))
+    }
+
+    /** A followed redirect lands on an HTML page with 200; that must not be saved as the receipt. */
+    @Test fun receipt_non_pdf_response_throws() = runTest {
+        val repository = repositoryRespondingWith(HttpStatusCode.OK, contentType = "text/html; charset=utf-8")
+        assertFailsWith<IllegalStateException> { repository.receipt(11) }
     }
 }

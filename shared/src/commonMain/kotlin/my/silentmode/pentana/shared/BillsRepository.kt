@@ -9,7 +9,9 @@ import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.http.ContentType
 import io.ktor.http.Headers
+import io.ktor.http.contentType
 import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -72,7 +74,12 @@ class BillsRepository(private val client: ApiClient) {
     /** The paid-receipt PDF for one of the member's verified proofs. 404 when it isn't theirs or has no receipt. */
     @Throws(Exception::class)
     suspend fun receipt(proofId: Long): ReceiptPdf = withContext(Dispatchers.Main) {
-        val response = authedGet("/payment-proofs/$proofId/receipt", accept = "application/pdf")
+        // JSON first: Laravel then answers an expired token with a JSON 401 rather than a redirect to the
+        // web login, which the client would follow to a 200 HTML page.
+        val response = authedGet("/payment-proofs/$proofId/receipt", accept = "application/json, application/pdf")
+        check(response.contentType()?.match(ContentType.Application.Pdf) == true) {
+            "Expected a PDF receipt, got ${response.contentType()}"
+        }
         ReceiptPdf(receiptFileName(response.headers[HttpHeaders.ContentDisposition], proofId), response.readRawBytes())
     }
 

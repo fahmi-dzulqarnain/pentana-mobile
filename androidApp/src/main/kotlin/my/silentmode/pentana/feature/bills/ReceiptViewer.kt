@@ -5,23 +5,33 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import java.io.File
+import java.io.IOException
 import my.silentmode.pentana.shared.model.ReceiptPdf
 
+enum class ReceiptOpenResult { Opened, NoViewer, WriteFailed }
+
 /**
- * Writes [pdf] to cache/receipts (overwritten by name) and opens it in the member's PDF viewer through
- * the app's FileProvider. Returns false when no installed app can view PDFs.
+ * Writes [pdf] to cache/receipts and opens it in the member's PDF viewer through the app's
+ * FileProvider (authority and path declared in the manifest and res/xml/file_paths.xml).
  */
-fun openReceiptPdf(context: Context, pdf: ReceiptPdf): Boolean {
-    val folder = File(context.cacheDir, "receipts").apply { mkdirs() }
-    val file = File(folder, pdf.fileName).apply { writeBytes(pdf.bytes) }
+fun openReceiptPdf(context: Context, pdf: ReceiptPdf): ReceiptOpenResult {
+    val file = writeReceiptFile(context.cacheDir, pdf) ?: return ReceiptOpenResult.WriteFailed
     val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     val intent = Intent(Intent.ACTION_VIEW)
         .setDataAndType(uri, "application/pdf")
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
     return try {
         context.startActivity(intent)
-        true
+        ReceiptOpenResult.Opened
     } catch (_: ActivityNotFoundException) {
-        false
+        ReceiptOpenResult.NoViewer
     }
+}
+
+/** Writes [pdf] to [cacheFolder]/receipts, overwriting by name. Null when the cache can't be written. */
+fun writeReceiptFile(cacheFolder: File, pdf: ReceiptPdf): File? = try {
+    val folder = File(cacheFolder, "receipts").apply { mkdirs() }
+    File(folder, pdf.fileName).apply { writeBytes(pdf.bytes) }
+} catch (_: IOException) {
+    null
 }

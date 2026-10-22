@@ -87,4 +87,10 @@ class BillsRepositoryTest {
         assertEquals("PEN-2026-0001.pdf", receiptFileName("attachment; filename=\"PEN-2026-0001\"", proofId = 11))
         assertEquals("PEN-2026-0002.pdf", receiptFileName("attachment; filename=PEN-2026-0002.pdf", proofId = 11))
     }
+
+    @Test fun receipt_file_name_is_capped_in_length() {
+        val longName = "A".repeat(300)
+        val fileName = receiptFileName("attachment; filename=\"$longName.pdf\"", proofId = 11)
+        assertEquals("A".repeat(100) + ".pdf", fileName)
+    }
 }

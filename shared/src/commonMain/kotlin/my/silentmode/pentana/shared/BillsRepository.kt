@@ -97,6 +97,10 @@ internal fun receiptFileName(contentDisposition: String?, proofId: Long): String
     val baseName = rawName.substringAfterLast('/').substringAfterLast('\\')
         .filter { character -> character.isLetterOrDigit() || character in "._-" }
         .trimStart('.')
-    if (baseName.isEmpty()) return fallback
-    return if (baseName.endsWith(".pdf", ignoreCase = true)) baseName else "$baseName.pdf"
+    val stem = (if (baseName.endsWith(".pdf", ignoreCase = true)) baseName.dropLast(4) else baseName)
+        .take(MAX_RECEIPT_STEM_LENGTH)
+    return if (stem.isEmpty()) fallback else "$stem.pdf"
 }
+
+/** File systems cap names at 255 bytes; a receipt number is ~13 characters, so 100 is generous. */
+private const val MAX_RECEIPT_STEM_LENGTH = 100

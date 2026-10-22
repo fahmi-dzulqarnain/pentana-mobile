@@ -97,7 +97,11 @@ fun BillsScreen() {
     // The snackbar runs in its own scope: consuming flips the key, which cancels this effect.
     LaunchedEffect(receiptState) {
         val message = when (val current = receiptState) {
-            is ReceiptState.Ready -> if (openReceiptPdf(context, current.pdf)) null else "No app can open PDFs."
+            is ReceiptState.Ready -> when (openReceiptPdf(context, current.pdf)) {
+                ReceiptOpenResult.Opened -> null
+                ReceiptOpenResult.NoViewer -> "No app can open PDFs."
+                ReceiptOpenResult.WriteFailed -> "Couldn't download the receipt. Please try again."
+            }
             is ReceiptState.Error -> current.message
             else -> return@LaunchedEffect
         }

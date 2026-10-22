@@ -1,6 +1,7 @@
 package my.silentmode.pentana.shared
 
 import io.ktor.client.call.body
+import io.ktor.client.statement.readRawBytes
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
@@ -16,6 +17,7 @@ import my.silentmode.pentana.shared.model.BillDto
 import my.silentmode.pentana.shared.model.BillsSummaryDto
 import my.silentmode.pentana.shared.model.DataEnvelope
 import my.silentmode.pentana.shared.model.PaymentProofDto
+import my.silentmode.pentana.shared.model.ReceiptPdf
 
 class BillsRepository(private val client: ApiClient) {
 
@@ -67,11 +69,34 @@ class BillsRepository(private val client: ApiClient) {
         response.body<DataEnvelope<PaymentProofDto>>().data
     }
 
-    private suspend fun authedGet(path: String): HttpResponse {
+    /** The paid-receipt PDF for one of the member's verified proofs. 404 when it isn't theirs or has no receipt. */
+    @Throws(Exception::class)
+    suspend fun receipt(proofId: Long): ReceiptPdf = withContext(Dispatchers.Main) {
+        val response = authedGet("/payment-proofs/$proofId/receipt", accept = "application/pdf")
+        ReceiptPdf(receiptFileName(response.headers[HttpHeaders.ContentDisposition], proofId), response.readRawBytes())
+    }
+
+    private suspend fun authedGet(path: String, accept: String = "application/json"): HttpResponse {
         val token = client.tokenStore.get()
         return client.http.get(client.urlFor(path)) {
-            header(HttpHeaders.Accept, "application/json")
+            header(HttpHeaders.Accept, accept)
             token?.let { header(HttpHeaders.Authorization, "Bearer $it") }
         }.also { client.ensureSuccess(it) }
     }
+}
+
+/**
+ * A safe file name for the downloaded receipt: the server's Content-Disposition filename reduced to a
+ * plain basename ending in .pdf, or "receipt-<id>.pdf" when the header gives nothing usable.
+ */
+internal fun receiptFileName(contentDisposition: String?, proofId: Long): String {
+    val fallback = "receipt-$proofId.pdf"
+    val rawName = contentDisposition
+        ?.let { Regex("filename=\"?([^\";]+)\"?").find(it)?.groupValues?.get(1) }
+        ?: return fallback
+    val baseName = rawName.substringAfterLast('/').substringAfterLast('\\')
+        .filter { character -> character.isLetterOrDigit() || character in "._-" }
+        .trimStart('.')
+    if (baseName.isEmpty()) return fallback
+    return if (baseName.endsWith(".pdf", ignoreCase = true)) baseName else "$baseName.pdf"
 }

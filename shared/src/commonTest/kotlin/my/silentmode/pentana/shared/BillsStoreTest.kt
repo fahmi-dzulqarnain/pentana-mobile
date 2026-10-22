@@ -10,7 +10,9 @@ import io.ktor.http.fullPath
 import io.ktor.http.headersOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -21,6 +23,7 @@ import my.silentmode.pentana.shared.presentation.BillStatus
 import my.silentmode.pentana.shared.presentation.BillsStore
 import my.silentmode.pentana.shared.presentation.BillsUiState
 import my.silentmode.pentana.shared.presentation.ProofStatus
+import my.silentmode.pentana.shared.presentation.ReceiptState
 import my.silentmode.pentana.shared.presentation.proofStatus
 import my.silentmode.pentana.shared.presentation.SubmitState
 import my.silentmode.pentana.shared.presentation.billStatus
@@ -273,6 +276,116 @@ class BillsStoreTest {
         assertFalse(canSubmitProof("abc", hasPhoto = true)) // unified on iOS's stricter numeric check
         assertFalse(canSubmitProof("NaN", hasPhoto = true)) // parses as a Double, but not a currency amount
         assertFalse(canSubmitProof("Infinity", hasPhoto = true))
+    }
+
+    /**
+     * Bills load normally; GET /payment-proofs/{id}/receipt is answered by [receiptResponse], which
+     * returns (status, body) or throws to simulate a dropped connection. [receiptRequests] counts calls.
+     */
+    private var receiptRequests = 0
+
+    private fun makeReceiptStore(receiptResponse: suspend () -> Pair<HttpStatusCode, ByteArray>): BillsStore {
+        val engine = MockEngine { request ->
+            val path = request.url.encodedPath
+            if (path.endsWith("/receipt")) {
+                receiptRequests += 1
+                val (status, body) = receiptResponse()
+                return@MockEngine respond(
+                    body, status,
+                    headersOf(
+                        HttpHeaders.ContentType to listOf("application/pdf"),
+                        HttpHeaders.ContentDisposition to listOf("attachment; filename=\"PEN-2026-0001.pdf\""),
+                    ),
+                )
+            }
+            val body = when {
+                path.endsWith("/bills/summary") -> summaryJson
+                path.endsWith("/payment-proofs") -> proofsJson
+                else -> billsJson
+            }
+            respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        return BillsStore(BillsRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
+    }
+
+    private val receiptBytes = "%PDF-1.7".encodeToByteArray()
+
+    @Test fun open_receipt_downloads_then_ready() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val store = makeReceiptStore { gate.await(); HttpStatusCode.OK to receiptBytes }
+        store.state.first { it is BillsUiState.Content }
+        store.openReceipt(11)
+        assertEquals(ReceiptState.Downloading(11), store.receipt.first { it is ReceiptState.Downloading })
+        gate.complete(Unit)
+        val ready = store.receipt.first { it is ReceiptState.Ready }
+        assertIs<ReceiptState.Ready>(ready)
+        assertEquals(11L, ready.proofId)
+        assertEquals("PEN-2026-0001.pdf", ready.pdf.fileName)
+    }
+
+    @Test fun receipt_404_shows_unavailable_message() = runTest {
+        val store = makeReceiptStore { HttpStatusCode.NotFound to "{}".encodeToByteArray() }
+        store.state.first { it is BillsUiState.Content }
+        store.openReceipt(11)
+        assertEquals(ReceiptState.Error("This receipt isn't available."), store.receipt.first { it is ReceiptState.Error })
+    }
+
+    @Test fun receipt_401_shows_generic_message() = runTest {
+        val store = makeReceiptStore { HttpStatusCode.Unauthorized to "{}".encodeToByteArray() }
+        store.state.first { it is BillsUiState.Content }
+        store.openReceipt(11)
+        assertEquals(
+            ReceiptState.Error("Couldn't download the receipt. Please try again."),
+            store.receipt.first { it is ReceiptState.Error },
+        )
+    }
+
+    @Test fun receipt_network_failure_shows_generic_message() = runTest {
+        val store = makeReceiptStore { throw IllegalStateException("connection reset") }
+        store.state.first { it is BillsUiState.Content }
+        store.openReceipt(11)
+        assertEquals(
+            ReceiptState.Error("Couldn't download the receipt. Please try again."),
+            store.receipt.first { it is ReceiptState.Error },
+        )
+    }
+
+    @Test fun second_open_while_downloading_fires_no_request() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val store = makeReceiptStore { gate.await(); HttpStatusCode.OK to receiptBytes }
+        store.state.first { it is BillsUiState.Content }
+        store.openReceipt(11)
+        store.receipt.first { it is ReceiptState.Downloading }
+        store.openReceipt(12) // guarded: one download at a time
+        gate.complete(Unit)
+        val ready = store.receipt.first { it is ReceiptState.Ready }
+        assertIs<ReceiptState.Ready>(ready)
+        assertEquals(11L, ready.proofId)
+        assertEquals(1, receiptRequests)
+    }
+
+    @Test fun consume_receipt_returns_to_idle() = runTest {
+        val store = makeReceiptStore { HttpStatusCode.OK to receiptBytes }
+        store.state.first { it is BillsUiState.Content }
+        store.openReceipt(11)
+        store.receipt.first { it is ReceiptState.Ready }
+        store.consumeReceipt()
+        assertIs<ReceiptState.Idle>(store.receipt.value)
+    }
+
+    @Test fun consume_while_downloading_drops_late_result() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val responded = CompletableDeferred<Unit>()
+        val store = makeReceiptStore { gate.await(); responded.complete(Unit); HttpStatusCode.OK to receiptBytes }
+        store.state.first { it is BillsUiState.Content }
+        store.openReceipt(11)
+        store.receipt.first { it is ReceiptState.Downloading }
+        store.consumeReceipt() // member left Bills mid-download
+        gate.complete(Unit)
+        responded.await()
+        // The engine answers on its own thread; give the abandoned completion real time to land.
+        withContext(Dispatchers.Default) { delay(200) }
+        assertIs<ReceiptState.Idle>(store.receipt.value)
     }
 
     private fun bill(status: String) = BillDto(

@@ -9,10 +9,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import my.silentmode.pentana.shared.ApiException
 import my.silentmode.pentana.shared.BillsRepository
 import my.silentmode.pentana.shared.model.BillDto
 import my.silentmode.pentana.shared.model.BillsSummaryDto
 import my.silentmode.pentana.shared.model.PaymentProofDto
+import my.silentmode.pentana.shared.model.ReceiptPdf
 
 sealed interface BillsUiState {
     data object Loading : BillsUiState
@@ -31,6 +33,17 @@ sealed interface SubmitState {
     data object Submitting : SubmitState
     data class Error(val message: String) : SubmitState
     data object Success : SubmitState
+}
+
+/**
+ * Paid-receipt download, consumed once by the platform: on [Ready] it writes the PDF and opens the
+ * system viewer, on [Error] it shows the message; either way it then calls [BillsStore.consumeReceipt].
+ */
+sealed interface ReceiptState {
+    data object Idle : ReceiptState
+    data class Downloading(val proofId: Long) : ReceiptState
+    class Ready(val proofId: Long, val pdf: ReceiptPdf) : ReceiptState
+    data class Error(val message: String) : ReceiptState
 }
 
 /**
@@ -53,6 +66,12 @@ class BillsStore(private val repo: BillsRepository) {
 
     /** Bumped by [resetSubmit]; a completion from an older generation must not write [submit]. */
     private var submitGeneration = 0
+
+    private val _receipt = MutableStateFlow<ReceiptState>(ReceiptState.Idle)
+    val receipt: StateFlow<ReceiptState> = _receipt.asStateFlow()
+
+    /** Bumped by [consumeReceipt]; a download from an older generation must not write [receipt]. */
+    private var receiptGeneration = 0
 
     init { load() }
 
@@ -111,5 +130,35 @@ class BillsStore(private val repo: BillsRepository) {
         _submit.value = SubmitState.Idle
     }
 
+    /**
+     * Downloads the receipt PDF for a verified proof. One download at a time: ignored while one is in
+     * flight (the viewer is modal anyway). Call from the main thread, like [submitProof].
+     */
+    fun openReceipt(proofId: Long) {
+        if (_receipt.value is ReceiptState.Downloading) return
+        val generation = ++receiptGeneration
+        _receipt.value = ReceiptState.Downloading(proofId)
+        scope.launch {
+            val result = try {
+                ReceiptState.Ready(proofId, repo.receipt(proofId))
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (failure: Exception) {
+                val notFound = (failure as? ApiException)?.status == 404
+                ReceiptState.Error(if (notFound) RECEIPT_UNAVAILABLE_MESSAGE else RECEIPT_FAILED_MESSAGE)
+            }
+            if (generation == receiptGeneration) _receipt.value = result
+        }
+    }
+
+    /** The platform has shown the receipt or its error, or left Bills; any in-flight download is dropped. */
+    fun consumeReceipt() {
+        receiptGeneration += 1
+        _receipt.value = ReceiptState.Idle
+    }
+
     fun clear() { scope.cancel() }
 }
+
+private const val RECEIPT_UNAVAILABLE_MESSAGE = "This receipt isn't available."
+private const val RECEIPT_FAILED_MESSAGE = "Couldn't download the receipt. Please try again."

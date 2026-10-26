@@ -204,6 +204,8 @@ fun PhotoPickerTile(
     onPick: () -> Unit,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Empty-state title; defaults to the receipt wording Bills uses. */
+    emptyTitle: String = "Add receipt photo",
 ) {
     val colors = LocalPentanaColors.current
     if (selectedName == null) {
@@ -217,7 +219,7 @@ fun PhotoPickerTile(
                 Icon(Icons.Filled.PhotoCamera, null, tint = colors.proof.color, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.height(8.dp))
-            Text("Add receipt photo", style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
+            Text(emptyTitle, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold))
             Text("Open the Android Photo Picker", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     } else {

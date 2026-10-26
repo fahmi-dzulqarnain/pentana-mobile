@@ -24,6 +24,8 @@ import my.silentmode.pentana.feature.login.LoginScreen
 import my.silentmode.pentana.feature.lunch.LunchScreen
 import my.silentmode.pentana.feature.notifications.NotificationsSheet
 import my.silentmode.pentana.feature.profile.ProfileSheet
+import my.silentmode.pentana.feature.support.SupportListScreen
+import my.silentmode.pentana.feature.support.SupportThreadScreen
 import my.silentmode.pentana.shared.model.UserDto
 import my.silentmode.pentana.shared.model.avatarName
 import my.silentmode.pentana.shared.model.greetingName
@@ -66,6 +68,19 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
     var active by rememberSaveable { mutableStateOf(NavDest.Home) }
     var showProfile by rememberSaveable { mutableStateOf(false) }
     var showNotifications by rememberSaveable { mutableStateOf(false) }
+    // Ask the committee takes over the screen: null = tabs, else the list or one ticket's thread.
+    var supportOpen by rememberSaveable { mutableStateOf(false) }
+    var supportTicket by rememberSaveable { mutableStateOf<Long?>(null) }
+
+    if (supportOpen) {
+        val ticket = supportTicket
+        if (ticket != null) {
+            SupportThreadScreen(ticketId = ticket, onBack = { supportTicket = null })
+        } else {
+            SupportListScreen(onBack = { supportOpen = false }, onOpenTicket = { supportTicket = it })
+        }
+        return
+    }
 
     Scaffold(
         topBar = {
@@ -82,7 +97,12 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
     ) { pad ->
         Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
             when (active) {
-                NavDest.Home -> HomeScreen(userName = user.greetingName, onSwitchTab = { active = it })
+                NavDest.Home -> HomeScreen(
+                    userName = user.greetingName,
+                    isAdmin = user.isAdmin,
+                    onSwitchTab = { active = it },
+                    onOpenSupport = { supportTicket = null; supportOpen = true },
+                )
                 NavDest.Bills -> BillsScreen()
                 NavDest.Lunch -> LunchScreen()
                 NavDest.Activities -> ActivitiesScreen()
@@ -102,6 +122,11 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
         NotificationsSheet(
             onMarkAllRead = session::markNotificationsRead,
             onDismiss = { showNotifications = false },
+            onOpenSupportTicket = { id ->
+                showNotifications = false
+                supportTicket = id
+                supportOpen = true
+            },
         )
     }
 }

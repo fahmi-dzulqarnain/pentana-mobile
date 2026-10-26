@@ -30,6 +30,8 @@ data class UserDto(
     // Defaults keep older servers (no nickname support) decoding fine.
     val nickname: String? = null,
     @SerialName("display_name") val displayName: String? = null,
+    /** Admins answer support tickets on the web, so the app hides Ask the committee from them. */
+    @SerialName("is_admin") val isAdmin: Boolean = false,
 )
 
 /** Greeting name: the nickname if set, otherwise the first word of the full name. */

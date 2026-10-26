@@ -34,13 +34,15 @@ struct MainView: View {
     /// The Ask the committee sheet, carrying the ticket to open (from a notification tap). An item,
     /// not a Bool + separate id: `.sheet(isPresented:)` built its content with a stale id.
     @State private var supportSheet: SupportSheet?
+    /// Bumped to make Home refetch its dashboard.
+    @State private var homeRefresh = 0
     /// Waits for the notifications sheet to finish dismissing before the support sheet appears.
     @State private var pendingSupportTicket: Int64?
 
     var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
-                HomeView(selection: $selection, onOpenSupport: { supportSheet = SupportSheet(ticketId: nil) })
+                HomeView(selection: $selection, refreshToken: homeRefresh, onOpenSupport: { supportSheet = SupportSheet(ticketId: nil) })
                     .background(AmbientBackground())
                     .navigationTitle("Hi, \(firstName)")
                     .modifier(TopChrome(initials: pentInitials(session.avatarName), unread: session.unreadCount,
@@ -94,7 +96,8 @@ struct MainView: View {
             })
             .environmentObject(session)
         }
-        .sheet(item: $supportSheet) { sheet in
+        // Replying in the sheet changes the Home card's waiting-reply count.
+        .sheet(item: $supportSheet, onDismiss: { homeRefresh += 1 }) { sheet in
             SupportListView(openTicketId: sheet.ticketId).environmentObject(session)
         }
     }

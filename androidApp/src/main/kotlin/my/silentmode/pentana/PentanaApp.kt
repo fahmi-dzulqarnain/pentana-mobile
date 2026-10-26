@@ -20,6 +20,7 @@ import my.silentmode.pentana.core.initials
 import my.silentmode.pentana.feature.activities.ActivitiesScreen
 import my.silentmode.pentana.feature.bills.BillsScreen
 import my.silentmode.pentana.feature.home.HomeScreen
+import my.silentmode.pentana.feature.home.HomeViewModel
 import my.silentmode.pentana.feature.login.LoginScreen
 import my.silentmode.pentana.feature.lunch.LunchScreen
 import my.silentmode.pentana.feature.notifications.NotificationsSheet
@@ -71,13 +72,19 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
     // Ask the committee takes over the screen: null = tabs, else the list or one ticket's thread.
     var supportOpen by rememberSaveable { mutableStateOf(false) }
     var supportTicket by rememberSaveable { mutableStateOf<Long?>(null) }
+    val home = appViewModel { HomeViewModel(it.dashboard) }
 
     if (supportOpen) {
         val ticket = supportTicket
         if (ticket != null) {
             SupportThreadScreen(ticketId = ticket, onBack = { supportTicket = null })
         } else {
-            SupportListScreen(onBack = { supportOpen = false }, onOpenTicket = { supportTicket = it })
+            SupportListScreen(
+                // Replying there changes the Home card's waiting-reply count. Same Activity-scoped
+                // ViewModel HomeScreen uses (appViewModel keys by class).
+                onBack = { supportOpen = false; home.refresh() },
+                onOpenTicket = { supportTicket = it },
+            )
         }
         return
     }

@@ -103,7 +103,9 @@ class SupportListStore(private val repo: SupportRepository) {
         }
     }
 
+    /** Ignored while sending: the form can't be closed then, and disarming the guard could send twice. */
     fun resetCreate() {
+        if (_create.value is SupportCreateState.Sending) return
         createGeneration += 1
         _create.value = SupportCreateState.Idle
     }

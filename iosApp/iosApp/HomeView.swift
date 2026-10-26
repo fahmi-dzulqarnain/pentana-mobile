@@ -12,6 +12,8 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject private var session: SessionStore
     @Binding var selection: Int
+    /// A change asks Home to refetch (e.g. after the support sheet closes).
+    var refreshToken: Int = 0
     /// Opens the Ask the committee sheet (owned by MainView).
     var onOpenSupport: () -> Void = {}
     @State private var store: HomeStore?
@@ -25,6 +27,7 @@ struct HomeView: View {
                 async let states: Void = { for await value in activeStore.state { await MainActor.run { state = value } } }()
                 _ = await states
             }
+            .onChange(of: refreshToken) { _, _ in Task { try? await store?.refresh() } }
     }
 
     @ViewBuilder private var content: some View {

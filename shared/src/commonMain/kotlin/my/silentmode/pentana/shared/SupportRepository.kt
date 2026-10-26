@@ -12,6 +12,7 @@ import io.ktor.client.statement.readRawBytes
 import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import io.ktor.http.Url
 import io.ktor.http.contentType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -90,6 +91,8 @@ class SupportRepository(private val client: ApiClient) {
     /** A message's screenshot. [url] is the absolute attachment_url from the API, which needs the token. */
     @Throws(Exception::class)
     suspend fun attachment(url: String): ByteArray = withContext(Dispatchers.Main) {
+        // The token goes only to our own API: same scheme, host and port as the client's base URL.
+        require(sameOrigin(url, client.baseUrl)) { "Attachment URL is not on the API host" }
         val response = client.http.get(url) {
             // JSON first so an expired token is a JSON 401, not a redirect to the web login.
             header(HttpHeaders.Accept, "application/json, image/*")
@@ -114,4 +117,11 @@ class SupportRepository(private val client: ApiClient) {
 
     @Serializable
     private data class ReplyBody(val body: String)
+}
+
+/** Scheme + authority, parsed rather than prefix-matched, so "x.evil" or "x@evil" can't pass for "x". */
+internal fun sameOrigin(url: String, baseUrl: String): Boolean {
+    val a = Url(url)
+    val b = Url(baseUrl)
+    return a.protocol == b.protocol && a.host == b.host && a.port == b.port && a.user == null
 }

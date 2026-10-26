@@ -113,6 +113,8 @@ class SupportRepositoryTest {
         val body = bodyText(request)
         assertTrue("name=type" in body || "name=\"type\"" in body)
         assertTrue("name=subject" in body || "name=\"subject\"" in body)
+        assertTrue("name=body" in body || "name=\"body\"" in body)
+        assertTrue("It is blank" in body)
         assertTrue("name=screenshot" in body || "name=\"screenshot\"" in body)
         assertTrue("shot.jpg" in body)
     }
@@ -158,6 +160,16 @@ class SupportRepositoryTest {
         assertEquals("/api/v1/support-tickets/messages/9/attachment", seen?.url?.encodedPath)
         assertEquals("Bearer t", seen?.headers?.get(HttpHeaders.Authorization))
         assertContentEquals(png, bytes)
+    }
+
+    @Test fun attachment_refuses_a_url_on_another_host_and_never_sends_the_token() = runTest {
+        var requests = 0
+        val repo = repository(body = byteArrayOf(1), contentType = "image/png", onRequest = { requests++ })
+
+        for (url in listOf("https://evil.example/api/v1/x", "https://x.evil.example/api/v1/x", "http://x/api/v1/x", "https://x@evil.example/api/v1/x")) {
+            assertFailsWith<IllegalArgumentException> { repo.attachment(url) }
+        }
+        assertEquals(0, requests)
     }
 
     @Test fun a_404_surfaces_as_api_exception() = runTest {

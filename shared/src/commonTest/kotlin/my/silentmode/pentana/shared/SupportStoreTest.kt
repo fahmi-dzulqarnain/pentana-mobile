@@ -253,6 +253,57 @@ class SupportStoreTest {
         assertNull(store.actionError.value)
     }
 
+    @Test fun a_failed_reply_hands_the_text_back_for_the_reply_box() = runTest {
+        val store = SupportThreadStore(repo { method, _ ->
+            if (method == HttpMethod.Post) HttpStatusCode.TooManyRequests to "{}" else HttpStatusCode.OK to detailJson()
+        }, 7)
+        store.state.first { it is SupportThreadUiState.Content }
+
+        store.reply("  My long explanation  ")
+
+        assertEquals("My long explanation", store.failedReply.first { it != null })
+        store.consumeFailedReply()
+        assertNull(store.failedReply.value)
+    }
+
+    @Test fun a_failed_refresh_keeps_the_conversation_and_reports_it() = runTest {
+        var failNow = false
+        val store = SupportThreadStore(repo { _, _ ->
+            if (failNow) HttpStatusCode.InternalServerError to "{}" else HttpStatusCode.OK to detailJson()
+        }, 7)
+        store.state.first { it is SupportThreadUiState.Content }
+        failNow = true
+
+        store.refresh()
+
+        assertIs<SupportThreadUiState.Content>(store.state.value)
+        assertEquals("Couldn't refresh. Please try again.", store.actionError.value)
+    }
+
+    @Test fun reset_while_sending_does_not_disarm_the_double_submit_guard() = runTest {
+        var posts = 0
+        val gate = CompletableDeferred<Unit>()
+        val engine = MockEngine { request ->
+            if (request.method == HttpMethod.Post) {
+                posts++
+                gate.await()
+                respond(detailJson(), HttpStatusCode.Created, headersOf(HttpHeaders.ContentType, "application/json"))
+            } else {
+                respond("""{"data":[]}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+            }
+        }
+        val store = SupportListStore(SupportRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
+        store.state.first { it is SupportListUiState.Content }
+
+        store.create("bug", "Blank", "Body", null, null)
+        store.resetCreate()
+        store.create("bug", "Blank", "Body", null, null)
+        gate.complete(Unit)
+        store.create.first { it is SupportCreateState.Sent }
+
+        assertEquals(1, posts)
+    }
+
     @Test fun resolve_closes_the_ticket() = runTest {
         val store = SupportThreadStore(repo { method, path ->
             if (method == HttpMethod.Post && path.endsWith("/resolve")) HttpStatusCode.OK to detailJson(status = "closed")

@@ -59,7 +59,17 @@ struct SupportThreadView: View {
                         }
                     }
                 }()
-                _ = await (states, flights, errors, pictures)
+                async let failedReplies: Void = {
+                    for await value in activeStore.failedReply {
+                        guard let text = value else { continue }
+                        await MainActor.run {
+                            // Put the unsent reply back, unless they've started typing something new.
+                            if draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { draft = text }
+                            activeStore.consumeFailedReply()
+                        }
+                    }
+                }()
+                _ = await (states, flights, errors, pictures, failedReplies)
             }
             .alert("Something went wrong", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { store?.dismissActionError() } })) {
                 Button("OK", role: .cancel) { store?.dismissActionError() }

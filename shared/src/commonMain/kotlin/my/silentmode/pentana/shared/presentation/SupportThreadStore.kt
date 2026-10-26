@@ -69,21 +69,34 @@ class SupportThreadStore(private val repo: SupportRepository, val ticketId: Long
     suspend fun refresh() = refreshTracker.run { fetch() }
 
     private suspend fun fetch() {
-        _state.value = try {
-            SupportThreadUiState.Content(repo.ticket(ticketId))
+        try {
+            _state.value = SupportThreadUiState.Content(repo.ticket(ticketId))
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {
-            SupportThreadUiState.Error("Couldn't open this question. Pull down to try again.")
+            // A failed refresh keeps the conversation on screen; only a first load shows the error state.
+            if (_state.value is SupportThreadUiState.Content) {
+                _actionError.value = "Couldn't refresh. Please try again."
+            } else {
+                _state.value = SupportThreadUiState.Error("Couldn't open this question. Pull down to try again.")
+            }
         }
     }
 
-    /** Call from the main thread: the in-flight check-and-set is what stops a double tap posting twice. */
+    /**
+     * Call from the main thread: the in-flight check-and-set is what stops a double tap posting twice.
+     * The platforms clear their reply box on send; a failure hands the text back via [failedReply].
+     */
     fun reply(body: String) {
         val text = body.trim()
         if (text.isEmpty()) return
         actionRunner.run(ticketId, "Couldn't send your reply. Please try again.") {
-            repo.reply(ticketId, text)
+            try {
+                repo.reply(ticketId, text)
+            } catch (failure: Exception) {
+                if (failure !is CancellationException) _failedReply.value = text
+                throw failure
+            }
             refreshDetail()
         }
     }
@@ -109,6 +122,13 @@ class SupportThreadStore(private val repo: SupportRepository, val ticketId: Long
             _images.value = _images.value.filterNot { it.messageId == messageId } + SupportImageEntry(messageId, image)
         }
     }
+
+    /** The text of a reply that failed to send, for the platform to put back in its reply box. */
+    private val _failedReply = MutableStateFlow<String?>(null)
+    val failedReply: StateFlow<String?> = _failedReply.asStateFlow()
+
+    /** The platform restored [failedReply] into its reply box. */
+    fun consumeFailedReply() { _failedReply.value = null }
 
     fun dismissActionError() { _actionError.value = null }
 

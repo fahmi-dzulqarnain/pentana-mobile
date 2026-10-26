@@ -14,6 +14,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -44,9 +45,13 @@ import my.silentmode.pentana.ui.components.PhotoPickerTile
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewSupportTicketSheet(store: SupportListStore, onDismiss: () -> Unit) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val context = LocalContext.current
     val create by store.create.collectAsStateWithLifecycle()
+    // No closing mid-send (swipe, scrim tap or Back): a reopened form could send the same question twice.
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { target -> target != SheetValue.Hidden || store.create.value !is SupportCreateState.Sending },
+    )
+    val context = LocalContext.current
     var type by rememberSaveable { mutableStateOf("question") }
     var subject by rememberSaveable { mutableStateOf("") }
     var message by rememberSaveable { mutableStateOf("") }
@@ -68,7 +73,7 @@ fun NewSupportTicketSheet(store: SupportListStore, onDismiss: () -> Unit) {
     val ready = subject.isNotBlank() && message.isNotBlank() && subject.length <= 150 && message.length <= 5000 &&
         !sending && create !is SupportCreateState.Sent
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+    ModalBottomSheet(onDismissRequest = { if (!sending) onDismiss() }, sheetState = sheetState, containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
         Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
             Text("New question", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(12.dp))

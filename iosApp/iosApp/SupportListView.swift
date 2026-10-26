@@ -42,7 +42,8 @@ struct SupportListView: View {
                     SupportThreadView(ticketId: id) { Task { try? await store?.refresh() } }
                 }
         }
-        .sheet(isPresented: $showingNew) {
+        // Every way the form closes clears its state, so an old error or result never shows next time.
+        .sheet(isPresented: $showingNew, onDismiss: { store?.resetCreate() }) {
             if let store {
                 NewSupportTicketView(store: store) { newId in path.append(newId) }
             }

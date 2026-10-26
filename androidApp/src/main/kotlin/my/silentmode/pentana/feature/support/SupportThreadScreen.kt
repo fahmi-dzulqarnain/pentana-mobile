@@ -49,12 +49,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -63,7 +65,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import my.silentmode.pentana.core.dateTimeMedium
+import my.silentmode.pentana.core.sampleSize
 import my.silentmode.pentana.core.relativeTimeFrom
 import my.silentmode.pentana.shared.model.SupportMessageDto
 import my.silentmode.pentana.shared.model.SupportTicketDetailDto
@@ -101,6 +106,14 @@ fun SupportThreadScreen(ticketId: Long, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
     // The ViewModel outlives the screen (no NavHost), so reopening a ticket must fetch what changed since.
     LaunchedEffect(ticketId) { vm.refresh() }
+    // A reply that failed to send goes back in the box, unless they've started typing something new.
+    val failedReply by vm.store.failedReply.collectAsStateWithLifecycle()
+    LaunchedEffect(failedReply) {
+        failedReply?.let { text ->
+            if (draft.isBlank()) draft = text
+            vm.store.consumeFailedReply()
+        }
+    }
 
     val detail = (state as? SupportThreadUiState.Content)?.detail
     Scaffold(
@@ -238,12 +251,32 @@ private fun Bubble(message: SupportMessageDto, image: SupportImage?, loadImage: 
     }
 }
 
+private sealed interface Decoded {
+    data object Pending : Decoded
+    class Ready(val bitmap: ImageBitmap) : Decoded
+    data object Unreadable : Decoded
+}
+
+/** Long side capped at ~3x the 260dp the bubble shows; null when the bytes aren't an image. */
+private fun decodeThumbnail(bytes: ByteArray): ImageBitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+    val options = BitmapFactory.Options().apply { inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight, THUMBNAIL_MAX_PX) }
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.asImageBitmap()
+}
+
+private const val THUMBNAIL_MAX_PX = 800
+
 @Composable
 private fun Screenshot(image: SupportImage?) {
     val shape = RoundedCornerShape(12.dp)
-    val bitmap = remember(image) {
-        (image as? SupportImage.Loaded)?.let { BitmapFactory.decodeByteArray(it.bytes, 0, it.bytes.size)?.asImageBitmap() }
+    // Decoded off the main thread at thumbnail size: a full-size phone screenshot is tens of MB as a bitmap.
+    val decoded by produceState<Decoded>(Decoded.Pending, image) {
+        val loaded = image as? SupportImage.Loaded ?: return@produceState
+        value = withContext(Dispatchers.Default) { decodeThumbnail(loaded.bytes) }?.let { Decoded.Ready(it) } ?: Decoded.Unreadable
     }
+    val bitmap = (decoded as? Decoded.Ready)?.bitmap
     when {
         bitmap != null -> Image(
             bitmap = bitmap,
@@ -251,7 +284,7 @@ private fun Screenshot(image: SupportImage?) {
             contentScale = ContentScale.Fit,
             modifier = Modifier.widthIn(max = 220.dp).heightIn(max = 260.dp).clip(shape),
         )
-        image is SupportImage.Failed || image is SupportImage.Loaded -> Row(
+        image is SupportImage.Failed || decoded is Decoded.Unreadable -> Row(
             Modifier.clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),

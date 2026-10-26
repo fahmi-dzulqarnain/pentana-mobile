@@ -84,9 +84,11 @@ struct NewSupportTicketView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { store.resetCreate(); dismiss() }.tint(Pent.accent)
+                    Button("Cancel") { dismiss() }.tint(Pent.accent).disabled(sending)
                 }
             }
+            // No closing mid-send: a reopened form could send the same question twice.
+            .interactiveDismissDisabled(sending)
             .safeAreaInset(edge: .bottom) {
                 Button(action: send) {
                     if sending { ProgressView().tint(Pent.onBrand) } else { Text("Send to committee") }

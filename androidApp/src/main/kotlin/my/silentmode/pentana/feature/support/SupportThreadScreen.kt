@@ -44,6 +44,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -95,7 +96,11 @@ fun SupportThreadScreen(ticketId: Long, onBack: () -> Unit) {
     var draft by rememberSaveable { mutableStateOf("") }
     var confirmResolve by remember { mutableStateOf(false) }
 
+    val refreshing by vm.store.refreshing.collectAsStateWithLifecycle()
+
     BackHandler(onBack = onBack)
+    // The ViewModel outlives the screen (no NavHost), so reopening a ticket must fetch what changed since.
+    LaunchedEffect(ticketId) { vm.refresh() }
 
     val detail = (state as? SupportThreadUiState.Content)?.detail
     Scaffold(
@@ -120,7 +125,7 @@ fun SupportThreadScreen(ticketId: Long, onBack: () -> Unit) {
         },
         containerColor = MaterialTheme.colorScheme.surface,
     ) { pad ->
-        Box(Modifier.fillMaxSize().padding(pad)) {
+        PullToRefreshBox(isRefreshing = refreshing, onRefresh = vm::refresh, modifier = Modifier.fillMaxSize().padding(pad)) {
             when (val uiState = state) {
                 is SupportThreadUiState.Loading -> LoadingState()
                 is SupportThreadUiState.Error -> ErrorState(uiState.message, vm.store::load)

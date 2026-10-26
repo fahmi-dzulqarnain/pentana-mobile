@@ -19,7 +19,8 @@ struct SupportThreadView: View {
     @State private var state: SupportThreadUiState = SupportThreadUiStateLoading.shared
     @State private var inFlight: Set<Int64> = []
     @State private var actionError: String?
-    @State private var images: [Int64: SupportImage] = [:]
+    /// Screenshots decoded once, as they arrive; the bubbles never decode (typing re-renders them).
+    @State private var images: [Int64: Screenshot] = [:]
     @State private var draft = ""
     @State private var confirmingResolve = false
     @FocusState private var composerFocused: Bool
@@ -47,8 +48,15 @@ struct SupportThreadView: View {
                 async let errors: Void = { for await value in activeStore.actionError { await MainActor.run { actionError = value } } }()
                 async let pictures: Void = {
                     for await value in activeStore.images {
-                        let mapped = Dictionary(value.map { ($0.messageId, $0.image) }, uniquingKeysWith: { _, latest in latest })
-                        await MainActor.run { images = mapped }
+                        await MainActor.run {
+                            var next = images
+                            for entry in value {
+                                // Decode each Loaded image once; already-decoded ones are kept as they are.
+                                if case .image = next[entry.messageId] { continue }
+                                next[entry.messageId] = Screenshot(entry.image)
+                            }
+                            images = next
+                        }
                     }
                 }()
                 _ = await (states, flights, errors, pictures)
@@ -171,9 +179,26 @@ struct SupportThreadView: View {
     }
 }
 
+/// A screenshot as the bubble shows it. Bytes that don't decode count as failed, not loading.
+private enum Screenshot {
+    case loading
+    case image(UIImage)
+    case failed
+
+    init(_ state: SupportImage) {
+        if let loaded = state as? SupportImageLoaded {
+            self = UIImage(data: dataFrom(bytes: loaded.bytes)).map { .image($0) } ?? .failed
+        } else if state is SupportImageFailed {
+            self = .failed
+        } else {
+            self = .loading
+        }
+    }
+}
+
 private struct MessageBubble: View {
     let message: SupportMessageDto
-    let image: SupportImage?
+    let image: Screenshot?
     let loadImage: () -> Void
 
     var body: some View {
@@ -211,15 +236,16 @@ private struct MessageBubble: View {
 
     @ViewBuilder private var screenshot: some View {
         Group {
-            if let loaded = image as? SupportImageLoaded, let uiImage = UIImage(data: dataFrom(bytes: loaded.bytes)) {
+            switch image {
+            case .image(let uiImage):
                 Image(uiImage: uiImage).resizable().scaledToFit()
                     .accessibilityLabel("Screenshot")
-            } else if image is SupportImageFailed {
+            case .failed:
                 Label("Screenshot unavailable", systemImage: "photo.badge.exclamationmark")
                     .font(.pentFoot).foregroundStyle(Pent.label3)
                     .frame(width: 180, height: 110)
                     .background(Pent.surface2)
-            } else {
+            case .loading, nil:
                 ProgressView().frame(width: 180, height: 110).background(Pent.surface2)
             }
         }

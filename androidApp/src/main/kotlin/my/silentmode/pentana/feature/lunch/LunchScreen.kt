@@ -122,6 +122,48 @@ private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, 
             StatusChip(chipKind(lunchStatus(lunch)))
         }
 
+        // Closed days keep their menus on show, read-only, so members can still see what was on offer and what they picked.
+        Column(Modifier.alpha(if (busy) 0.6f else 1f)) {
+            lunch.menus.forEach { menu ->
+                Text(
+                    listOfNotNull(menu.caterer, menu.menu).joinToString(" · "),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 2.dp),
+                )
+                menu.options.forEach { opt ->
+                    SingleSelectRow(
+                        title = opt.name ?: "Option",
+                        selected = lunch.responded && lunch.myLunchOptionId == opt.lunchOptionId,
+                        onClick = { onChoose(opt.lunchOptionId) },
+                        showDivider = true,
+                        enabled = lunch.isOpen && !busy,
+                    )
+                }
+            }
+            // Older server (no menus): legacy options carry no lunchOptionId, so they are shown read-only rather than guessing an id.
+            if (lunch.menus.isEmpty()) {
+                lunch.options.forEach { opt ->
+                    SingleSelectRow(
+                        title = opt.name ?: "Option",
+                        selected = lunch.myMealOptionId == opt.mealOptionId,
+                        onClick = {},
+                        showDivider = true,
+                        enabled = false,
+                    )
+                }
+            }
+            if (lunch.isOpen) {
+                SingleSelectRow(
+                    title = "Not attending",
+                    selected = lunch.responded && lunch.myLunchOptionId == null && lunch.myMealOptionId == null,
+                    onClick = onNotAttending,
+                    showDivider = false,
+                    enabled = !busy,
+                )
+            }
+        }
+
         if (!lunch.isOpen) {
             Row(
                 Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(horizontal = 18.dp, vertical = 12.dp),
@@ -130,45 +172,6 @@ private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, 
             ) {
                 Icon(Icons.Filled.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
                 Text(lunchClosedSummary(lunch), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        } else {
-            Column(Modifier.alpha(if (busy) 0.6f else 1f)) {
-                lunch.menus.forEach { menu ->
-                    Text(
-                        listOfNotNull(menu.caterer, menu.menu).joinToString(" · "),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 2.dp),
-                    )
-                    menu.options.forEach { opt ->
-                        SingleSelectRow(
-                            title = opt.name ?: "Option",
-                            selected = lunch.responded && lunch.myLunchOptionId == opt.lunchOptionId,
-                            onClick = { onChoose(opt.lunchOptionId) },
-                            showDivider = true,
-                            enabled = !busy,
-                        )
-                    }
-                }
-                // Older server (no menus): legacy options carry no lunchOptionId, so they are shown read-only rather than guessing an id.
-                if (lunch.menus.isEmpty()) {
-                    lunch.options.forEach { opt ->
-                        SingleSelectRow(
-                            title = opt.name ?: "Option",
-                            selected = lunch.myMealOptionId == opt.mealOptionId,
-                            onClick = {},
-                            showDivider = true,
-                            enabled = false,
-                        )
-                    }
-                }
-                SingleSelectRow(
-                    title = "Not attending",
-                    selected = lunch.responded && lunch.myLunchOptionId == null && lunch.myMealOptionId == null,
-                    onClick = onNotAttending,
-                    showDivider = false,
-                    enabled = !busy,
-                )
             }
         }
 

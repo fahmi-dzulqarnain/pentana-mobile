@@ -93,40 +93,45 @@ private struct LunchCard: View {
             }
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 12)
 
-            if lunch.isOpen {
-                VStack(spacing: 0) {
-                    ForEach(lunch.menus, id: \.id) { menu in
-                        Text([menu.caterer, menu.menu].compactMap { $0 }.joined(separator: " · "))
-                            .font(.pentFoot).fontWeight(.semibold).foregroundStyle(Pent.label2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 6)
-                            .overlay(alignment: .top) { PentHairline(leadingInset: 0) }
-                        ForEach(menu.options, id: \.lunchOptionId) { option in
-                            PentHairline()
-                            optionRow(title: option.name ?? "Option",
-                                      chosen: lunch.responded && lunch.myLunchOptionId?.int64Value == option.lunchOptionId) {
-                                choose(option.lunchOptionId)
-                            }
+            // Closed days keep their menus on show, read-only, so members can still see what was on offer and what they picked.
+            VStack(spacing: 0) {
+                ForEach(lunch.menus, id: \.id) { menu in
+                    Text([menu.caterer, menu.menu].compactMap { $0 }.joined(separator: " · "))
+                        .font(.pentFoot).fontWeight(.semibold).foregroundStyle(Pent.label2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 6)
+                        .overlay(alignment: .top) { PentHairline(leadingInset: 0) }
+                    ForEach(menu.options, id: \.lunchOptionId) { option in
+                        PentHairline()
+                        optionRow(title: option.name ?? "Option",
+                                  chosen: lunch.responded && lunch.myLunchOptionId?.int64Value == option.lunchOptionId) {
+                            choose(option.lunchOptionId)
                         }
                     }
-                    // Older server (no menus): legacy options carry no lunchOptionId, so they are shown read-only rather than guessing an id.
-                    if lunch.menus.isEmpty {
-                        ForEach(lunch.options, id: \.mealOptionId) { option in
-                            PentHairline()
-                            optionRow(title: option.name ?? "Option",
-                                      chosen: lunch.myMealOptionId?.int64Value == option.mealOptionId) {}
-                                .disabled(true)
-                        }
+                }
+                // Older server (no menus): legacy options carry no lunchOptionId, so they are shown read-only rather than guessing an id.
+                if lunch.menus.isEmpty {
+                    ForEach(lunch.options, id: \.mealOptionId) { option in
+                        PentHairline()
+                        optionRow(title: option.name ?? "Option",
+                                  chosen: lunch.myMealOptionId?.int64Value == option.mealOptionId) {}
+                            .disabled(true)
                     }
+                }
+                if lunch.isOpen {
                     PentHairline()
                     optionRow(title: "Not attending",
                               chosen: lunch.responded && lunch.myLunchOptionId == nil && lunch.myMealOptionId == nil) {
                         notAttending()
                     }
                 }
-                .opacity(busy ? 0.6 : 1)
-                .allowsHitTesting(!busy)
-            } else {
+            }
+            .opacity(busy ? 0.6 : 1)
+            .allowsHitTesting(!busy)
+            // disabled (not just hit-testing) so VoiceOver can't activate a closed day's rows either.
+            .disabled(!lunch.isOpen)
+
+            if !lunch.isOpen {
                 HStack(spacing: 8) {
                     Image(systemName: "lock.fill").font(.system(size: 13)).foregroundStyle(Pent.label3)
                     Text(lunchClosedSummary(lunch: lunch)).font(.pentFoot).fontWeight(.medium).foregroundStyle(Pent.label2)
@@ -134,6 +139,7 @@ private struct LunchCard: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 12)
                 .background(Pent.surface2)
+                .overlay(alignment: .top) { PentHairline(leadingInset: 0) }
             }
 
             HStack(spacing: 6) {

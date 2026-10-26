@@ -122,7 +122,7 @@ private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, 
             StatusChip(chipKind(lunchStatus(lunch)))
         }
 
-        // Closed days keep their menus on show, read-only, so members can still see what was on offer and what they picked.
+        // Closed days list just the menus (no option rows) above the summary, so earlier days this week stay short.
         Column(Modifier.alpha(if (busy) 0.6f else 1f)) {
             lunch.menus.forEach { menu ->
                 Text(
@@ -131,18 +131,20 @@ private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, 
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 2.dp),
                 )
-                menu.options.forEach { opt ->
-                    SingleSelectRow(
-                        title = opt.name ?: "Option",
-                        selected = lunch.responded && lunch.myLunchOptionId == opt.lunchOptionId,
-                        onClick = { onChoose(opt.lunchOptionId) },
-                        showDivider = true,
-                        enabled = lunch.isOpen && !busy,
-                    )
+                if (lunch.isOpen) {
+                    menu.options.forEach { opt ->
+                        SingleSelectRow(
+                            title = opt.name ?: "Option",
+                            selected = lunch.responded && lunch.myLunchOptionId == opt.lunchOptionId,
+                            onClick = { onChoose(opt.lunchOptionId) },
+                            showDivider = true,
+                            enabled = !busy,
+                        )
+                    }
                 }
             }
             // Older server (no menus): legacy options carry no lunchOptionId, so they are shown read-only rather than guessing an id.
-            if (lunch.menus.isEmpty()) {
+            if (lunch.menus.isEmpty() && lunch.isOpen) {
                 lunch.options.forEach { opt ->
                     SingleSelectRow(
                         title = opt.name ?: "Option",
@@ -165,6 +167,7 @@ private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, 
         }
 
         if (!lunch.isOpen) {
+            if (lunch.menus.isNotEmpty()) Spacer(Modifier.height(10.dp))
             Row(
                 Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(horizontal = 18.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,

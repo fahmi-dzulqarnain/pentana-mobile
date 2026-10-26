@@ -93,7 +93,7 @@ private struct LunchCard: View {
             }
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 12)
 
-            // Closed days keep their menus on show, read-only, so members can still see what was on offer and what they picked.
+            // Closed days list just the menus (no option rows) above the summary, so earlier days this week stay short.
             VStack(spacing: 0) {
                 ForEach(lunch.menus, id: \.id) { menu in
                     Text([menu.caterer, menu.menu].compactMap { $0 }.joined(separator: " · "))
@@ -101,16 +101,18 @@ private struct LunchCard: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 6)
                         .overlay(alignment: .top) { PentHairline(leadingInset: 0) }
-                    ForEach(menu.options, id: \.lunchOptionId) { option in
-                        PentHairline()
-                        optionRow(title: option.name ?? "Option",
-                                  chosen: lunch.responded && lunch.myLunchOptionId?.int64Value == option.lunchOptionId) {
-                            choose(option.lunchOptionId)
+                    if lunch.isOpen {
+                        ForEach(menu.options, id: \.lunchOptionId) { option in
+                            PentHairline()
+                            optionRow(title: option.name ?? "Option",
+                                      chosen: lunch.responded && lunch.myLunchOptionId?.int64Value == option.lunchOptionId) {
+                                choose(option.lunchOptionId)
+                            }
                         }
                     }
                 }
                 // Older server (no menus): legacy options carry no lunchOptionId, so they are shown read-only rather than guessing an id.
-                if lunch.menus.isEmpty {
+                if lunch.menus.isEmpty && lunch.isOpen {
                     ForEach(lunch.options, id: \.mealOptionId) { option in
                         PentHairline()
                         optionRow(title: option.name ?? "Option",
@@ -128,8 +130,6 @@ private struct LunchCard: View {
             }
             .opacity(busy ? 0.6 : 1)
             .allowsHitTesting(!busy)
-            // disabled (not just hit-testing) so VoiceOver can't activate a closed day's rows either.
-            .disabled(!lunch.isOpen)
 
             if !lunch.isOpen {
                 HStack(spacing: 8) {
@@ -201,3 +201,4 @@ private struct LunchCard: View {
         return lunch.isOpen ? "Order by \(when)" : "Ordering closed \(when)"
     }
 }
+

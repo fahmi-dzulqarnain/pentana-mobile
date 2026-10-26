@@ -84,28 +84,23 @@ struct BillsView: View {
     }
 
     private func summaryCard(_ summary: BillsSummaryDto) -> some View {
-        ZStack(alignment: .topTrailing) {
-            Image("PentanaMark")
-                .resizable().scaledToFit()
-                .frame(width: 120, height: 120)
-                .rotationEffect(.degrees(18))
-                .opacity(0.14)
-                .offset(x: 28, y: -28)
-
-            VStack(alignment: .leading, spacing: 0) {
-                Text("TOTAL OUTSTANDING")
-                    .font(.system(size: 12.5, weight: .semibold)).tracking(0.5)
-                    .foregroundStyle(.white.opacity(0.7))
-                Text("MYR \(summary.totalOutstanding)")
-                    .font(.pentMoney(34, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.top, 4)
-                HStack(spacing: 28) {
-                    statBlock("Available credit", "MYR \(summary.availableCredit)")
-                    statBlock("Unpaid bills", "\(Int(summary.unpaidCount))")
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            Text("TOTAL OUTSTANDING")
+                .font(.system(size: 12.5, weight: .semibold)).tracking(0.5)
+                .foregroundStyle(.white.opacity(0.7))
+            Text("MYR \(summary.totalOutstanding)")
+                .font(.pentMoney(34, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.top, 4)
+            Rectangle()
+                .fill(.white.opacity(0.18))
+                .frame(height: 1)
                 .padding(.top, 16)
+            HStack(spacing: 28) {
+                statBlock("Available credit", "MYR \(summary.availableCredit)")
+                statBlock("Unpaid bills", "\(Int(summary.unpaidCount))")
             }
+            .padding(.top, 14)
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -27,6 +27,7 @@ final class SessionStore: ObservableObject {
     let notifications: NotificationsRepository
     let passkey: PasskeyRepository
     let deviceTokens: DeviceTokensRepository
+    let support: SupportRepository
 
     private let tokenStore = KeychainTokenStore()
     private let passkeyManager = PasskeyManager(relyingParty: AppConfig.passkeyRelyingParty)
@@ -46,6 +47,7 @@ final class SessionStore: ObservableObject {
         notifications = NotificationsRepository(client: client)
         passkey = PasskeyRepository(client: client)
         deviceTokens = DeviceTokensRepository(client: client)
+        support = SupportRepository(client: client)
         manager = SessionManager(auth: auth, notifications: notifications)
 
         // Forward APNs device tokens / foreground pushes from the AppDelegate.
@@ -116,6 +118,12 @@ final class SessionStore: ObservableObject {
     /// Vend a shared Activities presentation store. Same lifecycle contract as the other factories:
     /// held in @State, reused across reappear, not cleared.
     func makeActivitiesStore() -> ActivitiesStore { ActivitiesStore(repo: activities) }
+
+    /// Vend the Ask the committee list store (held by the support sheet, same lifecycle contract).
+    func makeSupportListStore() -> SupportListStore { SupportListStore(repo: support) }
+
+    /// Vend a store for one ticket's conversation; the thread view holds it while it's on screen.
+    func makeSupportThreadStore(ticketId: Int64) -> SupportThreadStore { SupportThreadStore(repo: support, ticketId: ticketId) }
 
     /// On launch: shared bootstrap (token → profile → badge), then native push enablement.
     func bootstrap() async {

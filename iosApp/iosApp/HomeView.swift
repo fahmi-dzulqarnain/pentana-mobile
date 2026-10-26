@@ -12,6 +12,10 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject private var session: SessionStore
     @Binding var selection: Int
+    /// A change asks Home to refetch (e.g. after the support sheet closes).
+    var refreshToken: Int = 0
+    /// Opens the Ask the committee sheet (owned by MainView).
+    var onOpenSupport: () -> Void = {}
     @State private var store: HomeStore?
     @State private var state: HomeUiState = HomeUiStateLoading.shared
 
@@ -23,6 +27,7 @@ struct HomeView: View {
                 async let states: Void = { for await value in activeStore.state { await MainActor.run { state = value } } }()
                 _ = await states
             }
+            .onChange(of: refreshToken) { _, _ in Task { try? await store?.refresh() } }
     }
 
     @ViewBuilder private var content: some View {
@@ -48,6 +53,10 @@ struct HomeView: View {
                     lunchCard(content.data.nextLunch)
                     activityCard(content.data.nextActivity, openCount: Int(content.data.openActivitiesCount))
                     proofsCard(pending: Int(content.data.pendingProofsCount))
+                    // Admins answer on the web; the card is for members only.
+                    if session.user?.isAdmin != true {
+                        supportCard(waiting: Int(content.data.supportRepliesWaiting))
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 28)
@@ -135,6 +144,19 @@ struct HomeView: View {
         }
     }
 
+    @ViewBuilder
+    private func supportCard(waiting: Int) -> some View {
+        HomeCard(symbol: "lifepreserver.fill", tint: Pent.accent, bg: Pent.lunchBg, title: "Ask the committee", onTap: onOpenSupport) {
+            if waiting > 0 {
+                let replies = Text(waiting == 1 ? "1 reply" : "\(waiting) replies").fontWeight(.semibold).foregroundColor(Pent.warn)
+                Text("Questions, bugs or ideas · \(replies)")
+                    .font(.pentFoot).foregroundStyle(Pent.label2)
+            } else {
+                Text(supportCardSubtitle(waiting: 0)).font(.pentFoot).foregroundStyle(Pent.label2)
+            }
+        }
+    }
+
     // MARK: Data + format
 
     private var todayString: String {
@@ -202,6 +224,10 @@ enum PentDates {
         let parser = ISO8601DateFormatter(); parser.formatOptions = [.withInternetDateTime]
         guard let date = parser.date(from: iso) else { return nil }
         let formatter = RelativeDateTimeFormatter(); formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
+        // A just-written timestamp can be a moment ahead of this device's clock, and the formatter
+        // words a zero or future gap as "in 0 sec"; anything under a minute old is just "now".
+        let now = Date()
+        if now.timeIntervalSince(date) < 60 { return "now" }
+        return formatter.localizedString(for: date, relativeTo: now)
     }
 }

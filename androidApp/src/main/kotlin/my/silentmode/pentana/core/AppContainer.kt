@@ -9,6 +9,7 @@ import my.silentmode.pentana.shared.BillsRepository
 import my.silentmode.pentana.shared.DashboardRepository
 import my.silentmode.pentana.shared.LunchRepository
 import my.silentmode.pentana.shared.NotificationsRepository
+import my.silentmode.pentana.shared.SupportRepository
 import my.silentmode.pentana.shared.presentation.SessionManager
 
 /** Manual DI graph - built once in [my.silentmode.pentana.App]. Holds the repos the UI uses. */
@@ -21,6 +22,7 @@ class AppContainer(context: Context) {
     val lunch = LunchRepository(client)
     val activities = ActivitiesRepository(client)
     val notifications = NotificationsRepository(client)
+    val support = SupportRepository(client)
     val appUpdates = AppUpdateRepository(client)
     val updateCheckSchedule = UpdateCheckSchedule(context)
 

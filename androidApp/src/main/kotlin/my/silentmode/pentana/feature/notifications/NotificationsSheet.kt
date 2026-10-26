@@ -1,6 +1,7 @@
 package my.silentmode.pentana.feature.notifications
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Celebration
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -50,7 +53,7 @@ import my.silentmode.pentana.ui.theme.LocalPentanaColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotificationsSheet(onMarkAllRead: () -> Unit, onDismiss: () -> Unit) {
+fun NotificationsSheet(onMarkAllRead: () -> Unit, onDismiss: () -> Unit, onOpenSupportTicket: (Long) -> Unit = {}) {
     val vm = appViewModel { NotificationsViewModel(it.notifications) }
     val state by vm.store.state.collectAsStateWithLifecycle()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -82,7 +85,9 @@ fun NotificationsSheet(onMarkAllRead: () -> Unit, onDismiss: () -> Unit) {
                     )
                 } else {
                     PentFilledCard {
-                        uiState.items.forEachIndexed { index, notification -> NotifRow(notification, last = index == uiState.items.lastIndex) }
+                        uiState.items.forEachIndexed { index, notification ->
+                            NotifRow(notification, last = index == uiState.items.lastIndex, onOpenSupportTicket = onOpenSupportTicket)
+                        }
                     }
                 }
             }
@@ -91,12 +96,15 @@ fun NotificationsSheet(onMarkAllRead: () -> Unit, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun NotifRow(notification: NotificationDto, last: Boolean) {
+private fun NotifRow(notification: NotificationDto, last: Boolean, onOpenSupportTicket: (Long) -> Unit) {
     val unread = !notification.read
     val (icon, container, tint) = notifVisual(notification.title)
+    // Support notices the member receives open their conversation; other rows aren't tappable.
+    val ticketId = notification.supportTicketId
     Column {
         Row(
             Modifier.fillMaxWidth()
+                .then(if (ticketId != null) Modifier.clickable { onOpenSupportTicket(ticketId) } else Modifier)
                 .background(if (unread) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent)
                 .padding(horizontal = 18.dp, vertical = 13.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -117,6 +125,9 @@ private fun NotifRow(notification: NotificationDto, last: Boolean) {
                     Text(relativeTimeFrom(notification.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 notification.body?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+            if (ticketId != null) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (!last) HorizontalDivider(Modifier.padding(start = 76.dp), color = MaterialTheme.colorScheme.outlineVariant)

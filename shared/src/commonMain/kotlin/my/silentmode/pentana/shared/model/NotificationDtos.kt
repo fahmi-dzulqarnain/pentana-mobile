@@ -10,6 +10,8 @@ data class NotificationDto(
     val body: String? = null,
     val read: Boolean = false,
     @SerialName("created_at") val createdAt: String? = null,
+    /** Set on support notices the member receives: tapping opens that ticket's conversation. */
+    @SerialName("support_ticket_id") val supportTicketId: Long? = null,
 )
 
 /** GET /api/v1/notifications response: the list plus the unread count for the bell badge. */

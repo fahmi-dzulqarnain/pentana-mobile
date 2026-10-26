@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,7 +28,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.silentmode.pentana.core.myr
@@ -41,6 +45,7 @@ import my.silentmode.pentana.shared.presentation.LunchStatus
 import my.silentmode.pentana.shared.presentation.dashboardActivityStatus
 import my.silentmode.pentana.shared.presentation.dashboardLunchStatus
 import my.silentmode.pentana.shared.presentation.duesCleared
+import my.silentmode.pentana.shared.presentation.supportCardSubtitle
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.ChipKind
 import my.silentmode.pentana.ui.components.DomainStatCard
@@ -57,7 +62,7 @@ import my.silentmode.pentana.ui.theme.MoneyMedium
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(userName: String, onSwitchTab: (NavDest) -> Unit) {
+fun HomeScreen(userName: String, isAdmin: Boolean, onSwitchTab: (NavDest) -> Unit, onOpenSupport: () -> Unit) {
     val vm = appViewModel { HomeViewModel(it.dashboard) }
     val state by vm.store.state.collectAsStateWithLifecycle()
     val refreshing by vm.store.refreshing.collectAsStateWithLifecycle()
@@ -65,13 +70,19 @@ fun HomeScreen(userName: String, onSwitchTab: (NavDest) -> Unit) {
         when (val uiState = state) {
             is HomeUiState.Loading -> LoadingState()
             is HomeUiState.Error -> ErrorState(uiState.message, vm.store::load)
-            is HomeUiState.Content -> HomeContent(userName, uiState.data, onSwitchTab)
+            is HomeUiState.Content -> HomeContent(userName, uiState.data, isAdmin, onSwitchTab, onOpenSupport)
         }
     }
 }
 
 @Composable
-private fun HomeContent(userName: String, dashboard: DashboardDto, onSwitchTab: (NavDest) -> Unit) {
+private fun HomeContent(
+    userName: String,
+    dashboard: DashboardDto,
+    isAdmin: Boolean,
+    onSwitchTab: (NavDest) -> Unit,
+    onOpenSupport: () -> Unit,
+) {
     val colors = LocalPentanaColors.current
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 16.dp),
@@ -131,6 +142,27 @@ private fun HomeContent(userName: String, dashboard: DashboardDto, onSwitchTab: 
                 if (dashboard.pendingProofsCount > 0) "${dashboard.pendingProofsCount} awaiting review" else "Nothing pending",
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
             )
+        }
+
+        // Admins answer on the web; the card is for members only.
+        if (!isAdmin) {
+            Spacer(Modifier.height(12.dp))
+            DomainStatCard(Icons.Filled.SupportAgent, colors.lunch, "Ask the committee", onClick = onOpenSupport) {
+                val waiting = dashboard.supportRepliesWaiting
+                Text(
+                    buildAnnotatedString {
+                        append(supportCardSubtitle(0))
+                        if (waiting > 0) {
+                            append(" · ")
+                            withStyle(SpanStyle(color = colors.warn.color, fontWeight = FontWeight.SemiBold)) {
+                                append(if (waiting == 1) "1 reply" else "$waiting replies")
+                            }
+                        }
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

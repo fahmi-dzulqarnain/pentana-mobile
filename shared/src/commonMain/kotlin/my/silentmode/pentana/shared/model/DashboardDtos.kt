@@ -11,6 +11,8 @@ data class DashboardDto(
     @SerialName("next_activity") val nextActivity: DashboardActivityDto? = null,
     @SerialName("open_activities_count") val openActivitiesCount: Int = 0,
     @SerialName("pending_proofs_count") val pendingProofsCount: Int = 0,
+    /** Tickets where the committee replied and the member hasn't yet: the Ask the committee card count. */
+    @SerialName("support_replies_waiting") val supportRepliesWaiting: Int = 0,
 )
 
 @Serializable

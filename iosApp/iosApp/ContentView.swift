@@ -31,11 +31,18 @@ struct MainView: View {
     @State private var selection = 0
     @State private var showingProfile = false
     @State private var showingNotifications = false
+    /// The Ask the committee sheet, carrying the ticket to open (from a notification tap). An item,
+    /// not a Bool + separate id: `.sheet(isPresented:)` built its content with a stale id.
+    @State private var supportSheet: SupportSheet?
+    /// Bumped to make Home refetch its dashboard.
+    @State private var homeRefresh = 0
+    /// Waits for the notifications sheet to finish dismissing before the support sheet appears.
+    @State private var pendingSupportTicket: Int64?
 
     var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
-                HomeView(selection: $selection)
+                HomeView(selection: $selection, refreshToken: homeRefresh, onOpenSupport: { supportSheet = SupportSheet(ticketId: nil) })
                     .background(AmbientBackground())
                     .navigationTitle("Hi, \(firstName)")
                     .modifier(TopChrome(initials: pentInitials(session.avatarName), unread: session.unreadCount,
@@ -76,12 +83,34 @@ struct MainView: View {
         }
         .tint(Pent.accent)
         .sheet(isPresented: $showingProfile) { ProfileView().environmentObject(session) }
-        .sheet(isPresented: $showingNotifications) { NotificationsView().environmentObject(session) }
+        .sheet(isPresented: $showingNotifications, onDismiss: {
+            // Only one sheet at a time: open the conversation once the bell sheet has gone.
+            if let id = pendingSupportTicket {
+                pendingSupportTicket = nil
+                supportSheet = SupportSheet(ticketId: id)
+            }
+        }) {
+            NotificationsView(onOpenSupportTicket: { id in
+                pendingSupportTicket = id
+                showingNotifications = false
+            })
+            .environmentObject(session)
+        }
+        // Replying in the sheet changes the Home card's waiting-reply count.
+        .sheet(item: $supportSheet, onDismiss: { homeRefresh += 1 }) { sheet in
+            SupportListView(openTicketId: sheet.ticketId).environmentObject(session)
+        }
     }
 
     private var firstName: String {
         session.greetingName
     }
+}
+
+/// One presentation of the Ask the committee sheet; a fresh id each time so it always re-presents.
+struct SupportSheet: Identifiable {
+    let id = UUID()
+    let ticketId: Int64?
 }
 
 // MARK: - Top chrome (avatar + bell)

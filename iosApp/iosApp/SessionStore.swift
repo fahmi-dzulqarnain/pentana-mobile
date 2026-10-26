@@ -50,7 +50,7 @@ final class SessionStore: ObservableObject {
 
         // Forward APNs device tokens / foreground pushes from the AppDelegate.
         PushRegistrar.shared.onToken = { [weak self] token in
-            Task { await self?.registerDeviceToken(token) }
+            Task { await self?.syncDeviceToken(token) }
         }
         PushRegistrar.shared.onReceive = { [weak self] in
             Task { await self?.refreshBadge() }
@@ -147,22 +147,37 @@ final class SessionStore: ObservableObject {
     // MARK: - Push notifications
 
     /// Ask for notification permission, then register for remote notifications. Safe to call
-    /// repeatedly - iOS only prompts once. Registers any token already captured by the AppDelegate.
+    /// repeatedly — iOS only prompts once. Syncs any token already captured by the AppDelegate.
     func enablePushNotifications() async {
-        // Read the manager's authoritative state, not the bridged @Published `user` - the
+        // Read the manager's authoritative state, not the bridged @Published `user` — the
         // bridge lags by queue hops, and a call racing ahead of it would silently no-op here.
         guard manager.state.value.user != nil else { return }
-        let granted = (try? await UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .badge, .sound])) ?? false
-        guard granted else { return }
-        UIApplication.shared.registerForRemoteNotifications()
-        if let token = PushRegistrar.shared.deviceToken { await registerDeviceToken(token) }
+        _ = try? await UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .badge, .sound])
+        await syncPushRegistration()
     }
 
-    private func registerDeviceToken(_ token: String) async {
+    /// Re-checked every time the app comes to the foreground. The server sends routine notices
+    /// by push *instead of* email to members with a token, so a member who turned notifications
+    /// off in Settings must lose their token, or they would hear about nothing at all.
+    func syncPushRegistration() async {
         guard manager.state.value.user != nil else { return }
-        lastDeviceToken = token
-        do { try await deviceTokens.register(token: token, platform: "ios") } catch {}
+        // iOS issues a token whether or not alerts are allowed, which also gives us the token to
+        // unregister when they are not. The AppDelegate callback lands in syncDeviceToken.
+        UIApplication.shared.registerForRemoteNotifications()
+        if let token = PushRegistrar.shared.deviceToken { await syncDeviceToken(token) }
+    }
+
+    private func syncDeviceToken(_ token: String) async {
+        guard manager.state.value.user != nil else { return }
+        switch await UNUserNotificationCenter.current().notificationSettings().authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            lastDeviceToken = token
+            do { try await deviceTokens.register(token: token, platform: "ios") } catch {}
+        default:
+            lastDeviceToken = nil
+            do { try await deviceTokens.unregister(token: token) } catch {}
+        }
     }
 
     /// Refresh the bell badge's unread count (best-effort; the manager no-ops when logged out).

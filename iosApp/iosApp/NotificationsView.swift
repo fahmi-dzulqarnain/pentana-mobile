@@ -11,6 +11,8 @@ import SwiftUI
 struct NotificationsView: View {
     @EnvironmentObject private var session: SessionStore
     @Environment(\.dismiss) private var dismiss
+    /// Opens a support ticket's conversation (rows that carry a support_ticket_id are tappable).
+    var onOpenSupportTicket: (Int64) -> Void = { _ in }
     @State private var store: NotificationsStore?
     @State private var state: NotifUiState = NotifUiStateLoading.shared
     @State private var markedRead = false
@@ -74,7 +76,12 @@ struct NotificationsView: View {
 
                         InsetGroup {
                             ForEach(Array(content.items.enumerated()), id: \.element.id) { index, item in
-                                NotifRow(item: item)
+                                if let ticketId = item.supportTicketId {
+                                    Button { onOpenSupportTicket(ticketId.int64Value) } label: { NotifRow(item: item, tappable: true) }
+                                        .buttonStyle(.plain)
+                                } else {
+                                    NotifRow(item: item)
+                                }
                                 if index < content.items.count - 1 { PentHairline(leadingInset: 60) }
                             }
                         }
@@ -89,6 +96,7 @@ struct NotificationsView: View {
 
 private struct NotifRow: View {
     let item: NotificationDto
+    var tappable = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -112,7 +120,12 @@ private struct NotifRow: View {
                     Text(body).font(.pentFoot).foregroundStyle(Pent.label2)
                 }
             }
+            if tappable {
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Pent.label4)
+                    .padding(.top, 2)
+            }
         }
+        .contentShape(Rectangle())
         .padding(.horizontal, 16).padding(.vertical, 13)
         .background(item.read ? Color.clear : Pent.accentSolid.opacity(0.07))
     }

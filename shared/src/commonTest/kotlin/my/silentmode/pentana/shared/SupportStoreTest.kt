@@ -274,7 +274,8 @@ class SupportStoreTest {
 
         store.loadImage(9, ATTACHMENT_URL)
 
-        assertEquals(SupportImage.Failed, store.images.first { it[9L] !is SupportImage.Loading && it[9L] != null }[9L])
+        val failed = store.images.first { entries -> entries.any { it.messageId == 9L && it.image !is SupportImage.Loading } }
+        assertEquals(SupportImage.Failed, failed.single { it.messageId == 9L }.image)
     }
 
     @Test fun images_load_once_per_message() = runTest {
@@ -290,7 +291,9 @@ class SupportStoreTest {
         store.loadImage(9, ATTACHMENT_URL)
         store.loadImage(9, ATTACHMENT_URL)
 
-        val loaded = assertIs<SupportImage.Loaded>(store.images.first { it[9L] is SupportImage.Loaded }[9L])
+        val entries = store.images.first { list -> list.any { it.messageId == 9L && it.image is SupportImage.Loaded } }
+        assertEquals(1, entries.size)
+        val loaded = assertIs<SupportImage.Loaded>(entries.single().image)
         assertContentEquals("PNG-bytes".encodeToByteArray(), loaded.bytes)
         assertEquals(1, fetches)
     }

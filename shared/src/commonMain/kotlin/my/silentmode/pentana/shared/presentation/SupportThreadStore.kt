@@ -26,6 +26,12 @@ sealed interface SupportImage {
 }
 
 /**
+ * One message's screenshot state. A list of these, not a Map<Long, …>: a Kotlin map's Long keys
+ * reach Swift as NSNumber, and SKIE's [KotlinLong: …] cast of them crashes the app.
+ */
+class SupportImageEntry(val messageId: Long, val image: SupportImage)
+
+/**
  * One ticket's conversation. Replying and resolving are guarded per action (reply on the ticket
  * id, resolve on its negative) so a double tap posts once and the two never block each other.
  * A reply re-fetches the ticket so its status (a reply reopens a closed ticket) is current.
@@ -48,8 +54,8 @@ class SupportThreadStore(private val repo: SupportRepository, val ticketId: Long
 
     private val actionRunner = GuardedActionRunner(scope, _inFlight, _actionError)
 
-    private val _images = MutableStateFlow<Map<Long, SupportImage>>(emptyMap())
-    val images: StateFlow<Map<Long, SupportImage>> = _images.asStateFlow()
+    private val _images = MutableStateFlow<List<SupportImageEntry>>(emptyList())
+    val images: StateFlow<List<SupportImageEntry>> = _images.asStateFlow()
 
     init { load() }
 
@@ -90,8 +96,8 @@ class SupportThreadStore(private val repo: SupportRepository, val ticketId: Long
 
     /** Fetches a screenshot once per message; a failure becomes [SupportImage.Failed], never a crash. */
     fun loadImage(messageId: Long, url: String) {
-        if (_images.value.containsKey(messageId)) return
-        _images.value = _images.value + (messageId to SupportImage.Loading)
+        if (_images.value.any { it.messageId == messageId }) return
+        _images.value = _images.value + SupportImageEntry(messageId, SupportImage.Loading)
         scope.launch {
             val image = try {
                 SupportImage.Loaded(repo.attachment(url))
@@ -100,7 +106,7 @@ class SupportThreadStore(private val repo: SupportRepository, val ticketId: Long
             } catch (_: Exception) {
                 SupportImage.Failed
             }
-            _images.value = _images.value + (messageId to image)
+            _images.value = _images.value.filterNot { it.messageId == messageId } + SupportImageEntry(messageId, image)
         }
     }
 

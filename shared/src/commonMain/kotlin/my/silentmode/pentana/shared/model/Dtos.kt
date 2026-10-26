@@ -72,7 +72,13 @@ data class PaymentProofDto(
     @SerialName("admin_note") val adminNote: String? = null,
     @SerialName("proof_image_url") val proofImageUrl: String? = null,
     @SerialName("submitted_at") val submittedAt: String? = null,
+    /** "PEN-2026-0001" once a verification issued a receipt; null before launch. */
+    @SerialName("receipt_number") val receiptNumber: String? = null,
+    @SerialName("has_receipt") val hasReceipt: Boolean = false,
 )
+
+/** A downloaded paid-receipt PDF, ready to hand to the platform viewer. */
+class ReceiptPdf(val fileName: String, val bytes: ByteArray)
 
 /** API resources are wrapped as { "data": ... }. */
 @Serializable

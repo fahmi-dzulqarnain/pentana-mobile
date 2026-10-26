@@ -25,7 +25,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import my.silentmode.pentana.ui.theme.LocalPentanaColors
 
-enum class ChipKind { Paid, Partial, Unpaid, Overdue, Registered, Waitlisted, Open, Closed, VoteNow, Responded }
+enum class ChipKind { Paid, Partial, Unpaid, Overdue, Registered, Waitlisted, Open, Closed, VoteNow, Responded, ProofPending, ProofVerified, ProofRejected }
 
 private data class ChipSpec(
     val color: Color,
@@ -52,6 +52,9 @@ fun StatusChip(kind: ChipKind, modifier: Modifier = Modifier, label: String? = n
         ChipKind.Closed -> ChipSpec(onVar, null, "Closed", outline = true)
         ChipKind.VoteNow -> ChipSpec(colors.warn.color, colors.warn.container, "Vote now", dot = true)
         ChipKind.Responded -> ChipSpec(colors.ok.color, colors.ok.container, "Responded", Icons.Filled.Check)
+        ChipKind.ProofPending -> ChipSpec(colors.warn.color, colors.warn.container, "In review", Icons.Filled.Schedule)
+        ChipKind.ProofVerified -> ChipSpec(colors.ok.color, colors.ok.container, "Verified", Icons.Filled.Check)
+        ChipKind.ProofRejected -> ChipSpec(colors.bad.color, colors.bad.container, "Rejected", dot = true)
     }
     val shape = RoundedCornerShape(8.dp)
     val box =

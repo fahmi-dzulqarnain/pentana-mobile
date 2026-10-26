@@ -4,6 +4,7 @@
 //
 
 @preconcurrency import Shared
+import QuickLook
 import SwiftUI
 
 struct BillsView: View {
@@ -11,6 +12,9 @@ struct BillsView: View {
     @State private var store: BillsStore?
     @State private var state: BillsUiState = BillsUiStateLoading.shared
     @State private var showSubmit = false
+    @State private var downloadingReceiptId: Int64?
+    @State private var receiptURL: URL?
+    @State private var receiptError: String?
 
     var body: some View {
         content
@@ -18,7 +22,19 @@ struct BillsView: View {
                 let activeStore = store ?? session.makeBillsStore()
                 store = activeStore
                 async let states: Void = { for await value in activeStore.state { await MainActor.run { state = value } } }()
-                _ = await states
+                async let receipts: Void = { for await value in activeStore.receipt { await MainActor.run { handleReceipt(value) } } }()
+                _ = await (states, receipts)
+            }
+            // A download that finishes after the member has left Bills must not pop a viewer later.
+            .onDisappear { store?.consumeReceipt() }
+            .quickLookPreview($receiptURL)
+            .alert(
+                "Receipt",
+                isPresented: Binding(get: { receiptError != nil }, set: { if !$0 { receiptError = nil } })
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(receiptError ?? "")
             }
             .sheet(isPresented: $showSubmit, onDismiss: { store?.resetSubmit() }) {
                 if let store {
@@ -58,7 +74,10 @@ struct BillsView: View {
                         SectionLabel(text: "Payment proofs")
                         InsetGroup {
                             ForEach(Array(content.proofs.enumerated()), id: \.element.id) { index, proof in
-                                ProofRow(proof: proof, onResubmit: { showSubmit = true })
+                                ProofRow(proof: proof,
+                                         downloadingReceiptId: downloadingReceiptId,
+                                         onResubmit: { showSubmit = true },
+                                         onReceipt: { store?.openReceipt(proofId: proof.id) })
                                 if index < content.proofs.count - 1 { PentHairline(leadingInset: 64) }
                             }
                         }
@@ -81,6 +100,37 @@ struct BillsView: View {
             }
             .refreshable { try? await store?.refresh() }
         }
+    }
+
+    /// Each Ready/Error is shown once, then handed back to the store so a re-collect can't replay it.
+    private func handleReceipt(_ receiptState: ReceiptState) {
+        switch onEnum(of: receiptState) {
+        case .idle:
+            downloadingReceiptId = nil
+        case .downloading(let downloading):
+            downloadingReceiptId = downloading.proofId
+        case .ready(let ready):
+            downloadingReceiptId = nil
+            do {
+                receiptURL = try writeReceipt(ready.pdf)
+            } catch {
+                receiptError = "Couldn't download the receipt. Please try again."
+            }
+            store?.consumeReceipt()
+        case .error(let error):
+            downloadingReceiptId = nil
+            receiptError = error.message
+            store?.consumeReceipt()
+        }
+    }
+
+    /// QuickLook needs a file; receipts go in tmp/receipts, overwritten by name.
+    private func writeReceipt(_ pdf: ReceiptPdf) throws -> URL {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("receipts", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let fileURL = folder.appendingPathComponent(pdf.fileName)
+        try (DataConversionKt.dataFrom(bytes: pdf.bytes) as Data).write(to: fileURL, options: .atomic)
+        return fileURL
     }
 
     private func summaryCard(_ summary: BillsSummaryDto) -> some View {
@@ -164,7 +214,9 @@ private struct BillRow: View {
 
 private struct ProofRow: View {
     let proof: PaymentProofDto
+    let downloadingReceiptId: Int64?
     let onResubmit: () -> Void
+    let onReceipt: () -> Void
 
     var body: some View {
         let status = proofStatus(proof: proof)
@@ -187,12 +239,35 @@ private struct ProofRow: View {
                         .font(.pentFoot).fontWeight(.semibold).tint(Pent.accent)
                         .padding(.top, 2)
                 }
+                if status == .verified && proof.hasReceipt {
+                    receiptButton
+                }
             }
             Spacer(minLength: 8)
             StatusPill(pillKind(for: status))
         }
         .padding(.horizontal, 16).padding(.vertical, 15)
         .accessibilityElement(children: .contain)
+    }
+
+    /// The number sits on its own line: beside the button it wrapped mid-number on a narrow row.
+    private var receiptButton: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            if downloadingReceiptId == proof.id {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Opening receipt…").font(.pentFoot).foregroundStyle(Pent.label2)
+                }
+            } else {
+                Button("View receipt", action: onReceipt)
+                    .font(.pentFoot).fontWeight(.semibold).tint(Pent.accent)
+                    .disabled(downloadingReceiptId != nil)
+            }
+            if let receiptNumber = proof.receiptNumber {
+                Text(receiptNumber).font(.pentFoot).foregroundStyle(Pent.label2).monospacedDigit().lineLimit(1)
+            }
+        }
+        .padding(.top, 2)
     }
 
     private func pillKind(for status: ProofStatus) -> PillKind {

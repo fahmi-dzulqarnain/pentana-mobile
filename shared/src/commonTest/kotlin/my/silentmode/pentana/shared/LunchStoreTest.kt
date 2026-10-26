@@ -21,6 +21,7 @@ import my.silentmode.pentana.shared.presentation.LunchStatus
 import my.silentmode.pentana.shared.presentation.LunchStore
 import my.silentmode.pentana.shared.presentation.LunchUiState
 import my.silentmode.pentana.shared.presentation.lunchClosedSummary
+import my.silentmode.pentana.shared.presentation.lunchPickedOptionName
 import my.silentmode.pentana.shared.presentation.lunchStatus
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -286,6 +287,12 @@ class LunchStoreTest {
             myLunchOptionId = 12,
         )
         assertEquals("Ordering closed: you ordered Noodle (Y).", lunchClosedSummary(l))
+    }
+
+    @Test fun picked_option_name_is_null_without_a_pick() {
+        assertEquals(null, lunchPickedOptionName(lunch(isOpen = false, responded = false)))
+        assertEquals(null, lunchPickedOptionName(lunch(isOpen = false, responded = true, myMealOptionId = null)))
+        assertEquals("Beef", lunchPickedOptionName(lunch(isOpen = false, responded = true, myMealOptionId = 11)))
     }
 
     @Test fun closed_summary_leaves_out_the_menu_when_the_day_has_only_one() {

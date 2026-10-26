@@ -39,6 +39,7 @@ import my.silentmode.pentana.shared.presentation.LunchStatus
 import my.silentmode.pentana.shared.presentation.LunchStore
 import my.silentmode.pentana.shared.presentation.LunchUiState
 import my.silentmode.pentana.shared.presentation.lunchClosedSummary
+import my.silentmode.pentana.shared.presentation.lunchPickedOptionName
 import my.silentmode.pentana.shared.presentation.lunchStatus
 import my.silentmode.pentana.ui.appViewModel
 import my.silentmode.pentana.ui.components.ChipKind
@@ -110,7 +111,9 @@ private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, 
             verticalAlignment = Alignment.Top,
         ) {
             Column(Modifier.weight(1f)) {
-                val title = lunch.menus.mapNotNull { it.menu }.joinToString(" · ").ifEmpty { lunch.menu ?: "Lunch" }
+                // A closed day is titled by what the member picked; the menus are only shown while voting is open.
+                val title = lunchPickedOptionName(lunch).takeIf { !lunch.isOpen }
+                    ?: lunch.menus.mapNotNull { it.menu }.joinToString(" · ").ifEmpty { lunch.menu ?: "Lunch" }
                 Text(title, style = MaterialTheme.typography.titleMedium)
                 Text(
                     // With menus, each caterer appears in its own section heading below.
@@ -122,16 +125,24 @@ private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, 
             StatusChip(chipKind(lunchStatus(lunch)))
         }
 
-        // Closed days list just the menus (no option rows) above the summary, so earlier days this week stay short.
-        Column(Modifier.alpha(if (busy) 0.6f else 1f)) {
-            lunch.menus.forEach { menu ->
-                Text(
-                    listOfNotNull(menu.caterer, menu.menu).joinToString(" · "),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 2.dp),
-                )
-                if (lunch.isOpen) {
+        if (!lunch.isOpen) {
+            Row(
+                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(horizontal = 18.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Icon(Icons.Filled.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
+                Text(lunchClosedSummary(lunch), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+            Column(Modifier.alpha(if (busy) 0.6f else 1f)) {
+                lunch.menus.forEach { menu ->
+                    Text(
+                        listOfNotNull(menu.caterer, menu.menu).joinToString(" · "),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 2.dp),
+                    )
                     menu.options.forEach { opt ->
                         SingleSelectRow(
                             title = opt.name ?: "Option",
@@ -142,20 +153,18 @@ private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, 
                         )
                     }
                 }
-            }
-            // Older server (no menus): legacy options carry no lunchOptionId, so they are shown read-only rather than guessing an id.
-            if (lunch.menus.isEmpty() && lunch.isOpen) {
-                lunch.options.forEach { opt ->
-                    SingleSelectRow(
-                        title = opt.name ?: "Option",
-                        selected = lunch.myMealOptionId == opt.mealOptionId,
-                        onClick = {},
-                        showDivider = true,
-                        enabled = false,
-                    )
+                // Older server (no menus): legacy options carry no lunchOptionId, so they are shown read-only rather than guessing an id.
+                if (lunch.menus.isEmpty()) {
+                    lunch.options.forEach { opt ->
+                        SingleSelectRow(
+                            title = opt.name ?: "Option",
+                            selected = lunch.myMealOptionId == opt.mealOptionId,
+                            onClick = {},
+                            showDivider = true,
+                            enabled = false,
+                        )
+                    }
                 }
-            }
-            if (lunch.isOpen) {
                 SingleSelectRow(
                     title = "Not attending",
                     selected = lunch.responded && lunch.myLunchOptionId == null && lunch.myMealOptionId == null,
@@ -163,18 +172,6 @@ private fun LunchCard(lunch: LunchDto, busy: Boolean, onChoose: (Long) -> Unit, 
                     showDivider = false,
                     enabled = !busy,
                 )
-            }
-        }
-
-        if (!lunch.isOpen) {
-            if (lunch.menus.isNotEmpty()) Spacer(Modifier.height(10.dp))
-            Row(
-                Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(horizontal = 18.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(Icons.Filled.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
-                Text(lunchClosedSummary(lunch), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 

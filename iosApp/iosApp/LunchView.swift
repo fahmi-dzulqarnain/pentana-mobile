@@ -93,15 +93,14 @@ private struct LunchCard: View {
             }
             .padding(.horizontal, 16).padding(.top, 14).padding(.bottom, 12)
 
-            // Closed days list just the menus (no option rows) above the summary, so earlier days this week stay short.
-            VStack(spacing: 0) {
-                ForEach(lunch.menus, id: \.id) { menu in
-                    Text([menu.caterer, menu.menu].compactMap { $0 }.joined(separator: " · "))
-                        .font(.pentFoot).fontWeight(.semibold).foregroundStyle(Pent.label2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 6)
-                        .overlay(alignment: .top) { PentHairline(leadingInset: 0) }
-                    if lunch.isOpen {
+            if lunch.isOpen {
+                VStack(spacing: 0) {
+                    ForEach(lunch.menus, id: \.id) { menu in
+                        Text([menu.caterer, menu.menu].compactMap { $0 }.joined(separator: " · "))
+                            .font(.pentFoot).fontWeight(.semibold).foregroundStyle(Pent.label2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 6)
+                            .overlay(alignment: .top) { PentHairline(leadingInset: 0) }
                         ForEach(menu.options, id: \.lunchOptionId) { option in
                             PentHairline()
                             optionRow(title: option.name ?? "Option",
@@ -110,28 +109,24 @@ private struct LunchCard: View {
                             }
                         }
                     }
-                }
-                // Older server (no menus): legacy options carry no lunchOptionId, so they are shown read-only rather than guessing an id.
-                if lunch.menus.isEmpty && lunch.isOpen {
-                    ForEach(lunch.options, id: \.mealOptionId) { option in
-                        PentHairline()
-                        optionRow(title: option.name ?? "Option",
-                                  chosen: lunch.myMealOptionId?.int64Value == option.mealOptionId) {}
-                            .disabled(true)
+                    // Older server (no menus): legacy options carry no lunchOptionId, so they are shown read-only rather than guessing an id.
+                    if lunch.menus.isEmpty {
+                        ForEach(lunch.options, id: \.mealOptionId) { option in
+                            PentHairline()
+                            optionRow(title: option.name ?? "Option",
+                                      chosen: lunch.myMealOptionId?.int64Value == option.mealOptionId) {}
+                                .disabled(true)
+                        }
                     }
-                }
-                if lunch.isOpen {
                     PentHairline()
                     optionRow(title: "Not attending",
                               chosen: lunch.responded && lunch.myLunchOptionId == nil && lunch.myMealOptionId == nil) {
                         notAttending()
                     }
                 }
-            }
-            .opacity(busy ? 0.6 : 1)
-            .allowsHitTesting(!busy)
-
-            if !lunch.isOpen {
+                .opacity(busy ? 0.6 : 1)
+                .allowsHitTesting(!busy)
+            } else {
                 HStack(spacing: 8) {
                     Image(systemName: "lock.fill").font(.system(size: 13)).foregroundStyle(Pent.label3)
                     Text(lunchClosedSummary(lunch: lunch)).font(.pentFoot).fontWeight(.medium).foregroundStyle(Pent.label2)
@@ -139,7 +134,6 @@ private struct LunchCard: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 12)
                 .background(Pent.surface2)
-                .overlay(alignment: .top) { PentHairline(leadingInset: 0) }
             }
 
             HStack(spacing: 6) {
@@ -177,6 +171,8 @@ private struct LunchCard: View {
     }
 
     private var title: String {
+        // A closed day is titled by what the member picked; the menus are only shown while voting is open.
+        if !lunch.isOpen, let picked = lunchPickedOptionName(lunch: lunch) { return picked }
         let names = lunch.menus.compactMap { $0.menu }.filter { !$0.isEmpty }
         return names.isEmpty ? (lunch.menu ?? "Lunch") : names.joined(separator: " · ")
     }
@@ -201,4 +197,3 @@ private struct LunchCard: View {
         return lunch.isOpen ? "Order by \(when)" : "Ordering closed \(when)"
     }
 }
-

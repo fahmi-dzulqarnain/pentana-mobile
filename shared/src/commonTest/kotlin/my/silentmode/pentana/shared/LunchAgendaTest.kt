@@ -73,7 +73,7 @@ class LunchAgendaTest {
     @Test fun banner_counts_pending_days_and_targets_the_soonest() {
         val banner = assertNotNull(lunchAgenda(week, wedTen, myt).banner)
         assertEquals("2 lunches need your vote", banner.title)
-        assertEquals(listOf("Thu 29 Oct closes today 4:00 pm · in 6 h", "Mon 2 Nov closes Sun 1 Nov, 4:00 pm"), banner.lines)
+        assertEquals(listOf("Thu closes today 4:00 pm · in 6 h", "Mon closes Sun 4:00 pm"), banner.lines)
         assertEquals("Vote for Thu", banner.actionLabel)
         assertEquals(4L, banner.targetLunchId)
     }
@@ -123,6 +123,12 @@ class LunchAgendaTest {
         }
 
         assertFalse(rows.getValue(6).urgent)
+    }
+
+    @Test fun far_deadlines_keep_their_date() {
+        val far = listOf(lunch(9, "2026-11-10", "2026-11-09T16:00:00+08:00", isOpen = true))
+        assertEquals("Closes Mon 9 Nov, 4:00 pm", lunchAgenda(far, wedTen, myt).sections.single().rows.single().subtitle)
+        assertEquals("Later", lunchAgenda(far, wedTen, myt).sections.single().title)
     }
 
     @Test fun countdown_switches_to_minutes_in_the_last_hour() {

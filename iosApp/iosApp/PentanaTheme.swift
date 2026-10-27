@@ -62,6 +62,8 @@ enum Pent {
 
     static let duesBg = Color(light: 0x155EEF, dark: 0x6CA0FF, lightAlpha: 0.12, darkAlpha: 0.18)
     static let lunchBg = Color(light: 0xF7931E, dark: 0xF7931E, lightAlpha: 0.16, darkAlpha: 0.20)
+    /// Orange for TEXT on light surfaces and tints: 5.2-7.0:1 (WCAG AA), where `lunch` is 2.6-2.9:1. Keep `lunch` for fills.
+    static let lunchInk = Color(light: 0x8F4500, dark: 0xFBB04C)
     static let activBg = Color(light: 0x149E61, dark: 0x2DC07E, lightAlpha: 0.14, darkAlpha: 0.18)
     static let proofBg = Color(light: 0x6B4DE6, dark: 0xA78BFF, lightAlpha: 0.14, darkAlpha: 0.20)
 

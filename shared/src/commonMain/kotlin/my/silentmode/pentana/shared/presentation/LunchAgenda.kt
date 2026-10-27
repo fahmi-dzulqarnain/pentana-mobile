@@ -96,7 +96,7 @@ fun lunchAgenda(lunches: List<LunchDto>, nowEpochSeconds: Long, utcOffsetSeconds
     val banner = pending.firstOrNull()?.let { (first, firstDay) ->
         val lines = pending.take(2).map { (lunch, day) ->
             val deadline = deadlineOf(lunch)
-            "${shortDay(day)} closes " + (deadline?.let { clock.deadlinePhrase(it) } ?: "soon")
+            "${WEEKDAYS_SHORT[weekdayIndex(day)]} closes " + (deadline?.let { clock.deadlinePhrase(it) } ?: "soon")
         } + listOfNotNull(if (pending.size > 2) "and ${pending.size - 2} more" else null)
         LunchBanner(
             title = if (pending.size == 1) "1 lunch needs your vote" else "${pending.size} lunches need your vote",
@@ -256,7 +256,7 @@ private fun shortDay(epochDay: Long): String =
 private class LunchClock(val now: Long, private val offsetSeconds: Int) {
     val today: Long = (now + offsetSeconds).floorDiv(86_400L)
 
-    /** "today 4:00 pm · in 6 h", "tomorrow 4:00 pm", "Sun 1 Nov, 4:00 pm". */
+    /** "today 4:00 pm · in 6 h", "tomorrow 4:00 pm", "Sun 4:00 pm" within the week, else "Sun 8 Nov, 4:00 pm". */
     fun deadlinePhrase(deadline: Long): String {
         val local = deadline + offsetSeconds
         val day = local.floorDiv(86_400L)
@@ -271,6 +271,7 @@ private class LunchClock(val now: Long, private val offsetSeconds: Int) {
         val whenText = when (day) {
             today -> "today $time"
             today + 1 -> "tomorrow $time"
+            in today + 2..today + 6 -> "${WEEKDAYS_SHORT[weekdayIndex(day)]} $time"
             else -> "${shortDay(day)}, $time"
         }
         return listOfNotNull(whenText, countdown).joinToString(" · ")

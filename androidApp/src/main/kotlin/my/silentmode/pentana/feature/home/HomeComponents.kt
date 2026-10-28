@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -32,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,10 +44,12 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import java.time.Instant
 import java.time.LocalDate
@@ -376,20 +377,37 @@ internal fun HomePill(text: String, color: Color, container: Color) {
 
 enum class DateChipKind { Lunch, Activity }
 
+private val ChipWeekdayStyle = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold)
+private val ChipDayStyle = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum")
+private val ChipWeekdays = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+private val ChipTextPadding = 8.dp
+
 /**
- * A calendar tile, 40dp wide at default text size: a coloured weekday strip over the day number,
- * on the surface colour. Its minimum width follows the font scale (capped at 64dp) so every chip
- * in a list stays the same width, and it still grows to its text if that is wider, so the weekday
- * never clips at large font sizes.
+ * The one width every date chip uses at the current font scale: 40dp at default text size, or the
+ * widest weekday / two-digit day plus padding if that is wider. Measuring the widest case, not each
+ * chip's own text, keeps the rows in a list aligned at any font scale (font scaling is non-linear,
+ * so "MON" and "THU" grow by different amounts) and the weekday never clips.
  */
+@Composable
+private fun dateChipWidth(): Dp {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    return remember(measurer, density) {
+        val widestText = maxOf(
+            ChipWeekdays.maxOf { measurer.measure(it, ChipWeekdayStyle).size.width },
+            measurer.measure("00", ChipDayStyle).size.width,
+        )
+        maxOf(40.dp, with(density) { widestText.toDp() } + ChipTextPadding)
+    }
+}
+
+/** A calendar tile: a coloured weekday strip over the day number, on the surface colour. */
 @Composable
 internal fun DateChip(weekday: String, day: String, kind: DateChipKind, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(10.dp)
-    val minWidth = with(LocalDensity.current) { 40.sp.toDp() }.coerceIn(40.dp, 64.dp)
     Column(
         modifier
-            .widthIn(min = minWidth)
-            .width(IntrinsicSize.Max)
+            .width(dateChipWidth())
             .clip(shape)
             .background(MaterialTheme.colorScheme.surface)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), shape)
@@ -401,18 +419,17 @@ internal fun DateChip(weekday: String, day: String, kind: DateChipKind, modifier
             modifier = Modifier
                 .fillMaxWidth()
                 .background(if (kind == DateChipKind.Lunch) ChipStripLunch else ChipStripActivity)
-                .padding(horizontal = 4.dp, vertical = 2.dp),
+                .padding(horizontal = ChipTextPadding / 2, vertical = 2.dp),
             color = if (kind == DateChipKind.Lunch) ChipStripLunchText else ChipStripActivityText,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
+            style = ChipWeekdayStyle,
             maxLines = 1,
             textAlign = TextAlign.Center,
         )
         Text(
             day,
-            modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 1.dp, bottom = 3.dp),
+            modifier = Modifier.padding(horizontal = ChipTextPadding / 2).padding(top = 1.dp, bottom = 3.dp),
             color = MaterialTheme.colorScheme.onSurface,
-            style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"),
+            style = ChipDayStyle,
             maxLines = 1,
         )
     }

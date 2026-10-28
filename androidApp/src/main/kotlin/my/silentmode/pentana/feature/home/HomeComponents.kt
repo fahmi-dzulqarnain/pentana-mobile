@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -380,13 +382,20 @@ internal fun HomePill(text: String, color: Color, container: Color) {
 
 enum class DateChipKind { Lunch, Activity }
 
-/** A 40dp-wide calendar tile: a coloured weekday strip over the day number, on the surface colour. */
+/**
+ * A calendar tile, 40dp wide at default text size: a coloured weekday strip over the day number,
+ * on the surface colour. Its minimum width follows the font scale (capped at 64dp) so every chip
+ * in a list stays the same width, and it still grows to its text if that is wider, so the weekday
+ * never clips at large font sizes.
+ */
 @Composable
 internal fun DateChip(weekday: String, day: String, kind: DateChipKind, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(10.dp)
+    val minWidth = with(LocalDensity.current) { 40.sp.toDp() }.coerceIn(40.dp, 64.dp)
     Column(
         modifier
-            .width(40.dp)
+            .widthIn(min = minWidth)
+            .width(IntrinsicSize.Max)
             .clip(shape)
             .background(MaterialTheme.colorScheme.surface)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f), shape)
@@ -398,7 +407,7 @@ internal fun DateChip(weekday: String, day: String, kind: DateChipKind, modifier
             modifier = Modifier
                 .fillMaxWidth()
                 .background(if (kind == DateChipKind.Lunch) ChipStripLunch else ChipStripActivity)
-                .padding(vertical = 2.dp),
+                .padding(horizontal = 4.dp, vertical = 2.dp),
             color = if (kind == DateChipKind.Lunch) ChipStripLunchText else ChipStripActivityText,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
@@ -407,7 +416,7 @@ internal fun DateChip(weekday: String, day: String, kind: DateChipKind, modifier
         )
         Text(
             day,
-            modifier = Modifier.padding(top = 1.dp, bottom = 3.dp),
+            modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 1.dp, bottom = 3.dp),
             color = MaterialTheme.colorScheme.onSurface,
             style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"),
             maxLines = 1,

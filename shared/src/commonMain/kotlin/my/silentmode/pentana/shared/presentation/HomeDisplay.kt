@@ -17,6 +17,22 @@ fun dashboardLunchStatus(lunch: DashboardLunchDto): LunchStatus = when {
     else -> LunchStatus.Closed
 }
 
+/**
+ * Menu names for a lunch, shared so both platforms word a lunch the same way: each menu's
+ * name, else its caterer; with none named, the lunch's own menu, else its caterer.
+ */
+fun dashboardLunchNames(lunch: DashboardLunchDto): List<String> {
+    val names = lunch.menus.mapNotNull { (it.menu.nonBlank() ?: it.caterer.nonBlank()) }
+    if (names.isNotEmpty()) return names
+    return listOfNotNull(lunch.menu.nonBlank() ?: lunch.caterer.nonBlank())
+}
+
+/** "Lunch · Nasi lemak · Chicken rice", or "Lunch" when nothing is named. */
+fun dashboardLunchLabel(lunch: DashboardLunchDto): String =
+    (listOf("Lunch") + dashboardLunchNames(lunch)).joinToString(" · ")
+
+private fun String?.nonBlank(): String? = this?.takeIf { it.isNotBlank() }
+
 fun dashboardActivityStatus(activity: DashboardActivityDto): DashboardActivityStatus = when (activity.myStatus) {
     "registered" -> DashboardActivityStatus.Registered
     "waitlisted" -> DashboardActivityStatus.Waitlisted

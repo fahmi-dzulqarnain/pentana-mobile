@@ -3,6 +3,8 @@ package my.silentmode.pentana.shared
 import kotlinx.serialization.json.Json
 import my.silentmode.pentana.shared.model.*
 import my.silentmode.pentana.shared.presentation.HomeTodo
+import my.silentmode.pentana.shared.presentation.dashboardLunchLabel
+import my.silentmode.pentana.shared.presentation.dashboardLunchNames
 import my.silentmode.pentana.shared.presentation.formatCents
 import my.silentmode.pentana.shared.presentation.homeSections
 import my.silentmode.pentana.shared.presentation.moneyCents
@@ -128,5 +130,21 @@ class HomeDisplayTest {
         assertEquals(50, moneyCents("0.5"))
         assertEquals(0, moneyCents("abc"))
         assertEquals("35.50", formatCents(3550))
+    }
+
+    @Test fun lunch_label_names_each_menu_else_its_caterer() {
+        fun l(menus: List<DashboardMenuDto> = emptyList(), menu: String? = null, caterer: String? = null) =
+            DashboardLunchDto(id = 1, date = "2026-07-20", menu = menu, caterer = caterer, isOpen = true, responded = false, menus = menus)
+
+        assertEquals(
+            "Lunch · Nasi lemak · Kak Mah",
+            dashboardLunchLabel(l(listOf(DashboardMenuDto(menu = "Nasi lemak"), DashboardMenuDto(menu = " ", caterer = "Kak Mah")))),
+        )
+        assertEquals("Lunch · Soto", dashboardLunchLabel(l(menu = "Soto", caterer = "Kak Mah")))
+        // A caterer-only lunch is named by its caterer, not a bare "Lunch".
+        assertEquals("Lunch · Kak Mah", dashboardLunchLabel(l(caterer = "Kak Mah")))
+        assertEquals("Lunch · Kak Mah", dashboardLunchLabel(l(menu = "", caterer = "Kak Mah")))
+        assertEquals("Lunch", dashboardLunchLabel(l(listOf(DashboardMenuDto()))))
+        assertEquals(emptyList(), dashboardLunchNames(l()))
     }
 }

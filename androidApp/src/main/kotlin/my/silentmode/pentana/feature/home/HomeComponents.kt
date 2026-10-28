@@ -60,6 +60,8 @@ import my.silentmode.pentana.core.parseIso
 import my.silentmode.pentana.shared.model.DashboardLunchDto
 import my.silentmode.pentana.shared.model.DashboardMenuDto
 import my.silentmode.pentana.shared.presentation.HomeTodo
+import my.silentmode.pentana.shared.presentation.dashboardLunchLabel
+import my.silentmode.pentana.shared.presentation.dashboardLunchNames
 import my.silentmode.pentana.ui.components.LeadingIcon
 import my.silentmode.pentana.ui.theme.ChipStripActivity
 import my.silentmode.pentana.ui.theme.ChipStripActivityText
@@ -82,19 +84,11 @@ data class TodoText(
     val titleIsMoney: Boolean = false,
 )
 
-/** Menu names for a lunch: each menu's name, else its caterer; the lunch's own menu/caterer as a fallback. */
-internal fun lunchNames(lunch: DashboardLunchDto): List<String> {
-    val names = lunch.menus.mapNotNull { menuName(it) }
-    if (names.isNotEmpty()) return names
-    return listOfNotNull((lunch.menu ?: lunch.caterer)?.takeIf { it.isNotBlank() })
-}
-
-private fun menuName(menu: DashboardMenuDto): String? =
-    (menu.menu?.takeIf { it.isNotBlank() } ?: menu.caterer)?.takeIf { it.isNotBlank() }
+/** Menu names for a lunch; the rule lives in :shared so iOS words lunches the same way. */
+internal fun lunchNames(lunch: DashboardLunchDto): List<String> = dashboardLunchNames(lunch)
 
 /** "Lunch · Nasi lemak · Chicken rice", or "Lunch" when nothing is named. */
-internal fun lunchLabel(lunch: DashboardLunchDto): String =
-    (listOf("Lunch") + lunchNames(lunch)).joinToString(" · ")
+internal fun lunchLabel(lunch: DashboardLunchDto): String = dashboardLunchLabel(lunch)
 
 /** Title, detail and cue for [todo]; [zone] places the vote deadline's weekday. */
 internal fun todoText(todo: HomeTodo, zone: ZoneId = ZoneId.systemDefault()): TodoText = when (todo) {

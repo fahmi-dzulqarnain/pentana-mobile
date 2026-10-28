@@ -90,6 +90,9 @@ struct MainView: View {
         .onChange(of: push.pendingTicketId, initial: true) { _, id in
             guard let id else { return }
             push.pendingTicketId = nil
+            // The member support API refuses admins (403), so an admin's tap just opens the app.
+            // The server no longer sends ticket_id on admin-facing pushes; this is the backstop.
+            guard session.user?.isAdmin != true else { return }
             openSupportFromPush(id)
         }
         .sheet(isPresented: $showingProfile, onDismiss: presentPendingSupport) { ProfileView().environmentObject(session) }

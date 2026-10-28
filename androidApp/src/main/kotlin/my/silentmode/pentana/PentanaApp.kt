@@ -35,7 +35,9 @@ import my.silentmode.pentana.ui.components.LoadingState
 import my.silentmode.pentana.ui.components.NavDest
 import my.silentmode.pentana.ui.components.PentNavBar
 import my.silentmode.pentana.ui.components.PentTopBar
+import my.silentmode.pentana.ui.session.SessionScope
 import my.silentmode.pentana.ui.session.SessionViewModel
+import my.silentmode.pentana.ui.session.sessionScopeKey
 import my.silentmode.pentana.ui.theme.PentanaTheme
 import my.silentmode.pentana.ui.update.UpdateDialog
 import my.silentmode.pentana.ui.update.UpdateViewModel
@@ -48,10 +50,15 @@ fun PentanaApp() {
 
         LaunchedEffect(Unit) { session.bootstrap() }
 
-        when {
-            sessionState.bootstrapping -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) { LoadingState() }
-            sessionState.user == null -> LoginScreen()
-            else -> MainScaffold(session, sessionState.user!!, sessionState.unread)
+        // Every screen ViewModel (Home, Bills, … and the login form) lives in a store scoped to
+        // the signed-in member, cleared on sign-out or account switch: nothing of one member's
+        // data, nor the typed password, survives into the next session.
+        SessionScope(sessionScopeKey(sessionState.user)) {
+            when {
+                sessionState.bootstrapping -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) { LoadingState() }
+                sessionState.user == null -> LoginScreen()
+                else -> MainScaffold(session, sessionState.user!!, sessionState.unread)
+            }
         }
 
         // Also shown on the login screen: a build that cannot sign in still needs to reach the fix.
@@ -93,7 +100,7 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
             )
         } else {
             SupportListScreen(
-                // Replying there changes the Home card's waiting-reply count. Same Activity-scoped
+                // Replying there changes the Home card's waiting-reply count. Same session-scoped
                 // ViewModel HomeScreen uses (appViewModel keys by class).
                 onBack = { supportOpen = false; home.refresh() },
                 onOpenTicket = { supportTicket = it },

@@ -103,7 +103,7 @@ fun HomeScreen(userName: String, isAdmin: Boolean, onSwitchTab: (NavDest) -> Uni
     }
 
     if (showSubmitProof) {
-        // The same Activity-scoped Bills store BillsScreen uses (appViewModel keys by class), so a
+        // The same session-scoped Bills store BillsScreen uses (appViewModel keys by class), so a
         // resubmitted proof also shows on Bills. Only created once the sheet opens.
         val bills = appViewModel { BillsViewModel(it.bills) }
         SubmitProofSheet(

@@ -23,9 +23,23 @@ struct HomeView: View {
     @State private var showAllTodos = false
     /// Resubmitting a rejected proof: the submit-proof sheet needs a Bills store of its own.
     @State private var billsStore: BillsStore?
-    @State private var showSubmitProof = false
+    /// The open resubmit sheet. Presented by item so its content is built with the store it
+    /// carries; `.sheet(isPresented:)` captured a nil store on the first tap (blank sheet).
+    @State private var resubmit: ResubmitSheet?
+
+    // Dynamic Type for the texts set outside TodoRow / ComingUpRow / SectionHeader.
+    @ScaledMetric(relativeTo: .footnote) private var dateSize: CGFloat = 13
+    @ScaledMetric(relativeTo: .title2) private var greetingSize: CGFloat = 22
+    @ScaledMetric(relativeTo: .footnote) private var secondarySize: CGFloat = 13
+    @ScaledMetric(relativeTo: .footnote) private var openToJoinSize: CGFloat = 13.5
+    @ScaledMetric(relativeTo: .subheadline) private var emptyTitleSize: CGFloat = 15
 
     private static let todoCap = 3
+
+    private struct ResubmitSheet: Identifiable {
+        let id = UUID()
+        let store: BillsStore
+    }
 
     var body: some View {
         content
@@ -36,13 +50,11 @@ struct HomeView: View {
                 _ = await states
             }
             .onChange(of: refreshToken) { _, _ in Task { try? await store?.refresh() } }
-            .sheet(isPresented: $showSubmitProof, onDismiss: {
+            .sheet(item: $resubmit, onDismiss: {
                 billsStore?.resetSubmit()
                 Task { try? await store?.refresh() }
-            }) {
-                if let billsStore {
-                    SubmitProofView(store: billsStore)
-                }
+            }) { sheet in
+                SubmitProofView(store: sheet.store)
             }
     }
 
@@ -92,9 +104,9 @@ struct HomeView: View {
     private var greeting: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(todayString)
-                .font(.system(size: 13)).foregroundStyle(Pent.label2)
+                .font(.system(size: dateSize)).foregroundStyle(Pent.label2)
             Text("Hi, \(session.greetingName)")
-                .font(.system(size: 22, weight: .bold)).foregroundStyle(Pent.label)
+                .font(.system(size: greetingSize, weight: .bold)).foregroundStyle(Pent.label)
                 .accessibilityAddTraits(.isHeader)
         }
         .padding(.horizontal, 4)
@@ -126,7 +138,7 @@ struct HomeView: View {
         } label: {
             HStack(spacing: 8) {
                 Text("+\(hidden) more · \(next)")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: secondarySize, weight: .semibold))
                     .foregroundStyle(Pent.label2)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -143,8 +155,9 @@ struct HomeView: View {
     private func open(_ todo: HomeTodo) {
         switch onEnum(of: todo) {
         case .rejectedProof:
-            if billsStore == nil { billsStore = session.makeBillsStore() }
-            showSubmitProof = true
+            let bills = billsStore ?? session.makeBillsStore()
+            billsStore = bills
+            resubmit = ResubmitSheet(store: bills)
         case .dues:
             selection = 1
         case .lunchVote:
@@ -164,7 +177,7 @@ struct HomeView: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("You're all clear").font(.pentHeadline).foregroundStyle(Pent.label)
-                Text("No dues, no votes waiting. Nice.").font(.system(size: 13)).foregroundStyle(Pent.label2)
+                Text("No dues, no votes waiting. Nice.").font(.system(size: secondarySize)).foregroundStyle(Pent.label2)
             }
             Spacer(minLength: 0)
         }
@@ -212,7 +225,7 @@ struct HomeView: View {
             DomainIcon(symbol: "clock.fill", tint: Pent.proof, bg: Pent.proofBg, size: 36, corner: 11, iconSize: 17)
         } detail: {
             Text("Dues clear once the committee approves")
-                .font(.system(size: 13)).foregroundStyle(Pent.label2).lineLimit(1)
+                .font(.system(size: secondarySize)).foregroundStyle(Pent.label2).lineLimit(1)
         }
     }
 
@@ -248,7 +261,7 @@ struct HomeView: View {
                     HomePill(text: "Registered")
                 }
                 if let start {
-                    Text(PentDates.time(start)).font(.system(size: 13)).foregroundStyle(Pent.label2).lineLimit(1)
+                    Text(PentDates.time(start)).font(.system(size: secondarySize)).foregroundStyle(Pent.label2).lineLimit(1)
                 }
             }
         }
@@ -263,7 +276,7 @@ struct HomeView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 HomeChevron()
             }
-            .font(.system(size: 13.5, weight: .semibold))
+            .font(.system(size: openToJoinSize, weight: .semibold))
             .foregroundStyle(Pent.okStrong)
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, minHeight: 48)
@@ -275,9 +288,9 @@ struct HomeView: View {
     private var emptyComingUp: some View {
         VStack(spacing: 2) {
             Text("Nothing coming up")
-                .font(.system(size: 15, weight: .semibold)).foregroundStyle(Pent.label)
+                .font(.system(size: emptyTitleSize, weight: .semibold)).foregroundStyle(Pent.label)
             Text("No lunches or activities you've joined yet.")
-                .font(.system(size: 13)).foregroundStyle(Pent.label2)
+                .font(.system(size: secondarySize)).foregroundStyle(Pent.label2)
                 .multilineTextAlignment(.center)
             Button { selection = 3 } label: { CueLabel(text: "Browse activities") }
                 .buttonStyle(.plain)
@@ -296,7 +309,7 @@ struct HomeView: View {
             DomainIcon(symbol: "lifepreserver.fill", tint: Pent.accent, bg: Pent.lunchBg, size: 36, corner: 11, iconSize: 17)
         } detail: {
             Text(supportCardSubtitle(waiting: 0))
-                .font(.system(size: 13)).foregroundStyle(Pent.label2).lineLimit(1)
+                .font(.system(size: secondarySize)).foregroundStyle(Pent.label2).lineLimit(1)
         }
         .pentGlass(20)
     }
@@ -308,10 +321,9 @@ struct HomeView: View {
         return formatter.string(from: Date())
     }
 
+    /// Shared with Android: "Lunch · Nasi lemak · Kak Mah" (menu, else caterer), or "Lunch".
     private func lunchTitle(_ lunch: DashboardLunchDto) -> String {
-        var names = lunch.menus.compactMap { $0.menu }.filter { !$0.isEmpty }
-        if names.isEmpty, let menu = lunch.menu, !menu.isEmpty { names = [menu] }
-        return names.isEmpty ? "Lunch" : "Lunch · " + names.joined(separator: " / ")
+        dashboardLunchLabel(lunch: lunch)
     }
 }
 

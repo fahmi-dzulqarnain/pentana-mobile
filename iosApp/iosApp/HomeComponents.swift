@@ -43,16 +43,18 @@ extension TodoRowModel {
             } else if (Double(dues.credit) ?? 0) > 0 {
                 parts.append("MYR \(dues.credit) credit")
             }
+            // Never a blank line: with nothing else to say, fall back to the bill count (as Android).
+            if parts.isEmpty { parts.append("\(unpaid) bills") }
             self.init(symbol: "creditcard.fill", tint: Pent.dues, bg: Pent.duesBg,
                       title: "MYR \(dues.amountDue) due", titleIsMoney: true,
                       detail: parts.joined(separator: " · "), cue: "Pay & upload")
         case .lunchVote(let vote):
             let lunch = vote.lunch
             var parts: [String] = []
-            let names = lunch.menus.compactMap { $0.menu ?? $0.caterer }.filter { !$0.isEmpty }
             if lunch.menus.count > 1 {
                 parts.append("\(lunch.menus.count) menus")
-            } else if let name = names.first ?? lunch.menu, !name.isEmpty {
+            } else if let name = dashboardLunchNames(lunch: lunch).first {
+                // Shared rule: the menu's name, else its caterer, else the lunch's own.
                 parts.append(name)
             }
             if let deadline = lunch.voteDeadline, let day = PentDates.weekday(iso: deadline) {
@@ -200,9 +202,11 @@ struct ComingUpRow<Leading: View, Detail: View>: View {
 }
 
 struct HomeChevron: View {
+    @ScaledMetric(relativeTo: .footnote) private var size: CGFloat = 13
+
     var body: some View {
         Image(systemName: "chevron.right")
-            .font(.system(size: 13, weight: .bold))
+            .font(.system(size: size, weight: .bold))
             .foregroundStyle(Pent.label2.opacity(0.6))
             .accessibilityHidden(true)
     }
@@ -213,10 +217,11 @@ struct HomePill: View {
     let text: String
     var color: Color = Pent.okStrong
     var bg: Color = Pent.okBg
+    @ScaledMetric(relativeTo: .caption2) private var size: CGFloat = 11
 
     var body: some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold))
+            .font(.system(size: size, weight: .semibold))
             .foregroundStyle(color)
             .padding(.vertical, 2)
             .padding(.horizontal, 8)
@@ -228,18 +233,23 @@ struct HomePill: View {
 
 // MARK: - Date chip
 
-/// A 40pt-wide calendar tile: a coloured weekday strip over the day number, on the surface colour.
+/// A calendar tile, 40pt wide at the default text size: a coloured weekday strip over the day
+/// number, on the surface colour. Text and width follow Dynamic Type (width capped at 64pt, the
+/// weekday shrinks to fit past that), so every chip in a list stays the same width.
 struct DateChip: View {
     enum Kind { case lunch, activity }
 
     let weekday: String
     let day: String
     let kind: Kind
+    @ScaledMetric(relativeTo: .caption2) private var weekdaySize: CGFloat = 10
+    @ScaledMetric(relativeTo: .body) private var daySize: CGFloat = 17
+    @ScaledMetric(relativeTo: .body) private var width: CGFloat = 40
 
     var body: some View {
         VStack(spacing: 0) {
             Text(weekday.uppercased())
-                .font(.system(size: 10, weight: .bold))
+                .font(.system(size: weekdaySize, weight: .bold))
                 .foregroundStyle(kind == .lunch ? Color(hex: 0x14121F) : Color.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
@@ -247,12 +257,14 @@ struct DateChip: View {
                 .padding(.vertical, 2)
                 .background(kind == .lunch ? Pent.orange : Color(hex: 0x0B6E42))
             Text(day)
-                .font(.pentMoney(17))
+                .font(.pentMoney(daySize))
                 .foregroundStyle(Pent.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
                 .padding(.top, 1)
                 .padding(.bottom, 3)
         }
-        .frame(width: 40)
+        .frame(width: min(width, 64))
         .background(Pent.surface)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         .shadow(color: .black.opacity(0.1), radius: 1.5, y: 1)

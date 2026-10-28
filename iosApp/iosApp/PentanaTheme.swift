@@ -54,6 +54,10 @@ enum Pent {
     static let accent = Color(light: 0xE27D0A, dark: 0xFBB04C)
     static let accentSolid = Color(hex: 0xF7931E)
 
+    // Compact cue buttons (Home to-do rows): white on indigo 15.8:1, near-black on light orange 10:1.
+    static let ctaBg = Color(light: 0x1B1464, dark: 0xFBB04C)
+    static let ctaFg = Color(light: 0xFFFFFF, dark: 0x14121F)
+
     // Domains
     static let dues = Color(light: 0x155EEF, dark: 0x6CA0FF)
     static let lunch = Color(light: 0xE27D0A, dark: 0xFBB04C)
@@ -72,6 +76,8 @@ enum Pent {
     static let warn = Color(light: 0xC05E00, dark: 0xFBB04C)
     static let bad = Color(light: 0xD92D20, dark: 0xFF6B5E)
     static let neutral = Color(light: 0x6E6B82, dark: 0x9C99B4)
+    /// Deeper green for chip strips and green pill text (5.5:1 on `okBg` in light mode).
+    static let okStrong = Color(light: 0x0B6E42, dark: 0x34C77E)
 
     static let okBg = Color(light: 0x149E61, dark: 0x2DC07E, lightAlpha: 0.14, darkAlpha: 0.18)
     static let warnBg = Color(light: 0xDC6803, dark: 0xFBB04C, lightAlpha: 0.15, darkAlpha: 0.18)
@@ -80,7 +86,8 @@ enum Pent {
 
     // Labels
     static let label = Color(light: 0x14121F, dark: 0xF4F3F9)
-    static let label2 = Color(light: 0x5B5870, dark: 0xADAAC2)
+    /// Secondary text: 4A475E / C4C1D8 for contrast on glass (Home redesign).
+    static let label2 = Color(light: 0x4A475E, dark: 0xC4C1D8)
     static let label3 = Color(light: 0x8A879C, dark: 0x7E7B95)
     static let label4 = Color(light: 0xB7B5C4, dark: 0x56536B)
 

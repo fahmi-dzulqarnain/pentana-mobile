@@ -42,9 +42,11 @@ struct MainView: View {
     var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
-                HomeView(selection: $selection, refreshToken: homeRefresh, onOpenSupport: { supportSheet = SupportSheet(ticketId: nil) })
+                HomeView(selection: $selection, refreshToken: homeRefresh, onOpenSupport: { id in supportSheet = SupportSheet(ticketId: id) })
                     .background(AmbientBackground())
-                    .navigationTitle("Hi, \(firstName)")
+                    // The date + "Hi, {name}" greeting lives in Home's content; the bar keeps only the chrome.
+                    .navigationTitle("")
+                    .navigationBarTitleDisplayMode(.inline)
                     .modifier(TopChrome(initials: pentInitials(session.avatarName), unread: session.unreadCount,
                                         onProfile: { showingProfile = true }, onBell: { showingNotifications = true }))
             }
@@ -100,10 +102,6 @@ struct MainView: View {
         .sheet(item: $supportSheet, onDismiss: { homeRefresh += 1 }) { sheet in
             SupportListView(openTicketId: sheet.ticketId).environmentObject(session)
         }
-    }
-
-    private var firstName: String {
-        session.greetingName
     }
 }
 

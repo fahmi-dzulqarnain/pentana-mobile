@@ -72,12 +72,25 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
     // Ask the committee takes over the screen: null = tabs, else the list or one ticket's thread.
     var supportOpen by rememberSaveable { mutableStateOf(false) }
     var supportTicket by rememberSaveable { mutableStateOf<Long?>(null) }
+    // A thread Home opened directly has no list underneath: back returns to Home.
+    var supportThreadOnly by rememberSaveable { mutableStateOf(false) }
     val home = appViewModel { HomeViewModel(it.dashboard) }
 
     if (supportOpen) {
         val ticket = supportTicket
         if (ticket != null) {
-            SupportThreadScreen(ticketId = ticket, onBack = { supportTicket = null })
+            SupportThreadScreen(
+                ticketId = ticket,
+                onBack = {
+                    supportTicket = null
+                    if (supportThreadOnly) {
+                        // Replying changes Home's "Committee replied" to-do; refetch on the way back.
+                        supportThreadOnly = false
+                        supportOpen = false
+                        home.refresh()
+                    }
+                },
+            )
         } else {
             SupportListScreen(
                 // Replying there changes the Home card's waiting-reply count. Same Activity-scoped
@@ -108,7 +121,11 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
                     userName = user.greetingName,
                     isAdmin = user.isAdmin,
                     onSwitchTab = { active = it },
-                    onOpenSupport = { supportTicket = null; supportOpen = true },
+                    onOpenSupport = { id ->
+                        supportTicket = id
+                        supportThreadOnly = id != null
+                        supportOpen = true
+                    },
                 )
                 NavDest.Bills -> BillsScreen()
                 NavDest.Lunch -> LunchScreen()
@@ -131,6 +148,7 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
             onDismiss = { showNotifications = false },
             onOpenSupportTicket = { id ->
                 showNotifications = false
+                supportThreadOnly = false
                 supportTicket = id
                 supportOpen = true
             },

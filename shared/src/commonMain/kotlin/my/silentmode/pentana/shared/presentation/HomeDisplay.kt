@@ -7,11 +7,6 @@ import my.silentmode.pentana.shared.model.DashboardLunchDto
 /** Shared decision - each platform maps this to its own chip/pill styling. */
 enum class DashboardActivityStatus { Registered, Waitlisted, None }
 
-/** "All clear" celebration card instead of the dues card. */
-@Deprecated("Use homeSections().todos.isEmpty()")
-fun duesCleared(dashboard: DashboardDto): Boolean =
-    dashboard.bills.totalOutstanding == "0.00" && dashboard.pendingProofsCount == 0
-
 /**
  * Status chip for the next-lunch card. Both platforms agree `responded` wins over closed
  * (unlike the Lunch screen's [lunchStatus], where closed wins).

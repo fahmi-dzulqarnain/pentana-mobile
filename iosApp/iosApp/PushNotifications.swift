@@ -6,11 +6,12 @@
 //  SwiftUI SessionStore via a small shared registrar.
 //
 
+import Combine
 import UIKit
 import UserNotifications
 
 /// Shared hand-off between the AppDelegate (UIKit) and SessionStore (SwiftUI).
-final class PushRegistrar {
+final class PushRegistrar: ObservableObject {
     static let shared = PushRegistrar()
     private init() {}
 
@@ -20,6 +21,23 @@ final class PushRegistrar {
     var onToken: ((String) -> Void)?
     /// Set by SessionStore - invoked when a push is presented/tapped.
     var onReceive: (() -> Void)?
+    /// Support ticket from a tapped support push. Stays set until MainView consumes it, so a tap that
+    /// cold-launches the app (before MainView exists, or while still signing in) isn't lost.
+    @Published var pendingTicketId: Int64?
+
+    /// Reads the backend's top-level `ticket_id` from a push payload. It arrives as an NSNumber/Int
+    /// through APNs, but accept a numeric string too; anything else (non-support pushes) is nil.
+    static func ticketId(from userInfo: [AnyHashable: Any]) -> Int64? {
+        switch userInfo["ticket_id"] {
+        case let n as Int64: return n
+        case let n as Int: return Int64(n)
+        case let n as NSNumber:
+            // A Bool is also an NSNumber; it is not a ticket id.
+            return CFGetTypeID(n) == CFBooleanGetTypeID() ? nil : n.int64Value
+        case let s as String: return Int64(s.trimmingCharacters(in: .whitespaces))
+        default: return nil
+        }
+    }
 
     func handle(token: String) {
         deviceToken = token
@@ -58,5 +76,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 didReceive response: UNNotificationResponse) async {
         PushRegistrar.shared.onReceive?()
+        if let id = PushRegistrar.ticketId(from: response.notification.request.content.userInfo) {
+            await MainActor.run { PushRegistrar.shared.pendingTicketId = id }
+        }
     }
 }

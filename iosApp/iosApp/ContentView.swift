@@ -28,6 +28,8 @@ struct ContentView: View {
 
 struct MainView: View {
     @EnvironmentObject private var session: SessionStore
+    /// A tapped support push publishes its ticket here (may already be set when MainView first appears).
+    @ObservedObject private var push = PushRegistrar.shared
     @State private var selection = 0
     @State private var showingProfile = false
     @State private var showingNotifications = false
@@ -84,14 +86,15 @@ struct MainView: View {
             .tag(3)
         }
         .tint(Pent.accent)
-        .sheet(isPresented: $showingProfile) { ProfileView().environmentObject(session) }
-        .sheet(isPresented: $showingNotifications, onDismiss: {
-            // Only one sheet at a time: open the conversation once the bell sheet has gone.
-            if let id = pendingSupportTicket {
-                pendingSupportTicket = nil
-                supportSheet = SupportSheet(ticketId: id)
-            }
-        }) {
+        // `initial: true` consumes a tap that cold-launched the app, before this view existed.
+        .onChange(of: push.pendingTicketId, initial: true) { _, id in
+            guard let id else { return }
+            push.pendingTicketId = nil
+            openSupportFromPush(id)
+        }
+        .sheet(isPresented: $showingProfile, onDismiss: presentPendingSupport) { ProfileView().environmentObject(session) }
+        // Only one sheet at a time: open the conversation once the bell sheet has gone.
+        .sheet(isPresented: $showingNotifications, onDismiss: presentPendingSupport) {
             NotificationsView(onOpenSupportTicket: { id in
                 pendingSupportTicket = id
                 showingNotifications = false
@@ -99,8 +102,25 @@ struct MainView: View {
             .environmentObject(session)
         }
         // Replying in the sheet changes the Home card's waiting-reply count.
-        .sheet(item: $supportSheet, onDismiss: { homeRefresh += 1 }) { sheet in
+        .sheet(item: $supportSheet, onDismiss: { homeRefresh += 1; presentPendingSupport() }) { sheet in
             SupportListView(openTicketId: sheet.ticketId).environmentObject(session)
+        }
+    }
+
+    /// Opens the support thread from a tapped push: Home tab, any open sheet closed first.
+    private func openSupportFromPush(_ id: Int64) {
+        selection = 0
+        pendingSupportTicket = id
+        if showingNotifications { showingNotifications = false }
+        else if showingProfile { showingProfile = false }
+        else if supportSheet != nil { supportSheet = nil }
+        else { presentPendingSupport() }  // nothing open, so no onDismiss will fire
+    }
+
+    private func presentPendingSupport() {
+        if let id = pendingSupportTicket {
+            pendingSupportTicket = nil
+            supportSheet = SupportSheet(ticketId: id)
         }
     }
 }

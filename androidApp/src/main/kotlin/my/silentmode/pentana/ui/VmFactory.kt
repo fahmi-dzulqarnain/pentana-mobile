@@ -12,7 +12,11 @@ import my.silentmode.pentana.core.AppContainer
 @Composable
 fun appContainer(): AppContainer = (LocalContext.current.applicationContext as App).container
 
-/** Builds a ViewModel from the app's manual-DI container, mirroring the iOS SessionStore wiring. */
+/**
+ * Builds a ViewModel from the app's manual-DI container, mirroring the iOS SessionStore wiring.
+ * Scoped to the nearest LocalViewModelStoreOwner: inside [my.silentmode.pentana.ui.session.SessionScope]
+ * that is the current session, so screen state is cleared on sign-out.
+ */
 @Composable
 inline fun <reified VM : ViewModel> appViewModel(crossinline create: (AppContainer) -> VM): VM {
     val container = appContainer()

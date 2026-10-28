@@ -44,7 +44,9 @@ fun PentanaTheme(
     val ctx = LocalContext.current
     val scheme = when {
         dynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-            if (dark) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
+            // Secondary text keeps the Home redesign's contrast-checked value on wallpaper colours too.
+            if (dark) dynamicDarkColorScheme(ctx).copy(onSurfaceVariant = OnSurfaceVariantD)
+            else dynamicLightColorScheme(ctx).copy(onSurfaceVariant = OnSurfaceVariantL)
         dark -> DarkScheme
         else -> LightScheme
     }

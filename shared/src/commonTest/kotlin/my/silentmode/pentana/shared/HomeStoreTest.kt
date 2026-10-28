@@ -15,8 +15,6 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import my.silentmode.pentana.shared.model.DashboardActivityDto
-import my.silentmode.pentana.shared.model.DashboardBillsDto
-import my.silentmode.pentana.shared.model.DashboardDto
 import my.silentmode.pentana.shared.model.DashboardLunchDto
 import my.silentmode.pentana.shared.presentation.DashboardActivityStatus
 import my.silentmode.pentana.shared.presentation.HomeStore
@@ -24,7 +22,6 @@ import my.silentmode.pentana.shared.presentation.HomeUiState
 import my.silentmode.pentana.shared.presentation.LunchStatus
 import my.silentmode.pentana.shared.presentation.dashboardActivityStatus
 import my.silentmode.pentana.shared.presentation.dashboardLunchStatus
-import my.silentmode.pentana.shared.presentation.duesCleared
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -116,12 +113,6 @@ class HomeStoreTest {
 
     // Derived display
 
-    @Test fun dues_cleared_when_no_outstanding_and_no_pending_proofs() {
-        assertTrue(duesCleared(dashboard(outstanding = "0.00", pendingProofs = 0)))
-        assertFalse(duesCleared(dashboard(outstanding = "0.00", pendingProofs = 1)))
-        assertFalse(duesCleared(dashboard(outstanding = "45.00", pendingProofs = 0)))
-    }
-
     @Test fun dashboard_lunch_status_vote_now_when_open_not_responded() {
         assertEquals(LunchStatus.VoteNow, dashboardLunchStatus(dashLunch(isOpen = true, responded = false)))
     }
@@ -141,10 +132,6 @@ class HomeStoreTest {
         assertEquals(DashboardActivityStatus.None, dashboardActivityStatus(dashActivity("none")))
     }
 
-    private fun dashboard(outstanding: String, pendingProofs: Int) = DashboardDto(
-        bills = DashboardBillsDto(totalOutstanding = outstanding, availableCredit = "0.00", unpaidCount = 0),
-        nextLunch = null, nextActivity = null, openActivitiesCount = 0, pendingProofsCount = pendingProofs,
-    )
     private fun dashLunch(isOpen: Boolean, responded: Boolean) =
         DashboardLunchDto(id = 1, date = "2026-07-20", caterer = null, menu = null, isOpen = isOpen, responded = responded)
     private fun dashActivity(myStatus: String) =

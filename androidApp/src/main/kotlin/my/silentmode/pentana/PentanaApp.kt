@@ -35,7 +35,9 @@ import my.silentmode.pentana.ui.components.LoadingState
 import my.silentmode.pentana.ui.components.NavDest
 import my.silentmode.pentana.ui.components.PentNavBar
 import my.silentmode.pentana.ui.components.PentTopBar
+import my.silentmode.pentana.ui.session.SessionScope
 import my.silentmode.pentana.ui.session.SessionViewModel
+import my.silentmode.pentana.ui.session.sessionScopeKey
 import my.silentmode.pentana.ui.theme.PentanaTheme
 import my.silentmode.pentana.ui.update.UpdateDialog
 import my.silentmode.pentana.ui.update.UpdateViewModel
@@ -48,10 +50,15 @@ fun PentanaApp() {
 
         LaunchedEffect(Unit) { session.bootstrap() }
 
-        when {
-            sessionState.bootstrapping -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) { LoadingState() }
-            sessionState.user == null -> LoginScreen()
-            else -> MainScaffold(session, sessionState.user!!, sessionState.unread)
+        // Every screen ViewModel (Home, Bills, … and the login form) lives in a store scoped to
+        // the signed-in member, cleared on sign-out or account switch: nothing of one member's
+        // data, nor the typed password, survives into the next session.
+        SessionScope(sessionScopeKey(sessionState.user)) {
+            when {
+                sessionState.bootstrapping -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) { LoadingState() }
+                sessionState.user == null -> LoginScreen()
+                else -> MainScaffold(session, sessionState.user!!, sessionState.unread)
+            }
         }
 
         // Also shown on the login screen: a build that cannot sign in still needs to reach the fix.
@@ -72,15 +79,28 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
     // Ask the committee takes over the screen: null = tabs, else the list or one ticket's thread.
     var supportOpen by rememberSaveable { mutableStateOf(false) }
     var supportTicket by rememberSaveable { mutableStateOf<Long?>(null) }
+    // A thread Home opened directly has no list underneath: back returns to Home.
+    var supportThreadOnly by rememberSaveable { mutableStateOf(false) }
     val home = appViewModel { HomeViewModel(it.dashboard) }
 
     if (supportOpen) {
         val ticket = supportTicket
         if (ticket != null) {
-            SupportThreadScreen(ticketId = ticket, onBack = { supportTicket = null })
+            SupportThreadScreen(
+                ticketId = ticket,
+                onBack = {
+                    supportTicket = null
+                    if (supportThreadOnly) {
+                        // Replying changes Home's "Committee replied" to-do; refetch on the way back.
+                        supportThreadOnly = false
+                        supportOpen = false
+                        home.refresh()
+                    }
+                },
+            )
         } else {
             SupportListScreen(
-                // Replying there changes the Home card's waiting-reply count. Same Activity-scoped
+                // Replying there changes the Home card's waiting-reply count. Same session-scoped
                 // ViewModel HomeScreen uses (appViewModel keys by class).
                 onBack = { supportOpen = false; home.refresh() },
                 onOpenTicket = { supportTicket = it },
@@ -108,7 +128,11 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
                     userName = user.greetingName,
                     isAdmin = user.isAdmin,
                     onSwitchTab = { active = it },
-                    onOpenSupport = { supportTicket = null; supportOpen = true },
+                    onOpenSupport = { id ->
+                        supportTicket = id
+                        supportThreadOnly = id != null
+                        supportOpen = true
+                    },
                 )
                 NavDest.Bills -> BillsScreen()
                 NavDest.Lunch -> LunchScreen()
@@ -131,6 +155,7 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
             onDismiss = { showNotifications = false },
             onOpenSupportTicket = { id ->
                 showNotifications = false
+                supportThreadOnly = false
                 supportTicket = id
                 supportOpen = true
             },

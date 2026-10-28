@@ -18,6 +18,7 @@ struct iosAppTests {
         #expect(PushRegistrar.ticketId(from: ["ticket_id": "15"]) == 15)
         #expect(PushRegistrar.ticketId(from: ["ticket_id": "abc"]) == nil)
         #expect(PushRegistrar.ticketId(from: ["ticket_id": true]) == nil)
+        #expect(PushRegistrar.ticketId(from: ["ticket_id": NSNumber(value: true)]) == nil)
         #expect(PushRegistrar.ticketId(from: ["aps": ["alert": "hi"]]) == nil)
         #expect(PushRegistrar.ticketId(from: [:]) == nil)
     }

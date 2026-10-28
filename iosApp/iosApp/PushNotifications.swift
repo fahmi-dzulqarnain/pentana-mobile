@@ -28,12 +28,13 @@ final class PushRegistrar: ObservableObject {
     /// Reads the backend's top-level `ticket_id` from a push payload. It arrives as an NSNumber/Int
     /// through APNs, but accept a numeric string too; anything else (non-support pushes) is nil.
     static func ticketId(from userInfo: [AnyHashable: Any]) -> Int64? {
-        switch userInfo["ticket_id"] {
+        let raw = userInfo["ticket_id"]
+        // A Bool bridges to NSNumber (and would cast to Int); it is not a ticket id.
+        if let n = raw as? NSNumber, CFGetTypeID(n) == CFBooleanGetTypeID() { return nil }
+        switch raw {
         case let n as Int64: return n
         case let n as Int: return Int64(n)
-        case let n as NSNumber:
-            // A Bool is also an NSNumber; it is not a ticket id.
-            return CFGetTypeID(n) == CFBooleanGetTypeID() ? nil : n.int64Value
+        case let n as NSNumber: return n.int64Value
         case let s as String: return Int64(s.trimmingCharacters(in: .whitespaces))
         default: return nil
         }

@@ -61,7 +61,16 @@ final class SessionStore: ObservableObject {
         // Bridge the shared manager's flows into the @Published properties the views observe.
         Task { [weak self] in
             guard let self else { return }
+            var wasSignedOut = false
             for await sessionState in manager.state {
+                // A support push tap belongs to whoever was signed in: drop it on logout / expired
+                // session, and on the next sign-in if it arrived while signed out. A tap that lands
+                // while the same member is still bootstrapping (token present) is kept.
+                let signedOut = sessionState.user == nil && !sessionState.bootstrapping
+                if signedOut || (wasSignedOut && sessionState.user != nil) {
+                    PushRegistrar.shared.pendingTicketId = nil
+                }
+                if signedOut { wasSignedOut = true } else if sessionState.user != nil { wasSignedOut = false }
                 self.user = sessionState.user
                 self.unreadCount = Int(sessionState.unread)
                 self.isBootstrapping = sessionState.bootstrapping

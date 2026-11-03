@@ -36,6 +36,7 @@ import kotlinx.coroutines.withContext
 import my.silentmode.pentana.core.PickedPhoto
 import my.silentmode.pentana.core.readPhoto
 import my.silentmode.pentana.shared.presentation.BillsStore
+import my.silentmode.pentana.shared.presentation.BillsUiState
 import my.silentmode.pentana.shared.presentation.SubmitState
 import my.silentmode.pentana.shared.presentation.canSubmitProof
 import my.silentmode.pentana.ui.components.PentButton
@@ -48,6 +49,9 @@ fun SubmitProofSheet(store: BillsStore, onDismiss: () -> Unit) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     val submit by store.submit.collectAsStateWithLifecycle()
+    val billsState by store.state.collectAsStateWithLifecycle()
+    // Shown above the form so the account and reference are at hand while the member transfers.
+    val paymentDetails = (billsState as? BillsUiState.Content)?.summary?.paymentDetails
     var amount by rememberSaveable { mutableStateOf("") }
     var note by rememberSaveable { mutableStateOf("") }
     var photo by remember { mutableStateOf<PickedPhoto?>(null) }
@@ -79,6 +83,13 @@ fun SubmitProofSheet(store: BillsStore, onDismiss: () -> Unit) {
         Column(Modifier.padding(horizontal = 24.dp).padding(bottom = 28.dp)) {
             Text("Submit payment proof", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(12.dp))
+
+            paymentDetails?.let { details ->
+                Text("Transfer to", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                PaymentDetailsCard(details, store, showQr = false)
+                Spacer(Modifier.height(14.dp))
+            }
 
             PentTextField(
                 value = amount,

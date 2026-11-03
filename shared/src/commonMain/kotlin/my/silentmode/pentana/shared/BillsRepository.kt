@@ -83,6 +83,15 @@ class BillsRepository(private val client: ApiClient) {
         ReceiptPdf(receiptFileName(response.headers[HttpHeaders.ContentDisposition], proofId), response.readRawBytes())
     }
 
+    /** The DuitNow QR image at [url] (absolute; a public asset, so no token is sent). */
+    @Throws(Exception::class)
+    suspend fun paymentQr(url: String): ByteArray = withContext(Dispatchers.Main) {
+        val response = client.http.get(url)
+        client.ensureSuccess(response)
+        check(response.contentType()?.contentType == "image") { "Expected an image, got ${response.contentType()}" }
+        response.readRawBytes()
+    }
+
     private suspend fun authedGet(path: String, accept: String = "application/json"): HttpResponse {
         val token = client.tokenStore.get()
         return client.http.get(client.urlFor(path)) {

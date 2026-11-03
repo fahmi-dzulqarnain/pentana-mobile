@@ -19,6 +19,8 @@ struct SubmitProofView: View {
     @State private var preview: UIImage?
     @State private var photoError: String?
     @State private var submitState: SubmitState = SubmitStateIdle.shared
+    /// Shown above the form so the account and reference are at hand while the member transfers.
+    @State private var paymentDetails: PaymentDetailsDto?
 
     private var isSubmitting: Bool { submitState is SubmitStateSubmitting }
     private var errorMessage: String? { (submitState as? SubmitStateError)?.message }
@@ -41,6 +43,15 @@ struct SubmitProofView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 13).padding(.vertical, 11)
                         .background(Pent.badBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+
+                    if let paymentDetails {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("TRANSFER TO")
+                                .font(.system(size: 12.5, weight: .semibold)).tracking(0.4)
+                                .foregroundStyle(Pent.label2).padding(.horizontal, 4)
+                            PaymentDetailsCard(details: paymentDetails, store: store, showsQr: false)
+                        }
                     }
 
                     PentField(label: "Amount (MYR)", systemImage: "banknote.fill", placeholder: "0.00",
@@ -89,6 +100,12 @@ struct SubmitProofView: View {
                         photoError = (raw != nil && prepared == nil) ? "That photo couldn't be read. Please choose another." : nil
                     }
                 }
+            }
+        }
+        .task {
+            for await value in store.state {
+                let details = (value as? BillsUiStateContent)?.summary.paymentDetails
+                await MainActor.run { if let details { paymentDetails = details } }
             }
         }
         .task {

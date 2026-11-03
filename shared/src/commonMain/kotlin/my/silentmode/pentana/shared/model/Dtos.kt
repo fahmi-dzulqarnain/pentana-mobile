@@ -62,6 +62,19 @@ data class BillsSummaryDto(
     @SerialName("available_credit") val availableCredit: String,
     @SerialName("unpaid_count") val unpaidCount: Int,
     @SerialName("bill_count") val billCount: Int,
+    /** Null from a server that predates it; the app then just doesn't show where to pay. */
+    @SerialName("payment_details") val paymentDetails: PaymentDetailsDto? = null,
+)
+
+/** Where members transfer their fees, and the reference that matches the transfer to them. */
+@Serializable
+data class PaymentDetailsDto(
+    @SerialName("bank_name") val bankName: String,
+    @SerialName("account_number") val accountNumber: String,
+    @SerialName("account_name") val accountName: String,
+    val reference: String,
+    /** The club's DuitNow QR poster, a public image (absolute URL). */
+    @SerialName("qr_url") val qrUrl: String,
 )
 
 @Serializable

@@ -62,6 +62,11 @@ struct BillsView: View {
                     summaryCard(content.summary)
                         .padding(.top, 4)
 
+                    if let details = content.summary.paymentDetails, let store {
+                        SectionLabel(text: "How to pay")
+                        PaymentDetailsCard(details: details, store: store)
+                    }
+
                     Button { showSubmit = true } label: {
                         Label("Submit payment proof", systemImage: "camera.fill")
                     }

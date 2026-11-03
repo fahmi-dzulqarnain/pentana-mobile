@@ -49,6 +49,7 @@ import my.silentmode.pentana.shared.model.BillDto
 import my.silentmode.pentana.shared.model.BillsSummaryDto
 import my.silentmode.pentana.shared.model.PaymentProofDto
 import my.silentmode.pentana.shared.presentation.BillStatus
+import my.silentmode.pentana.shared.presentation.BillsStore
 import my.silentmode.pentana.shared.presentation.BillsUiState
 import my.silentmode.pentana.shared.presentation.ProofStatus
 import my.silentmode.pentana.shared.presentation.ReceiptState
@@ -119,6 +120,7 @@ fun BillsScreen() {
                 is BillsUiState.Loading -> LoadingState()
                 is BillsUiState.Error -> ErrorState(uiState.message, vm.store::load)
                 is BillsUiState.Content -> BillsContent(
+                    store = vm.store,
                     summary = uiState.summary,
                     bills = uiState.bills,
                     proofs = uiState.proofs,
@@ -139,6 +141,7 @@ fun BillsScreen() {
 
 @Composable
 private fun BillsContent(
+    store: BillsStore,
     summary: BillsSummaryDto,
     bills: List<BillDto>,
     proofs: List<PaymentProofDto>,
@@ -150,6 +153,10 @@ private fun BillsContent(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 96.dp),
     ) {
         SummaryCard(summary)
+        summary.paymentDetails?.let { details ->
+            SectionHeader("How to pay")
+            PaymentDetailsCard(details, store)
+        }
         // The member's own submissions, so a pending one is visible and a rejection's reason stays
         // readable after the push is gone. The Home "Payment proofs" card opens here.
         if (proofs.isNotEmpty()) {

@@ -157,6 +157,23 @@ class BillsStore(private val repo: BillsRepository) {
         _receipt.value = ReceiptState.Idle
     }
 
+    private var paymentQrCache: Pair<String, ByteArray>? = null
+
+    /**
+     * The DuitNow QR image bytes for [url], fetched once and kept for the store's life. Null when it
+     * can't be loaded; the account details still show, so the member can transfer without it.
+     */
+    suspend fun paymentQr(url: String): ByteArray? {
+        paymentQrCache?.let { (cachedUrl, bytes) -> if (cachedUrl == url) return bytes }
+        return try {
+            repo.paymentQr(url).also { paymentQrCache = url to it }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     fun clear() { scope.cancel() }
 }
 

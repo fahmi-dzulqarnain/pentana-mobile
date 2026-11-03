@@ -394,4 +394,56 @@ class BillsStoreTest {
 
     private fun isProofList(request: HttpRequestData) =
         request.method == HttpMethod.Get && request.url.encodedPath.endsWith("/payment-proofs")
+
+    @Test
+    fun summaryCarriesWhereToPayWhenTheServerSendsIt() = runTest {
+        val withDetails = """
+            {"data":{"total_outstanding":"0.00","available_credit":"0.00","unpaid_count":0,"bill_count":0,
+            "payment_details":{"bank_name":"CIMB Bank","account_number":"8605765606","account_name":"KELAB PENTANA",
+            "reference":"PEN-0042","qr_url":"https://x/images/duitnow-qr.jpg"}}}
+        """.trimIndent()
+        val store = makeStore { path ->
+            if (path.endsWith("/bills/summary")) HttpStatusCode.OK to withDetails else HttpStatusCode.OK to """{"data":[]}"""
+        }
+        val details = assertIs<BillsUiState.Content>(store.state.first { it is BillsUiState.Content }).summary.paymentDetails
+        assertEquals("8605765606", details?.accountNumber)
+        assertEquals("PEN-0042", details?.reference)
+    }
+
+    @Test
+    fun anOlderServerWithoutPaymentDetailsStillLoads() = runTest {
+        val store = makeStore(handler = routing())
+        val content = assertIs<BillsUiState.Content>(store.state.first { it is BillsUiState.Content })
+        assertEquals(null, content.summary.paymentDetails)
+    }
+
+    @Test
+    fun paymentQrIsFetchedOnceWithoutTheTokenAndCached() = runTest {
+        var qrRequests = 0
+        val engine = MockEngine { request ->
+            if (request.url.toString() == "https://x/images/duitnow-qr.jpg") {
+                qrRequests += 1
+                assertEquals(null, request.headers[HttpHeaders.Authorization])
+                respond(byteArrayOf(1, 2, 3), HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "image/jpeg"))
+            } else {
+                respond("""{"data":[]}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+            }
+        }
+        val store = BillsStore(BillsRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
+
+        assertTrue(byteArrayOf(1, 2, 3).contentEquals(store.paymentQr("https://x/images/duitnow-qr.jpg")))
+        assertTrue(byteArrayOf(1, 2, 3).contentEquals(store.paymentQr("https://x/images/duitnow-qr.jpg")))
+        assertEquals(1, qrRequests)
+    }
+
+    @Test
+    fun paymentQrIsNullWhenItCannotBeLoaded() = runTest {
+        val engine = MockEngine { request ->
+            if (request.url.encodedPath.endsWith(".jpg")) respond("<html>", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/html"))
+            else respond("""{"data":[]}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
+        val store = BillsStore(BillsRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine)))
+        assertEquals(null, store.paymentQr("https://x/images/duitnow-qr.jpg"))
+    }
 }
+

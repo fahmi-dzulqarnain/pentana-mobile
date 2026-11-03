@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Downloaded paid receipts, shared read-only with the PDF viewer the member picks. -->
+<!-- Downloaded paid receipts, shared read-only with the PDF viewer the member picks,
+     and the club's DuitNow QR, shared with the app the member picks. -->
 <paths>
     <cache-path name="receipts" path="receipts/" />
+    <cache-path name="qr" path="qr/" />
 </paths>

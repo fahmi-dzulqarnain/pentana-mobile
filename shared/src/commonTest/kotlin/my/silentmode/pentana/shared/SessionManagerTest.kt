@@ -21,6 +21,7 @@ import my.silentmode.pentana.shared.model.UserDto
 import my.silentmode.pentana.shared.model.avatarName
 import my.silentmode.pentana.shared.model.greetingName
 import kotlinx.serialization.json.Json
+import kotlinx.io.IOException
 import my.silentmode.pentana.shared.presentation.SessionManager
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -131,6 +132,38 @@ class SessionManagerTest {
         assertEquals("The provided credentials are incorrect.", managed.manager.loginError.value)
         managed.manager.dismissLoginError()
         assertNull(managed.manager.loginError.value)
+    }
+
+    @Test fun login_rejection_shows_server_message() = runTest {
+        val managed = makeManager(
+            startToken = null,
+            handler = routing(loginResult = HttpStatusCode.Unauthorized to """{"message":"These credentials do not match our records."}"""),
+        )
+        managed.manager.login(email = "aisyah@org.my", password = "wrong", deviceName = "Test")
+        assertEquals("These credentials do not match our records.", managed.manager.loginError.value)
+    }
+
+    @Test fun login_network_failure_says_server_unreachable() = runTest {
+        val engine = MockEngine { throw IOException("Unable to resolve host") }
+        val client = ApiClient("https://x/api/v1", InMemoryTokenStore(null), engine)
+        val manager = SessionManager(AuthRepository(client), NotificationsRepository(client))
+        manager.login(email = "aisyah@org.my", password = "right", deviceName = "Test")
+        assertEquals("Couldn't reach the server. Check your connection and try again.", manager.loginError.value)
+    }
+
+    @Test fun login_server_error_is_not_reported_as_bad_credentials() = runTest {
+        val managed = makeManager(
+            startToken = null,
+            handler = routing(loginResult = HttpStatusCode.InternalServerError to """{"message":"Server Error"}"""),
+        )
+        managed.manager.login(email = "aisyah@org.my", password = "right", deviceName = "Test")
+        assertEquals("The server ran into a problem. Please try again shortly.", managed.manager.loginError.value)
+    }
+
+    @Test fun login_unreadable_response_is_not_reported_as_bad_credentials() = runTest {
+        val managed = makeManager(startToken = null, handler = routing(loginResult = HttpStatusCode.OK to """{"unexpected":true}"""))
+        managed.manager.login(email = "aisyah@org.my", password = "right", deviceName = "Test")
+        assertEquals("Something went wrong. Please try again.", managed.manager.loginError.value)
     }
 
     @Test fun next_login_attempt_clears_previous_error() = runTest {

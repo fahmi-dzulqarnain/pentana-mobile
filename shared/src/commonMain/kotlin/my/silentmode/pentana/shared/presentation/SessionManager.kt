@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.io.IOException
 import my.silentmode.pentana.shared.ApiException
 import my.silentmode.pentana.shared.AuthRepository
 import my.silentmode.pentana.shared.NotificationsRepository
@@ -90,8 +91,8 @@ class SessionManager(
                 user
             } catch (cancellation: CancellationException) {
                 throw cancellation
-            } catch (_: Exception) {
-                _loginError.value = "The provided credentials are incorrect."
+            } catch (failure: Exception) {
+                _loginError.value = loginErrorMessage(failure)
                 null
             }
         }
@@ -163,6 +164,19 @@ class SessionManager(
         // Same epoch rule as refreshBadge: a mark-read parked across logout/login must not
         // zero the NEW session's badge.
         if (epoch == sessionEpoch) _state.update { it.copy(unread = 0) }
+    }
+
+    /**
+     * User-facing copy for a failed login. Only a 4xx is about what the user typed; a network
+     * failure, a 5xx or an unreadable response must not read as "wrong password".
+     */
+    private fun loginErrorMessage(failure: Exception): String = when (failure) {
+        is ApiException -> when (failure.status) {
+            in 400..499 -> failure.serverMessage ?: "The provided credentials are incorrect."
+            else -> "The server ran into a problem. Please try again shortly."
+        }
+        is IOException -> "Couldn't reach the server. Check your connection and try again."
+        else -> "Something went wrong. Please try again."
     }
 
     /** Clears the login error (e.g. when the user edits a field). */

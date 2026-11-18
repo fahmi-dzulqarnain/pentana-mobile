@@ -204,6 +204,24 @@ class PentanaApiTest {
     }
 
     @Test
+    fun activitiesParseOverviewAndFullDescription() = runTest {
+        val engine = jsonEngine(
+            """{"data":[{"id":8,"title":"Hike","description":"Bring water","overview":"Bring water","full_description":"<p>Bring <strong>water</strong></p><img src=\"https://pentana.silentmode.net/storage/activity-images/a.jpg\">","is_open":true,"my_status":"none","questions":[]},{"id":9,"title":"Quiz","description":null,"overview":null,"full_description":null,"is_open":true,"my_status":"none","questions":[]}]}""",
+        )
+        val client = ApiClient("https://example.test/api/v1", InMemoryTokenStore("tok"), engine)
+
+        val activities = ActivitiesRepository(client).activities()
+
+        assertEquals("Bring water", activities[0].overview)
+        assertEquals(
+            "<p>Bring <strong>water</strong></p><img src=\"https://pentana.silentmode.net/storage/activity-images/a.jpg\">",
+            activities[0].fullDescription,
+        )
+        assertEquals(null, activities[1].overview)
+        assertEquals(null, activities[1].fullDescription)
+    }
+
+    @Test
     fun registerSendsAnswersAndReturnsWaitlistStatus() = runTest {
         val engine = jsonEngine(
             """{"data":{"id":7,"title":"Beach Cleanup","is_open":true,"my_status":"waitlisted","waitlist_position":2,"questions":[]}}""",

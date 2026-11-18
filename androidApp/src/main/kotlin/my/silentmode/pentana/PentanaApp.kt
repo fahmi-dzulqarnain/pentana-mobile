@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.silentmode.pentana.core.initials
 import my.silentmode.pentana.feature.activities.ActivitiesScreen
+import my.silentmode.pentana.feature.activities.ActivityDetailScreen
 import my.silentmode.pentana.feature.bills.BillsScreen
 import my.silentmode.pentana.feature.home.HomeScreen
 import my.silentmode.pentana.feature.home.HomeViewModel
@@ -81,6 +82,8 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
     var supportTicket by rememberSaveable { mutableStateOf<Long?>(null) }
     // A thread Home opened directly has no list underneath: back returns to Home.
     var supportThreadOnly by rememberSaveable { mutableStateOf(false) }
+    // An activity's detail screen takes over the screen like a support thread; back returns to the list.
+    var openActivity by rememberSaveable { mutableStateOf<Long?>(null) }
     val home = appViewModel { HomeViewModel(it.dashboard) }
 
     if (supportOpen) {
@@ -106,6 +109,11 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
                 onOpenTicket = { supportTicket = it },
             )
         }
+        return
+    }
+
+    openActivity?.let { activityId ->
+        ActivityDetailScreen(activityId = activityId, onBack = { openActivity = null })
         return
     }
 
@@ -136,7 +144,7 @@ private fun MainScaffold(session: SessionViewModel, user: UserDto, unread: Int) 
                 )
                 NavDest.Bills -> BillsScreen()
                 NavDest.Lunch -> LunchScreen()
-                NavDest.Activities -> ActivitiesScreen()
+                NavDest.Activities -> ActivitiesScreen(onOpenActivity = { openActivity = it })
             }
         }
     }

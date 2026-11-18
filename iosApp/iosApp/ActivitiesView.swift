@@ -16,6 +16,7 @@ struct ActivitiesView: View {
     @State private var inFlight: Set<Int64> = []
     @State private var actionError: String?
     @State private var registering: ActivityDto?
+    @State private var openedActivityId: Int64?
 
     var body: some View {
         content
@@ -29,7 +30,9 @@ struct ActivitiesView: View {
             }
             .alert(
                 "Something went wrong",
-                isPresented: Binding(get: { actionError != nil }, set: { if !$0 { actionError = nil; store?.dismissActionError() } })
+                // The detail screen shows its own alert while it's on top.
+                isPresented: Binding(get: { actionError != nil && openedActivityId == nil },
+                                     set: { if !$0 { actionError = nil; store?.dismissActionError() } })
             ) {
                 Button("OK", role: .cancel) {}
             } message: {
@@ -38,6 +41,11 @@ struct ActivitiesView: View {
             .sheet(item: $registering, onDismiss: { store?.resetReg() }) { activity in
                 if let store {
                     RegisterActivityView(store: store, activity: activity)
+                }
+            }
+            .navigationDestination(item: $openedActivityId) { activityId in
+                if let store {
+                    ActivityDetailView(store: store, activityId: activityId)
                 }
             }
     }
@@ -65,6 +73,7 @@ struct ActivitiesView: View {
                     VStack(spacing: 13) {
                         ForEach(content.activities, id: \.id) { activity in
                             ActivityCard(activity: activity, busy: inFlight.contains(activity.id),
+                                         onOpen: { openedActivityId = activity.id },
                                          onRegister: {
                                              if activity.questions.isEmpty {
                                                  store?.quickRegister(activityId: activity.id)
@@ -90,17 +99,16 @@ extension ActivityDto: @retroactive Identifiable {}
 private struct ActivityCard: View {
     let activity: ActivityDto
     let busy: Bool
+    let onOpen: () -> Void
     let onRegister: () -> Void
     let onCancel: () -> Void
-
-    private var cardState: ActivityCardState { activityCardState(activity: activity) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 10) {
                 Text(activity.title).font(.pentHeadline).foregroundStyle(Pent.label)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                spotsPill
+                ActivitySpotsPill(activity: activity)
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -114,19 +122,35 @@ private struct ActivityCard: View {
             .font(.pentFoot).foregroundStyle(Pent.label2)
             .padding(.top, 6)
 
-            if let blurb = plainTextBlurb(html: activity.description_) {
-                Text(blurb).font(.pentFoot).foregroundStyle(Pent.label2).lineLimit(3)
+            if let overview = activityOverview(activity: activity) {
+                Text(overview).font(.pentFoot).foregroundStyle(Pent.label2).lineLimit(3)
                     .padding(.top, 8)
             }
 
-            action.padding(.top, 13)
+            ActivityActionView(activity: activity, onRegister: onRegister, onCancel: onCancel)
+                .padding(.top, 13)
+                .allowsHitTesting(!busy)
         }
         .padding(16)
         .background(Pent.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Pent.separator, lineWidth: 0.5))
         .opacity(busy ? 0.6 : 1)
-        .allowsHitTesting(!busy)
+        // Tapping anywhere outside the action buttons opens the detail screen.
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .onTapGesture(perform: onOpen)
+        .accessibilityAction(named: "Show details", onOpen)
     }
+}
+
+/// The register / cancel / waitlist row, shared by the card and the detail screen.
+struct ActivityActionView: View {
+    let activity: ActivityDto
+    let onRegister: () -> Void
+    let onCancel: () -> Void
+
+    private var cardState: ActivityCardState { activityCardState(activity: activity) }
+
+    var body: some View { action }
 
     @ViewBuilder private var action: some View {
         switch cardState {
@@ -159,8 +183,14 @@ private struct ActivityCard: View {
         }
         .tint(Pent.bad)
     }
+}
 
-    private var spotsPill: some View {
+/// Capacity / status pill, shared by the card and the detail screen.
+struct ActivitySpotsPill: View {
+    let activity: ActivityDto
+
+    var body: some View {
+        let cardState = activityCardState(activity: activity)
         let (label, color, bg): (String, Color, Color) = {
             switch cardState {
             case .registered: return ("Registered", Pent.ok, Pent.okBg)

@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.silentmode.pentana.core.excerpt
 import my.silentmode.pentana.shared.model.ActivityDto
 import my.silentmode.pentana.shared.model.QuestionDto
+import my.silentmode.pentana.shared.presentation.activityOverview
 import my.silentmode.pentana.shared.presentation.ActivitiesStore
 import my.silentmode.pentana.shared.presentation.RegState
 import my.silentmode.pentana.shared.presentation.checkboxValue
@@ -52,9 +53,9 @@ fun RegistrationSheet(activity: ActivityDto, store: ActivitiesStore, onDismiss: 
             Text("Register", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(12.dp))
 
-            activity.description?.let {
+            activityOverview(activity)?.let { overview ->
                 Text(
-                    excerpt(it, max = 220),
+                    excerpt(overview, max = 220),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.tertiaryContainer).padding(horizontal = 14.dp, vertical = 12.dp),

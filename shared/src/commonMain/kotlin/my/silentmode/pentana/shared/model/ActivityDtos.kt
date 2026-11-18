@@ -20,7 +20,12 @@ data class QuestionDto(
 data class ActivityDto(
     val id: Long,
     val title: String,
-    val description: String? = null, // may contain rich-text HTML
+    /** Legacy field: plain-text overview on current backends, rich-text HTML on older ones. */
+    val description: String? = null,
+    /** Short plain-text overview for cards (absent on older backends - fall back to [description]). */
+    val overview: String? = null,
+    /** Sanitised rich-text HTML for the detail screen (may carry `<img>`s); null when the admin left it empty. */
+    @SerialName("full_description") val fullDescription: String? = null,
     @SerialName("starts_at") val startsAt: String? = null,
     val location: String? = null,
     @SerialName("spots_left") val spotsLeft: Int? = null, // null = unlimited capacity

@@ -18,6 +18,7 @@ import kotlinx.io.readByteArray
 import kotlinx.serialization.json.Json
 import my.silentmode.pentana.shared.model.DashboardDto
 import my.silentmode.pentana.shared.model.NotificationDto
+import my.silentmode.pentana.shared.model.SupportMessageDto
 import my.silentmode.pentana.shared.model.UserDto
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -170,6 +171,47 @@ class SupportRepositoryTest {
             assertFailsWith<IllegalArgumentException> { repo.attachment(url) }
         }
         assertEquals(0, requests)
+    }
+
+    @Test fun attachment_pdf_sends_the_token_and_names_the_file_itself() = runTest {
+        var seen: HttpRequestData? = null
+        val pdfBytes = "%PDF-1.7".encodeToByteArray()
+        val repo = repository(body = pdfBytes, contentType = "application/pdf", onRequest = { seen = it })
+
+        val pdf = repo.attachmentPdf(12, "https://x/api/v1/support-tickets/messages/12/attachment")
+
+        assertEquals("Bearer t", seen?.headers?.get(HttpHeaders.Authorization))
+        assertEquals("support-attachment-12.pdf", pdf.fileName)
+        assertContentEquals(pdfBytes, pdf.bytes)
+    }
+
+    @Test fun attachment_pdf_rejects_a_non_pdf_response() = runTest {
+        val repo = repository(body = "<html>".encodeToByteArray(), contentType = "text/html")
+
+        assertFailsWith<IllegalStateException> { repo.attachmentPdf(12, "https://x/api/v1/support-tickets/messages/12/attachment") }
+    }
+
+    @Test fun attachment_pdf_refuses_another_host() = runTest {
+        var requests = 0
+        val repo = repository(contentType = "application/pdf", onRequest = { requests++ })
+
+        assertFailsWith<IllegalArgumentException> { repo.attachmentPdf(12, "https://evil.example/api/v1/x") }
+        assertEquals(0, requests)
+    }
+
+    @Test fun a_typed_attachment_picks_image_or_pdf() {
+        fun message(extra: String) = json.decodeFromString<SupportMessageDto>(
+            """{"id":1,"body":"b","from_committee":true,"is_mine":false,"created_at":"2026-11-18T10:00:00+08:00"$extra}""",
+        )
+        val pdf = message(""","attachment_url":null,"attachment":{"url":"https://x/a/1","type":"pdf"}""")
+        val image = message(""","attachment_url":"https://x/a/1","attachment":{"url":"https://x/a/1","type":"image"}""")
+        val legacy = message(""","attachment_url":"https://x/a/1"""")
+        val unknown = message(""","attachment_url":null,"attachment":{"url":"https://x/a/1","type":"video"}""")
+
+        assertNull(pdf.imageUrl); assertEquals("https://x/a/1", pdf.pdfUrl)
+        assertEquals("https://x/a/1", image.imageUrl); assertNull(image.pdfUrl)
+        assertEquals("https://x/a/1", legacy.imageUrl); assertNull(legacy.pdfUrl)
+        assertNull(unknown.imageUrl); assertNull(unknown.pdfUrl)
     }
 
     @Test fun a_404_surfaces_as_api_exception() = runTest {

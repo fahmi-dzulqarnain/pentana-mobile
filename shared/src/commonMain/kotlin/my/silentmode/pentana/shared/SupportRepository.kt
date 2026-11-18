@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import my.silentmode.pentana.shared.model.DataEnvelope
+import my.silentmode.pentana.shared.model.ReceiptPdf
 import my.silentmode.pentana.shared.model.SupportMessageDto
 import my.silentmode.pentana.shared.model.SupportTicketDetailDto
 import my.silentmode.pentana.shared.model.SupportTicketDto
@@ -88,18 +89,33 @@ class SupportRepository(private val client: ApiClient) {
         response.body<DataEnvelope<SupportTicketDetailDto>>().data
     }
 
-    /** A message's screenshot. [url] is the absolute attachment_url from the API, which needs the token. */
+    /** A message's image. [url] is the absolute attachment URL from the API, which needs the token. */
     @Throws(Exception::class)
     suspend fun attachment(url: String): ByteArray = withContext(Dispatchers.Main) {
+        attachmentGet(url, accept = "application/json, image/*").readRawBytes()
+    }
+
+    /** A committee PDF attachment for [messageId]. [url] is the absolute attachment URL from the API. */
+    @Throws(Exception::class)
+    suspend fun attachmentPdf(messageId: Long, url: String): ReceiptPdf = withContext(Dispatchers.Main) {
+        val response = attachmentGet(url, accept = "application/json, application/pdf")
+        check(response.contentType()?.match(ContentType.Application.Pdf) == true) {
+            "Expected a PDF attachment, got ${response.contentType()}"
+        }
+        // Our own name, never the server's: it becomes a file path on the device.
+        ReceiptPdf("support-attachment-$messageId.pdf", response.readRawBytes())
+    }
+
+    private suspend fun attachmentGet(url: String, accept: String): HttpResponse {
         // The token goes only to our own API: same scheme, host and port as the client's base URL.
         require(sameOrigin(url, client.baseUrl)) { "Attachment URL is not on the API host" }
         val response = client.http.get(url) {
             // JSON first so an expired token is a JSON 401, not a redirect to the web login.
-            header(HttpHeaders.Accept, "application/json, image/*")
+            header(HttpHeaders.Accept, accept)
             client.tokenStore.get()?.let { header(HttpHeaders.Authorization, "Bearer $it") }
         }
         client.ensureSuccess(response)
-        response.readRawBytes()
+        return response
     }
 
     private suspend fun io.ktor.client.request.HttpRequestBuilder.authHeaders() {

@@ -7,6 +7,7 @@
 //
 
 @preconcurrency import Shared
+import QuickLook
 import SwiftUI
 
 struct SupportThreadView: View {
@@ -23,6 +24,10 @@ struct SupportThreadView: View {
     @State private var images: [Int64: Screenshot] = [:]
     @State private var draft = ""
     @State private var confirmingResolve = false
+    /// A committee PDF: written to tmp and shown in QuickLook, as Bills does receipts.
+    @State private var downloadingPdfId: Int64?
+    @State private var pdfURL: URL?
+    @State private var pdfError: String?
     @FocusState private var composerFocused: Bool
 
     private var sending: Bool { inFlight.contains(ticketId) }
@@ -69,7 +74,15 @@ struct SupportThreadView: View {
                         }
                     }
                 }()
-                _ = await (states, flights, errors, pictures, failedReplies)
+                async let pdfs: Void = { for await value in activeStore.pdf { await MainActor.run { handlePdf(value) } } }()
+                _ = await (states, flights, errors, pictures, failedReplies, pdfs)
+            }
+            .onDisappear { store?.consumePdf() }
+            .quickLookPreview($pdfURL)
+            .alert("Attachment", isPresented: Binding(get: { pdfError != nil }, set: { if !$0 { pdfError = nil } })) {
+                Button("OK", role: .cancel) { pdfError = nil }
+            } message: {
+                Text(pdfError ?? "")
             }
             .alert("Something went wrong", isPresented: Binding(get: { actionError != nil }, set: { if !$0 { store?.dismissActionError() } })) {
                 Button("OK", role: .cancel) { store?.dismissActionError() }
@@ -107,9 +120,18 @@ struct SupportThreadView: View {
                     .padding(.bottom, 8)
 
                     ForEach(detail.messages, id: \.id) { message in
-                        MessageBubble(message: message, image: images[message.id]) {
-                            if let url = message.attachmentUrl { store?.loadImage(messageId: message.id, url: url) }
-                        }
+                        MessageBubble(
+                            message: message,
+                            image: images[message.id],
+                            pdfDownloading: downloadingPdfId == message.id,
+                            pdfEnabled: downloadingPdfId == nil,
+                            loadImage: {
+                                if let url = message.imageUrl { store?.loadImage(messageId: message.id, url: url) }
+                            },
+                            openPdf: {
+                                if let url = message.pdfUrl { store?.openPdf(messageId: message.id, url: url) }
+                            }
+                        )
                         .id(message.id)
                     }
 
@@ -183,6 +205,36 @@ struct SupportThreadView: View {
 
     private var canSend: Bool { !sending && !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
+    private func handlePdf(_ pdfState: SupportPdfState) {
+        switch onEnum(of: pdfState) {
+        case .idle:
+            downloadingPdfId = nil
+        case .downloading(let downloading):
+            downloadingPdfId = downloading.messageId
+        case .ready(let ready):
+            downloadingPdfId = nil
+            do {
+                pdfURL = try writePdf(ready.pdf)
+            } catch {
+                pdfError = "Couldn't open the attachment. Please try again."
+            }
+            store?.consumePdf()
+        case .error(let error):
+            downloadingPdfId = nil
+            pdfError = error.message
+            store?.consumePdf()
+        }
+    }
+
+    /// QuickLook needs a file; attachments go in tmp/support, overwritten by name.
+    private func writePdf(_ pdf: ReceiptPdf) throws -> URL {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("support", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let fileURL = folder.appendingPathComponent(pdf.fileName)
+        try (DataConversionKt.dataFrom(bytes: pdf.bytes) as Data).write(to: fileURL, options: .atomic)
+        return fileURL
+    }
+
     private func closedLine(_ note: String, _ closedAt: String?) -> String {
         guard let closedAt, let date = PentDates.dateTime(closedAt) else { return note }
         return "\(note) · \(date)"
@@ -209,7 +261,10 @@ private enum Screenshot {
 private struct MessageBubble: View {
     let message: SupportMessageDto
     let image: Screenshot?
+    let pdfDownloading: Bool
+    let pdfEnabled: Bool
     let loadImage: () -> Void
+    let openPdf: () -> Void
 
     var body: some View {
         VStack(alignment: message.isMine ? .trailing : .leading, spacing: 3) {
@@ -221,7 +276,8 @@ private struct MessageBubble: View {
                 .padding(.horizontal, 13).padding(.vertical, 9)
                 .background(bubble)
                 .frame(maxWidth: 290, alignment: message.isMine ? .trailing : .leading)
-            if message.attachmentUrl != nil { screenshot }
+            if message.imageUrl != nil { screenshot }
+            if message.pdfUrl != nil { pdfAttachment }
         }
         .frame(maxWidth: .infinity, alignment: message.isMine ? .trailing : .leading)
     }
@@ -242,6 +298,25 @@ private struct MessageBubble: View {
                 .overlay(UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 5, bottomTrailingRadius: 16, topTrailingRadius: 16, style: .continuous)
                     .strokeBorder(Pent.separator, lineWidth: 0.5))
         }
+    }
+
+    private var pdfAttachment: some View {
+        Button(action: openPdf) {
+            HStack(spacing: 10) {
+                if pdfDownloading {
+                    ProgressView()
+                } else {
+                    Image(systemName: "doc.richtext").foregroundStyle(Pent.accent)
+                }
+                Text(pdfDownloading ? "Opening PDF…" : "PDF attachment")
+                    .font(.pentFoot).foregroundStyle(Pent.label)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 11)
+            .background(Pent.surface2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!pdfEnabled)
+        .accessibilityHint("Opens the PDF")
     }
 
     @ViewBuilder private var screenshot: some View {

@@ -12,8 +12,8 @@ android {
         applicationId = "my.silentmode.pentana"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.7"
+        versionCode = 9
+        versionName = "1.8"
     }
 
     // Sideloaded APKs only update in place when every release carries the same signature,

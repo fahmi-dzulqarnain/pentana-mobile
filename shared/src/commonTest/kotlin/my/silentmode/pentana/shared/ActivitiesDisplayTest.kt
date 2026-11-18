@@ -2,9 +2,15 @@ package my.silentmode.pentana.shared
 
 import my.silentmode.pentana.shared.model.ActivityDto
 import my.silentmode.pentana.shared.model.QuestionDto
+import my.silentmode.pentana.shared.presentation.ActivitiesUiState
 import my.silentmode.pentana.shared.presentation.ActivityCardState
+import my.silentmode.pentana.shared.presentation.RichBlock
+import my.silentmode.pentana.shared.presentation.RichSpan
+import my.silentmode.pentana.shared.presentation.activityDetailBlocks
+import my.silentmode.pentana.shared.presentation.activityOverview
 import my.silentmode.pentana.shared.presentation.activityCardState
 import my.silentmode.pentana.shared.presentation.checkboxValue
+import my.silentmode.pentana.shared.presentation.findActivity
 import my.silentmode.pentana.shared.presentation.plainTextBlurb
 import my.silentmode.pentana.shared.presentation.registrationPayload
 import my.silentmode.pentana.shared.presentation.requiredAnswered
@@ -98,13 +104,55 @@ class ActivitiesDisplayTest {
         assertNull(plainTextBlurb("<p>  </p>"))
     }
 
+    // Overview + detail body
+
+    @Test fun overview_prefers_the_new_field() {
+        assertEquals("Short overview", activityOverview(activity(description = "<p>Legacy</p>", overview = "  Short overview ")))
+    }
+
+    @Test fun overview_falls_back_to_stripped_legacy_description() {
+        assertEquals("Bring water.", activityOverview(activity(description = "<p>Bring <b>water</b>.</p>")))
+        assertEquals("Bring water.", activityOverview(activity(description = "<p>Bring <b>water</b>.</p>", overview = "  ")))
+        assertNull(activityOverview(activity()))
+    }
+
+    @Test fun detail_blocks_use_the_full_description() {
+        assertEquals(
+            listOf(RichBlock.Paragraph(listOf(RichSpan("Full", bold = true))), RichBlock.Image("https://example.test/a.jpg")),
+            activityDetailBlocks(activity(overview = "Short", fullDescription = "<p><strong>Full</strong></p><img src=\"https://example.test/a.jpg\">")),
+        )
+    }
+
+    @Test fun detail_blocks_fall_back_to_the_overview() {
+        val expected = listOf(RichBlock.Paragraph(listOf(RichSpan("Short"))), RichBlock.Paragraph(listOf(RichSpan("More"))))
+        assertEquals(expected, activityDetailBlocks(activity(overview = "Short\n\nMore", fullDescription = null)))
+        assertEquals(expected, activityDetailBlocks(activity(overview = "Short\n\nMore", fullDescription = "<p> </p>")))
+        assertEquals(
+            listOf(RichBlock.Paragraph(listOf(RichSpan("Legacy text")))),
+            activityDetailBlocks(activity(description = "<p>Legacy <em>text</em></p>")),
+        )
+        assertEquals(emptyList(), activityDetailBlocks(activity()))
+    }
+
+    @Test fun find_activity_in_loaded_state_only() {
+        val loaded = ActivitiesUiState.Content(listOf(activity(id = 1), activity(id = 2, myStatus = "registered")))
+        assertEquals("registered", findActivity(loaded, 2)?.myStatus)
+        assertNull(findActivity(loaded, 3))
+        assertNull(findActivity(ActivitiesUiState.Loading, 1))
+    }
+
     private fun activity(
+        id: Long = 1,
         myStatus: String = "none",
         isOpen: Boolean = true,
         spotsLeft: Int? = null,
         waitlistPosition: Int? = null,
+        description: String? = null,
+        overview: String? = null,
+        fullDescription: String? = null,
     ) = ActivityDto(
-        id = 1, title = "Beach Cleanup", description = null, startsAt = null, location = null,
+        id = id, title = "Beach Cleanup", description = description, overview = overview, fullDescription = fullDescription,
+        startsAt = null, location = null,
         spotsLeft = spotsLeft, isOpen = isOpen, myStatus = myStatus, waitlistPosition = waitlistPosition,
         questions = emptyList(),
     )

@@ -35,14 +35,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import my.silentmode.pentana.core.dateTimeMedium
-import my.silentmode.pentana.core.excerpt
 import my.silentmode.pentana.shared.model.ActivityDto
 import my.silentmode.pentana.shared.presentation.ActivitiesUiState
 import my.silentmode.pentana.shared.presentation.ActivityCardState
 import my.silentmode.pentana.shared.presentation.activityCardState
+import my.silentmode.pentana.shared.presentation.activityOverview
 import my.silentmode.pentana.shared.presentation.spotsLabel
 import my.silentmode.pentana.shared.presentation.waitlistLabel
 import my.silentmode.pentana.ui.appViewModel
@@ -58,7 +59,7 @@ import my.silentmode.pentana.ui.theme.LocalPentanaColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ActivitiesScreen() {
+fun ActivitiesScreen(onOpenActivity: (Long) -> Unit) {
     val vm = appViewModel { ActivitiesViewModel(it.activities) }
     val state by vm.store.state.collectAsStateWithLifecycle()
     val refreshing by vm.store.refreshing.collectAsStateWithLifecycle()
@@ -83,6 +84,7 @@ fun ActivitiesScreen() {
                 ActivitiesList(
                     activities = uiState.activities,
                     inFlight = inFlight,
+                    onOpen = onOpenActivity,
                     onRegister = { activity ->
                         if (activity.questions.isNotEmpty()) { vm.store.resetReg(); sheetActivity = activity } else vm.store.quickRegister(activity.id)
                     },
@@ -111,17 +113,17 @@ private fun ActivitiesEmpty() {
 }
 
 @Composable
-private fun ActivitiesList(activities: List<ActivityDto>, inFlight: Set<Long>, onRegister: (ActivityDto) -> Unit, onCancel: (Long) -> Unit) {
+private fun ActivitiesList(activities: List<ActivityDto>, inFlight: Set<Long>, onOpen: (Long) -> Unit, onRegister: (ActivityDto) -> Unit, onCancel: (Long) -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-        activities.forEach { ActivityCard(it, busy = it.id in inFlight, onRegister, onCancel) }
+        activities.forEach { ActivityCard(it, busy = it.id in inFlight, onOpen, onRegister, onCancel) }
     }
 }
 
 @Composable
-private fun ActivityCard(activity: ActivityDto, busy: Boolean, onRegister: (ActivityDto) -> Unit, onCancel: (Long) -> Unit) {
+private fun ActivityCard(activity: ActivityDto, busy: Boolean, onOpen: (Long) -> Unit, onRegister: (ActivityDto) -> Unit, onCancel: (Long) -> Unit) {
     val colors = LocalPentanaColors.current
     val cardState = activityCardState(activity)
-    PentElevatedCard {
+    PentElevatedCard(onClick = { onOpen(activity.id) }) {
         Column(Modifier.padding(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.Top) {
                 Text(activity.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
@@ -132,9 +134,15 @@ private fun ActivityCard(activity: ActivityDto, busy: Boolean, onRegister: (Acti
                 IconLine(Icons.Filled.CalendarToday, dateTimeMedium(activity.startsAt), colors.activ.color)
                 activity.location?.let { IconLine(Icons.Filled.Place, it, colors.activ.color) }
             }
-            activity.description?.let {
+            activityOverview(activity)?.let { overview ->
                 Spacer(Modifier.height(8.dp))
-                Text(excerpt(it), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    overview,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             Spacer(Modifier.height(14.dp))
             Column(Modifier.alpha(if (busy) 0.6f else 1f)) {
@@ -145,7 +153,7 @@ private fun ActivityCard(activity: ActivityDto, busy: Boolean, onRegister: (Acti
 }
 
 @Composable
-private fun IconLine(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, tint: androidx.compose.ui.graphics.Color) {
+internal fun IconLine(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String, tint: androidx.compose.ui.graphics.Color) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Icon(icon, null, tint = tint, modifier = Modifier.size(14.dp))
         Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -153,7 +161,7 @@ private fun IconLine(icon: androidx.compose.ui.graphics.vector.ImageVector, text
 }
 
 @Composable
-private fun SpotsChip(activity: ActivityDto, cardState: ActivityCardState) {
+internal fun SpotsChip(activity: ActivityDto, cardState: ActivityCardState) {
     when (cardState) {
         ActivityCardState.Registered -> StatusChip(ChipKind.Registered)
         ActivityCardState.Waitlisted -> StatusChip(ChipKind.Waitlisted, label = "Full")
@@ -163,7 +171,7 @@ private fun SpotsChip(activity: ActivityDto, cardState: ActivityCardState) {
 }
 
 @Composable
-private fun ActionRow(activity: ActivityDto, cardState: ActivityCardState, busy: Boolean, onRegister: (ActivityDto) -> Unit, onCancel: (Long) -> Unit) {
+internal fun ActionRow(activity: ActivityDto, cardState: ActivityCardState, busy: Boolean, onRegister: (ActivityDto) -> Unit, onCancel: (Long) -> Unit) {
     val colors = LocalPentanaColors.current
     when (cardState) {
         ActivityCardState.Registered -> Row(verticalAlignment = Alignment.CenterVertically) {

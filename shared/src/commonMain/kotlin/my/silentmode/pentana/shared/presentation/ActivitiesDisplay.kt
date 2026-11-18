@@ -54,3 +54,23 @@ fun plainTextBlurb(html: String?): String? {
         .trim()
     return plain.ifEmpty { null }
 }
+
+/**
+ * The card's plain-text overview: the backend's `overview` when present, else the legacy
+ * `description` stripped of HTML (older backends sent rich text there). Null when there is none.
+ */
+fun activityOverview(activity: ActivityDto): String? =
+    activity.overview?.trim()?.ifEmpty { null } ?: plainTextBlurb(activity.description)
+
+/**
+ * The detail screen's body: the full description's blocks, or the overview as plain paragraphs
+ * when the full description is missing or has nothing to show.
+ */
+fun activityDetailBlocks(activity: ActivityDto): List<RichBlock> =
+    richTextBlocks(activity.fullDescription).ifEmpty {
+        plainTextBlocks(activity.overview?.trim()?.ifEmpty { null } ?: plainTextBlurb(activity.description))
+    }
+
+/** The activity with [activityId] in a loaded list - the detail screen follows store updates through this. */
+fun findActivity(state: ActivitiesUiState, activityId: Long): ActivityDto? =
+    (state as? ActivitiesUiState.Content)?.activities?.firstOrNull { activity -> activity.id == activityId }

@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.BrokenImage
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,6 +48,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +62,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -70,9 +75,12 @@ import kotlinx.coroutines.withContext
 import my.silentmode.pentana.core.dateTimeMedium
 import my.silentmode.pentana.core.sampleSize
 import my.silentmode.pentana.core.relativeTimeFrom
+import my.silentmode.pentana.feature.bills.ReceiptOpenResult
+import my.silentmode.pentana.feature.bills.openReceiptPdf
 import my.silentmode.pentana.shared.model.SupportMessageDto
 import my.silentmode.pentana.shared.model.SupportTicketDetailDto
 import my.silentmode.pentana.shared.presentation.SupportImage
+import my.silentmode.pentana.shared.presentation.SupportPdfState
 import my.silentmode.pentana.shared.presentation.SupportStatus
 import my.silentmode.pentana.shared.presentation.SupportThreadUiState
 import my.silentmode.pentana.shared.presentation.closedNote
@@ -102,6 +110,26 @@ fun SupportThreadScreen(ticketId: Long, onBack: () -> Unit) {
     var confirmResolve by remember { mutableStateOf(false) }
 
     val refreshing by vm.store.refreshing.collectAsStateWithLifecycle()
+
+    // A committee PDF: written to the cache and handed to the member's PDF viewer, as Bills does receipts.
+    val context = LocalContext.current
+    val pdfState by vm.store.pdf.collectAsStateWithLifecycle()
+    var pdfError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(pdfState) {
+        val message = when (val current = pdfState) {
+            is SupportPdfState.Ready -> when (openReceiptPdf(context, current.pdf)) {
+                ReceiptOpenResult.Opened -> null
+                ReceiptOpenResult.NoViewer -> "No app can open PDFs."
+                ReceiptOpenResult.WriteFailed -> "Couldn't open the attachment. Please try again."
+            }
+            is SupportPdfState.Error -> current.message
+            else -> return@LaunchedEffect
+        }
+        pdfError = message
+        vm.store.consumePdf()
+    }
+    DisposableEffect(Unit) { onDispose { vm.store.consumePdf() } }
+    val downloadingPdfId = (pdfState as? SupportPdfState.Downloading)?.messageId
 
     BackHandler(onBack = onBack)
     // The ViewModel outlives the screen (no NavHost), so reopening a ticket must fetch what changed since.
@@ -146,7 +174,9 @@ fun SupportThreadScreen(ticketId: Long, onBack: () -> Unit) {
                     detail = uiState.detail,
                     images = images.associate { it.messageId to it.image },
                     resolving = -ticketId in inFlight,
+                    downloadingPdfId = downloadingPdfId,
                     onLoadImage = { id, url -> vm.store.loadImage(id, url) },
+                    onOpenPdf = { id, url -> vm.store.openPdf(id, url) },
                     onResolve = { confirmResolve = true },
                 )
             }
@@ -160,6 +190,14 @@ fun SupportThreadScreen(ticketId: Long, onBack: () -> Unit) {
             text = { Text("You can still reply later to reopen it.") },
             confirmButton = { TextButton(onClick = { confirmResolve = false; vm.store.resolve() }) { Text("Mark as resolved") } },
             dismissButton = { TextButton(onClick = { confirmResolve = false }) { Text("Cancel") } },
+        )
+    }
+    pdfError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { pdfError = null },
+            title = { Text("Attachment") },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = { pdfError = null }) { Text("OK") } },
         )
     }
     actionError?.let { message ->
@@ -177,7 +215,9 @@ private fun Thread(
     detail: SupportTicketDetailDto,
     images: Map<Long, SupportImage>,
     resolving: Boolean,
+    downloadingPdfId: Long?,
     onLoadImage: (Long, String) -> Unit,
+    onOpenPdf: (Long, String) -> Unit,
     onResolve: () -> Unit,
 ) {
     val status = supportStatus(detail.status)
@@ -198,7 +238,14 @@ private fun Thread(
             }
         }
         items(detail.messages, key = { it.id }) { message ->
-            Bubble(message, images[message.id]) { url -> onLoadImage(message.id, url) }
+            Bubble(
+                message = message,
+                image = images[message.id],
+                pdfDownloading = downloadingPdfId == message.id,
+                pdfEnabled = downloadingPdfId == null,
+                loadImage = { url -> onLoadImage(message.id, url) },
+                openPdf = { url -> onOpenPdf(message.id, url) },
+            )
         }
         item {
             val note = closedNote(detail)
@@ -227,7 +274,14 @@ private fun Thread(
 }
 
 @Composable
-private fun Bubble(message: SupportMessageDto, image: SupportImage?, loadImage: (String) -> Unit) {
+private fun Bubble(
+    message: SupportMessageDto,
+    image: SupportImage?,
+    pdfDownloading: Boolean,
+    pdfEnabled: Boolean,
+    loadImage: (String) -> Unit,
+    openPdf: (String) -> Unit,
+) {
     val mine = message.isMine
     val who = if (mine) "You" else "Committee"
     val whenText = relativeTimeFrom(message.createdAt)
@@ -243,11 +297,35 @@ private fun Bubble(message: SupportMessageDto, image: SupportImage?, loadImage: 
                 .background(if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh)
                 .padding(horizontal = 13.dp, vertical = 10.dp),
         )
-        message.attachmentUrl?.let { url ->
+        message.imageUrl?.let { url ->
             LaunchedEffect(url) { loadImage(url) }
             Spacer(Modifier.height(6.dp))
             Screenshot(image)
         }
+        message.pdfUrl?.let { url ->
+            Spacer(Modifier.height(6.dp))
+            PdfAttachment(downloading = pdfDownloading, enabled = pdfEnabled) { openPdf(url) }
+        }
+    }
+}
+
+@Composable
+private fun PdfAttachment(downloading: Boolean, enabled: Boolean, onOpen: () -> Unit) {
+    Row(
+        Modifier.clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .clickable(enabled = enabled, role = Role.Button, onClickLabel = "Open PDF", onClick = onOpen)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (downloading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+        else Icon(Icons.Filled.PictureAsPdf, null, tint = MaterialTheme.colorScheme.primary)
+        Text(
+            if (downloading) "Opening PDF…" else "PDF attachment",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 

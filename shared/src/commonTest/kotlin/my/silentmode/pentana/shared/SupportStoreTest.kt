@@ -17,6 +17,7 @@ import my.silentmode.pentana.shared.model.SupportTicketDetailDto
 import my.silentmode.pentana.shared.presentation.SupportCreateState
 import my.silentmode.pentana.shared.presentation.SupportImage
 import my.silentmode.pentana.shared.presentation.SupportListStore
+import my.silentmode.pentana.shared.presentation.SupportPdfState
 import my.silentmode.pentana.shared.presentation.SupportListUiState
 import my.silentmode.pentana.shared.presentation.SupportStatus
 import my.silentmode.pentana.shared.presentation.SupportThreadStore
@@ -51,7 +52,11 @@ class SupportStoreTest {
     private fun repo(handler: (method: HttpMethod, path: String) -> Pair<HttpStatusCode, String>): SupportRepository {
         val engine = MockEngine { request ->
             val (status, body) = handler(request.method, request.url.encodedPath)
-            val type = if (body.startsWith("PNG")) "image/png" else "application/json"
+            val type = when {
+                body.startsWith("PNG") -> "image/png"
+                body.startsWith("%PDF") -> "application/pdf"
+                else -> "application/json"
+            }
             respond(body, status, headersOf(HttpHeaders.ContentType, type))
         }
         return SupportRepository(ApiClient("https://x/api/v1", InMemoryTokenStore("t"), engine))
@@ -347,6 +352,33 @@ class SupportStoreTest {
         val loaded = assertIs<SupportImage.Loaded>(entries.single().image)
         assertContentEquals("PNG-bytes".encodeToByteArray(), loaded.bytes)
         assertEquals(1, fetches)
+    }
+
+    @Test fun a_pdf_downloads_ready_to_open_and_resets_when_consumed() = runTest {
+        val store = SupportThreadStore(repo { _, path ->
+            if (path.endsWith("/attachment")) HttpStatusCode.OK to "%PDF-1.7" else HttpStatusCode.OK to detailJson()
+        }, 7)
+        store.state.first { it is SupportThreadUiState.Content }
+
+        store.openPdf(9, ATTACHMENT_URL)
+
+        val ready = assertIs<SupportPdfState.Ready>(store.pdf.first { it is SupportPdfState.Ready })
+        assertEquals(9L, ready.messageId)
+        assertContentEquals("%PDF-1.7".encodeToByteArray(), ready.pdf.bytes)
+        store.consumePdf()
+        assertEquals(SupportPdfState.Idle, store.pdf.value)
+    }
+
+    @Test fun a_failed_pdf_is_an_error_not_a_crash() = runTest {
+        val store = SupportThreadStore(repo { _, path ->
+            if (path.endsWith("/attachment")) HttpStatusCode.NotFound to """{"message":"Not Found"}""" else HttpStatusCode.OK to detailJson()
+        }, 7)
+        store.state.first { it is SupportThreadUiState.Content }
+
+        store.openPdf(9, ATTACHMENT_URL)
+
+        val error = assertIs<SupportPdfState.Error>(store.pdf.first { it is SupportPdfState.Error })
+        assertEquals("Couldn't open the attachment. Please try again.", error.message)
     }
 
     private companion object {

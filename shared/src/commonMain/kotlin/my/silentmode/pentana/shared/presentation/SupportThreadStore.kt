@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import my.silentmode.pentana.shared.SupportRepository
+import my.silentmode.pentana.shared.model.ReceiptPdf
 import my.silentmode.pentana.shared.model.SupportTicketDetailDto
 
 sealed interface SupportThreadUiState {
@@ -23,6 +24,18 @@ sealed interface SupportImage {
     data object Loading : SupportImage
     class Loaded(val bytes: ByteArray) : SupportImage
     data object Failed : SupportImage
+}
+
+/**
+ * A committee PDF download, consumed once by the platform: on [Ready] it writes the file and opens
+ * the system viewer, on [Error] it shows the message; either way it then calls
+ * [SupportThreadStore.consumePdf].
+ */
+sealed interface SupportPdfState {
+    data object Idle : SupportPdfState
+    data class Downloading(val messageId: Long) : SupportPdfState
+    class Ready(val messageId: Long, val pdf: ReceiptPdf) : SupportPdfState
+    data class Error(val message: String) : SupportPdfState
 }
 
 /**
@@ -56,6 +69,12 @@ class SupportThreadStore(private val repo: SupportRepository, val ticketId: Long
 
     private val _images = MutableStateFlow<List<SupportImageEntry>>(emptyList())
     val images: StateFlow<List<SupportImageEntry>> = _images.asStateFlow()
+
+    private val _pdf = MutableStateFlow<SupportPdfState>(SupportPdfState.Idle)
+    val pdf: StateFlow<SupportPdfState> = _pdf.asStateFlow()
+
+    /** Bumped by [consumePdf]; a download from an older generation must not write [pdf]. */
+    private var pdfGeneration = 0
 
     init { load() }
 
@@ -121,6 +140,29 @@ class SupportThreadStore(private val repo: SupportRepository, val ticketId: Long
             }
             _images.value = _images.value.filterNot { it.messageId == messageId } + SupportImageEntry(messageId, image)
         }
+    }
+
+    /** Downloads a committee PDF for the platform to open. One at a time; a tap while one downloads is ignored. */
+    fun openPdf(messageId: Long, url: String) {
+        if (_pdf.value is SupportPdfState.Downloading) return
+        val generation = ++pdfGeneration
+        _pdf.value = SupportPdfState.Downloading(messageId)
+        scope.launch {
+            val result = try {
+                SupportPdfState.Ready(messageId, repo.attachmentPdf(messageId, url))
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                SupportPdfState.Error("Couldn't open the attachment. Please try again.")
+            }
+            if (generation == pdfGeneration) _pdf.value = result
+        }
+    }
+
+    /** The platform has shown the PDF or its error, or left the thread; any in-flight download is dropped. */
+    fun consumePdf() {
+        pdfGeneration += 1
+        _pdf.value = SupportPdfState.Idle
     }
 
     /** The text of a reply that failed to send, for the platform to put back in its reply box. */

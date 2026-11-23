@@ -1,0 +1,34 @@
+# Security scanning only. This file is used by the GitLab copy of the
+# repository; development (PRs, reviews) happens on GitHub.
+#
+# Required CI/CD variables (Settings > CI/CD > Variables, masked):
+#   SONAR_HOST_URL  e.g. https://sonarqube.example.internal
+#   SONAR_TOKEN     project analysis token from SonarQube
+
+# ── SonarQube Analysis ───────────────────────────────────────────────
+# needs: [] is deliberate — this is a source-only scan. No build runs and
+# no coverage report is produced in this pipeline, so there is nothing for
+# the job to wait on or import.
+include:
+  - component: $CI_SERVER_FQDN/silentmode/components/sonarqube@1.0.0
+    inputs:
+      stage: scan
+      needs: []
+      # Report-only until the first baseline is reviewed; flip to false to
+      # make a failing quality gate fail the pipeline.
+      allow-failure: true
+
+stages:
+  - scan
+
+# Full history so gitleaks checks every commit and Sonar can attribute blame.
+variables:
+  GIT_DEPTH: "0"
+
+secrets:
+  stage: scan
+  image:
+    name: zricethezav/gitleaks:v8.30.1
+    entrypoint: [""]
+  script:
+    - gitleaks git --redact --verbose .

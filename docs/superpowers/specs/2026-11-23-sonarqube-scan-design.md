@@ -73,7 +73,7 @@ or more precise Kotlin analysis is asked for.
 
 | Property | Value |
 |---|---|
-| `sonar.projectKey` | `REPLACE_WITH_SONARQUBE_PROJECT_KEY` (placeholder, see below) |
+| `sonar.projectKey` | `<REPLACE_WITH_SONARQUBE_PROJECT_KEY>` (placeholder, see below) |
 | `sonar.projectName` | `PENTANA Mobile` |
 | `sonar.qualitygate.wait` | `true` |
 | `sonar.sourceEncoding` | `UTF-8` |
@@ -102,15 +102,28 @@ Calls made while writing this, open to correction:
 ### The project key placeholder
 
 The real key only exists once DevOps creates the project; the sibling's has the form
-`<namespace>_<repo>_<uuid>`. The file ships with `REPLACE_WITH_SONARQUBE_PROJECT_KEY` and a comment
-above it. Until it is replaced, the scan job fails. Because the job is `allow-failure: true`, that
-failure shows only as a warning on the pipeline, so it is easy to miss: the key has to be filled
-in before the first sync to GitLab.
+`<namespace>_<repo>_<uuid>`. The file ships with `<REPLACE_WITH_SONARQUBE_PROJECT_KEY>` and a
+comment above it.
+
+The angle brackets are deliberate. The docs say a project key accepts "letters, digits, dash,
+underscore, periods, and colons", so the placeholder is not a well-formed key. A well-formed
+placeholder would be riskier: with a token that is allowed to create projects, the scanner could
+create a stray project under the placeholder name instead of failing. The docs do not say how the
+scanner reacts to a malformed key, and no scan has been run, so the expected failure is an
+expectation, not a tested fact.
+
+`allow-failure: true` hides every failure of the scan job, not only a failed quality gate: a
+forgotten placeholder, a missing variable or a bad token all show only as a warning on the
+pipeline. The key has to be filled in before the first sync to GitLab, and the first pipeline's
+scan job log has to be read, not just its colour.
+
+The real key will sit in this public repo once it is filled in. It is an identifier, not a
+credential, but the owner should decide that knowingly.
 
 ## Scanner behaviour for a source-only Kotlin scan
 
-Looked up in the SonarQube Server documentation on 2026-11-23. The pages read are labelled 2026.5;
-the server runs 2026.1, so small differences are possible.
+Looked up in the SonarQube Server documentation on 2026-11-23. The pages read are labelled 2026.5,
+which is newer than the release the server runs, so small differences are possible.
 
 - **`sonar.java.binaries` is not needed.** It is mandatory for the Java analyser only ("Compiled
   .class files are required for Java projects with more than one Java file"; the scan fails
@@ -143,21 +156,34 @@ code that has never been analysed, everything counts as new, so the gate is like
 is why the job starts as `allow-failure: true`. Once the first baseline has been reviewed and
 cleaned up, a later change can flip it to `false` so a failing gate fails the pipeline.
 
-The gitleaks job is not report-only: a finding fails that job from day one. A local run over the
-full history is part of validating this change, so a finding surfaces before the files are
-committed, not on the first pipeline.
+One thing to confirm with DevOps when the project is created: which quality gate it gets. If the
+assigned gate also has a coverage condition on new code (SonarQube's built-in default gate does),
+a source-only scan can never meet it, because no coverage is imported. In that case flipping
+`allow-failure` to `false` would need either a gate without the coverage condition or Option B.
+
+The gitleaks job is not report-only: a finding fails that job from day one. To surface a finding
+before the first pipeline, gitleaks v8.30.1 was run locally over:
+
+- the full GitHub history: this branch and every branch on `origin` (195 commits scanned);
+- the locally available snapshot of the GitLab copy's branches, last updated 2026-10-28 (184
+  commits scanned). The copy has its own commit history, with different commit hashes from
+  GitHub's, so this is the history the CI job actually reads.
+
+Neither run found a leak. Commits that reach the GitLab copy after that snapshot are first
+scanned by the pipeline itself.
 
 ## Open dependencies
 
 Nothing here can be verified end to end until all three are done:
 
 1. DevOps creates the SonarQube project and sets `SONAR_HOST_URL` and `SONAR_TOKEN` on the GitLab
-   project.
+   project, and confirms which quality gate the project uses.
 2. The owner replaces the placeholder with the real project key.
 3. The owner merges and syncs to GitLab, which triggers the first pipeline.
 
 Until then the only checks available are local: the YAML parses, the listed paths exist, and
-gitleaks passes on the full history.
+gitleaks passes on the histories listed above. The shared component's inputs and the runner's
+ability to pull the gitleaks image are also unverified.
 
 ## Possible follow-ups
 

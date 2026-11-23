@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - The GitHub repo is public: no internal hostnames, colleague names, ticket numbers or tokens in file contents, commit messages or PR text. `$CI_SERVER_FQDN` is allowed.
-- `sonar.projectKey` is the literal placeholder `REPLACE_WITH_SONARQUBE_PROJECT_KEY`. Do not invent a key.
+- `sonar.projectKey` is the literal placeholder `<REPLACE_WITH_SONARQUBE_PROJECT_KEY>`, angle brackets included. Do not invent a key.
 - Never push to the `gitlab` remote. Never read, print, create or change the `SONAR_TOKEN` / `SONAR_HOST_URL` CI variables. Do not create the SonarQube project.
 - Work on branch `chore/sonarqube-scan` off `origin/main`. Open a PR with `gh`; do not merge it.
 - No single-letter variable names in any script or command written for this work.
@@ -41,8 +41,10 @@ These cannot be exercised by a local test, so each is covered by a comment in th
 
 ```properties
 # PLACEHOLDER: the real key exists only once the SonarQube project has been created.
-# Replace this value before the first sync to GitLab; the scan fails until then.
-sonar.projectKey=REPLACE_WITH_SONARQUBE_PROJECT_KEY
+# Replace the whole value, angle brackets included, before the first sync to GitLab.
+# The brackets are deliberate: they are outside the characters a project key accepts, so the
+# placeholder cannot pass for a real key.
+sonar.projectKey=<REPLACE_WITH_SONARQUBE_PROJECT_KEY>
 sonar.projectName=PENTANA Mobile
 sonar.qualitygate.wait=true
 
@@ -169,10 +171,17 @@ git commit -m "ci: add SonarQube and gitleaks scan pipeline for the GitLab copy"
 Run: `gitleaks git --redact --verbose --log-opts="chore/sonarqube-scan --remotes=origin" .`
 Expected: `no leaks found`. On any finding: stop, report it to the owner, change nothing.
 
-- [ ] **Step 2: Check the branch diff for internal details**
+- [ ] **Step 2: Run gitleaks over the local snapshot of the GitLab copy's branches**
 
-Run: `git diff origin/main...HEAD | grep -nEi 'https?://|\.net|\.internal|token' `
-Expected: only the generic `sonarqube.example.internal` example line and the `SONAR_TOKEN` variable name in the CI header comment. No real hostname.
+The GitLab copy has its own commit hashes, so this is the history the CI job reads. Read-only: do not fetch from or push to that remote.
+
+Run: `gitleaks git --redact --verbose --log-opts="--remotes=gitlab" .`
+Expected: `no leaks found`. Same rule on any finding.
+
+- [ ] **Step 3: Check the two config files for internal details**
+
+Run: `git diff origin/main...HEAD -- .gitlab-ci.yml sonar-project.properties | grep -nEi 'https?://|\.net|\.internal|token'`
+Expected: exactly two lines, the generic `sonarqube.example.internal` example and the `SONAR_TOKEN` variable name in the CI header comment. Read the two docs by eye for the same.
 
 ### Task 4: Pull request
 
